@@ -1,0 +1,23 @@
+{
+  "name": "epoch-data-sdk",
+  "version": "1.0.0",
+  "dependencies": [
+    "glaze",
+    "drogon",
+    "spdlog",
+    "tabulate",
+    "tbb",
+    "duckdb",
+    "catch2",
+    {
+      "name": "arrow",
+      "features": [
+        "acero",
+        "compute",
+        "csv",
+        "json",
+        "parquet"
+      ]
+    }
+  ]
+}
