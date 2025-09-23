@@ -1,1 +1,2 @@
 add_subdirectory(polygon)
+add_subdirectory(tradingeconomics)
