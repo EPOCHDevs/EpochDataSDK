@@ -33,7 +33,6 @@ find_package(Drogon CONFIG REQUIRED)
 find_package(glaze CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
-include(${CMAKE_SOURCE_DIR}/cmake/EpochCore.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/EpochFrame.cmake)
 
 add_library(epoch_data_sdk STATIC)
@@ -48,7 +47,6 @@ target_include_directories(epoch_data_sdk
 target_link_libraries(epoch_data_sdk
     PUBLIC
         epoch_frame
-        epoch_core
         Drogon::Drogon
         glaze::glaze
         spdlog::spdlog
