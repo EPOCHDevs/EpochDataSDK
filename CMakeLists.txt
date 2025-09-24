@@ -33,7 +33,7 @@ find_package(Drogon CONFIG REQUIRED)
 find_package(glaze CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
-include(${CMAKE_SOURCE_DIR}/cmake/EpochFrame.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/EpochFrame.cmake)
 
 add_library(epoch_data_sdk STATIC)
 add_library(epoch::data_sdk ALIAS epoch_data_sdk)
