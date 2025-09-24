@@ -36,6 +36,8 @@ find_package(spdlog CONFIG REQUIRED)
 include(${CMAKE_SOURCE_DIR}/cmake/EpochFrame.cmake)
 
 add_library(epoch_data_sdk STATIC)
+add_library(epoch::data_sdk ALIAS epoch_data_sdk)
+
 
 target_include_directories(epoch_data_sdk
     PUBLIC
@@ -46,7 +48,7 @@ target_include_directories(epoch_data_sdk
 
 target_link_libraries(epoch_data_sdk
     PUBLIC
-        epoch_frame
+        epoch::frame
         Drogon::Drogon
         glaze::glaze
         spdlog::spdlog
