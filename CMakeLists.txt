@@ -40,9 +40,9 @@ add_library(epoch::data_sdk ALIAS epoch_data_sdk)
 
 target_include_directories(epoch_data_sdk
     PUBLIC
-        ${CMAKE_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(epoch_data_sdk
