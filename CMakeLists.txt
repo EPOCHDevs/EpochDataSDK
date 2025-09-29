@@ -33,7 +33,6 @@ endif ()
 
 find_package(Drogon CONFIG REQUIRED)
 find_package(glaze CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
 
 include(${PROJECT_SOURCE_DIR}/cmake/EpochFrame.cmake)
 
