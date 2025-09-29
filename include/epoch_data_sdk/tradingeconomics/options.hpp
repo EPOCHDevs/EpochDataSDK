@@ -22,6 +22,9 @@ struct Options {
       const std::string & /*path*/,
       const std::vector<std::pair<std::string, std::string>> & /*query*/)>
       http_get_override;
+
+  // Event loop configuration (shared with PolygonClient)
+  bool use_drogon_main_loop = false;  // If true, use app().getLoop() instead of creating own
 };
 
 } // namespace data_sdk::tradingeconomics

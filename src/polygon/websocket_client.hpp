@@ -6,7 +6,7 @@
 
 #include <drogon/WebSocketClient.h>
 
-#include "options.hpp"
+#include <epoch_data_sdk/polygon/options.hpp>
 
 namespace data_sdk::polygon {
 

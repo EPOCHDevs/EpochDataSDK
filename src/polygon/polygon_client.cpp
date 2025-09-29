@@ -5,6 +5,7 @@
 
 #include "epoch_frame/aliases.h"
 #include "models.hpp"
+#include "../common/event_loop_helper.hpp"
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
@@ -179,16 +180,17 @@ Expected<T> makeError(int status, std::string_view message,
 } // namespace
 
 PolygonClient::PolygonClient(Options options) : options_(std::move(options)) {
-  loopThread_ = std::make_unique<trantor::EventLoopThread>();
-  loopThread_->run();
-  httpClient_ = drogon::HttpClient::newHttpClient(options_.base_url,
-                                                  loopThread_->getLoop());
+  // Use the shared helper to get an event loop
+  auto* loop = data_sdk::common::EventLoopHelper::getEventLoop(
+      options_.use_drogon_main_loop,
+      "PolygonClient",
+      loopThread_);
+
+  httpClient_ = drogon::HttpClient::newHttpClient(options_.base_url, loop);
 }
 
 PolygonClient::~PolygonClient() {
-  if (loopThread_ && loopThread_->getLoop()) {
-    loopThread_->getLoop()->quit();
-  }
+  data_sdk::common::EventLoopHelper::quitEventLoopThread(loopThread_);
 }
 
 std::optional<int>

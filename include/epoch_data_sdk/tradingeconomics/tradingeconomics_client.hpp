@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <drogon/drogon.h>
+#include <trantor/net/EventLoopThread.h>
 #include <expected>
 
 #include "epoch_data_sdk/tradingeconomics/error.hpp"
@@ -19,6 +20,7 @@ template <typename T> using Expected = std::expected<T, HttpError>;
 class TradingEconomicsClient final {
 public:
   explicit TradingEconomicsClient(Options options);
+  ~TradingEconomicsClient();
 
   // GET /historical/series/{symbol}
   Expected<std::vector<HistoricalSeriesResponse>> getHistoricalSeries(
@@ -44,6 +46,8 @@ private:
 
 private:
   Options options_;
+  std::unique_ptr<trantor::EventLoopThread> loopThread_;
+  drogon::HttpClientPtr httpClient_;
 };
 
 } // namespace data_sdk::tradingeconomics

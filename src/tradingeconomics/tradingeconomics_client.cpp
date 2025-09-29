@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include <glaze/glaze.hpp>
+#include "../common/event_loop_helper.hpp"
 
 namespace data_sdk::tradingeconomics {
 
@@ -27,7 +28,19 @@ Expected<T> makeError(int status, std::string_view message,
 } // namespace
 
 TradingEconomicsClient::TradingEconomicsClient(Options options)
-    : options_(std::move(options)) {}
+    : options_(std::move(options)) {
+  // Use the shared helper to get an event loop
+  auto* loop = data_sdk::common::EventLoopHelper::getEventLoop(
+      options_.use_drogon_main_loop,
+      "TradingEconomicsClient",
+      loopThread_);
+
+  httpClient_ = drogon::HttpClient::newHttpClient(options_.base_url, loop);
+}
+
+TradingEconomicsClient::~TradingEconomicsClient() {
+  data_sdk::common::EventLoopHelper::quitEventLoopThread(loopThread_);
+}
 
 std::string TradingEconomicsClient::buildQueryString(
     const std::vector<std::pair<std::string, std::string>> &query) {
@@ -49,7 +62,10 @@ Expected<std::string> TradingEconomicsClient::httpGet(
     return options_.http_get_override(path, query);
   }
 
-  auto client = drogon::HttpClient::newHttpClient(options_.base_url);
+  // Use the persistent HTTP client instead of creating a new one
+  auto client = httpClient_ ? httpClient_
+                            : drogon::HttpClient::newHttpClient(options_.base_url);
+
   auto req = drogon::HttpRequest::newHttpRequest();
   req->setMethod(drogon::Get);
   req->addHeader("User-Agent", options_.user_agent);

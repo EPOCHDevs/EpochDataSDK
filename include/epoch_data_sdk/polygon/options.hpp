@@ -32,6 +32,9 @@ struct Options {
   bool ws_test_mode = false;
   // If set, capture outbound WS frames here.
   std::function<void(const std::string &)> ws_send_sink;
+
+  // Event loop configuration
+  bool use_drogon_main_loop = false;  // If true, use app().getLoop() instead of creating own
 };
 
 } // namespace data_sdk::polygon
