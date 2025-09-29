@@ -4,7 +4,7 @@ set(CMAKE_TOOLCHAIN_FILE $ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE
 set(VCPKG_MANIFEST_MODE ON)
 set(VCPKG_FEATURE_FLAGS "versions")
 
-option(BUILD_SHARED_LIBS "Build libraries as shared instead of static" ON)
+option(BUILD_SHARED_LIBS "Build libraries as shared instead of static" OFF)
 option(BUILD_TEST OFF)
 
 project(EpochDataSDK VERSION 1.0.0 LANGUAGES CXX)
@@ -52,7 +52,6 @@ target_link_libraries(epoch_data_sdk
         epoch::frame
         Drogon::Drogon
         glaze::glaze
-        spdlog::spdlog
 )
 
 add_subdirectory(src)
