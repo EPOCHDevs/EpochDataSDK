@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_TOOLCHAIN_FILE $ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
 set(VCPKG_MANIFEST_MODE ON)
 set(VCPKG_FEATURE_FLAGS "versions")
-set(BUILD_TEST ON)
+
+option(BUILD_SHARED_LIBS "Build libraries as shared instead of static" ON)
+option(BUILD_TEST OFF)
 
 project(EpochDataSDK VERSION 1.0.0 LANGUAGES CXX)
 
