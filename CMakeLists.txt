@@ -32,7 +32,6 @@ endif ()
 
 
 find_package(Drogon CONFIG REQUIRED)
-find_package(glaze CONFIG REQUIRED)
 
 include(${PROJECT_SOURCE_DIR}/cmake/EpochFrame.cmake)
 
@@ -50,7 +49,6 @@ target_link_libraries(epoch_data_sdk
     PUBLIC
         epoch::frame
         Drogon::Drogon
-        glaze::glaze
 )
 
 add_subdirectory(src)
