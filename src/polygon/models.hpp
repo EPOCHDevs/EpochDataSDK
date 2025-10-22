@@ -216,4 +216,48 @@ struct FinancialRatiosResponse {
   std::string status;
 };
 
+// Short Volume
+struct ShortVolumeData {
+  std::optional<int> adf_short_volume;
+  std::optional<int> adf_short_volume_exempt;
+  std::optional<std::string> date;
+  std::optional<int> exempt_volume;
+  std::optional<int> nasdaq_carteret_short_volume;
+  std::optional<int> nasdaq_carteret_short_volume_exempt;
+  std::optional<int> nasdaq_chicago_short_volume;
+  std::optional<int> nasdaq_chicago_short_volume_exempt;
+  std::optional<int> non_exempt_volume;
+  std::optional<int> nyse_short_volume;
+  std::optional<int> nyse_short_volume_exempt;
+  std::optional<int> short_volume;
+  std::optional<double> short_volume_ratio;
+  std::optional<std::string> ticker;
+  std::optional<int> total_volume;
+};
+
+struct ShortVolumeResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<ShortVolumeData> results;
+  std::string status;
+};
+
+// Short Interest
+struct ShortInterestData {
+  std::optional<int> avg_daily_volume;
+  std::optional<double> days_to_cover;
+  std::optional<std::string> settlement_date;
+  std::optional<int> short_interest;
+  std::optional<std::string> ticker;
+};
+
+struct ShortInterestResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<ShortInterestData> results;
+  std::string status;
+};
+
 } // namespace data_sdk::polygon

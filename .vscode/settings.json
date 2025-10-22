@@ -1,0 +1,30 @@
+{
+    // CMake configuration
+    "cmake.configureArgs": [
+        "-DBUILD_TEST=ON"
+    ],
+    // TestMate C++ configuration for Catch2 test discovery
+    "testMate.cpp.test.executables": "CmakeBuildDebug/**/*test*",
+    "testMate.cpp.test.advancedExecutables": [
+        {
+            "pattern": "CmakeBuildDebug/**/*test*",
+            "cwd": "${workspaceFolder}",
+            "env": {}
+        }
+    ],
+    // Additional TestMate settings
+    "testMate.cpp.log.logpanel": true,
+    "testMate.cpp.debug.configTemplate": {
+        "type": "cppdbg",
+        "MIMode": "gdb",
+        "program": "${exec}",
+        "args": "${argsArray}",
+        "cwd": "${cwd}",
+        "env": "${envObj}",
+        "externalConsole": false,
+        "stopAtEntry": false
+    },
+    // Enable automatic test discovery
+    "testMate.cpp.discovery.loadOnStartup": true,
+    "testMate.cpp.discovery.gracePeriodForMissing": 10000
+}
