@@ -15,28 +15,28 @@ namespace data_sdk::trading_economics {
 // =============================================================================
 
 // Country enum to API string
-std::string_view countryToString(Country country);
+std::string_view countryToString(epoch_core::Country country);
 
 // Frequency enum to API string
-std::string_view frequencyToString(Frequency frequency);
+std::string_view frequencyToString(epoch_core::Frequency frequency);
 
 // Importance enum to API string ("1", "2", "3")
-std::string_view importanceToString(Importance importance);
+std::string_view importanceToString(epoch_core::Importance importance);
 
 // MarketType enum to API string
-std::string_view marketTypeToString(MarketType type);
+std::string_view marketTypeToString(epoch_core::MarketType type);
 
 // BondMaturity enum to API string ("2Y", "10Y", etc.)
-std::string_view bondMaturityToString(BondMaturity maturity);
+std::string_view bondMaturityToString(epoch_core::BondMaturity maturity);
 
 // TradeType enum to API string ("import", "export")
-std::string_view tradeTypeToString(TradeType type);
+std::string_view tradeTypeToString(epoch_core::TradeType type);
 
 // CalendarGroup enum to API string
-std::string_view calendarGroupToString(CalendarGroup group);
+std::string_view calendarGroupToString(epoch_core::CalendarGroup group);
 
 // CategoryGroup enum to API string
-std::string_view categoryGroupToString(CategoryGroup group);
+std::string_view categoryGroupToString(epoch_core::CategoryGroup group);
 
 // =============================================================================
 // STRING TO ENUM CONVERSIONS (for parsing API responses)
@@ -44,13 +44,13 @@ std::string_view categoryGroupToString(CategoryGroup group);
 
 // Parse country name from API response
 // Returns std::nullopt if not recognized
-std::optional<Country> stringToCountry(std::string_view str);
+std::optional<epoch_core::Country> stringToCountry(std::string_view str);
 
 // Parse frequency from API response
-std::optional<Frequency> stringToFrequency(std::string_view str);
+std::optional<epoch_core::Frequency> stringToFrequency(std::string_view str);
 
 // Parse market type from API response
-std::optional<MarketType> stringToMarketType(std::string_view str);
+std::optional<epoch_core::MarketType> stringToMarketType(std::string_view str);
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -66,7 +66,7 @@ std::string urlEncode(std::string_view str);
 
 // Join multiple values with comma (for multi-country, multi-indicator queries)
 // Example: {Country::UnitedStates, Country::China} -> "United States,China"
-std::string joinCountries(const std::vector<Country>& countries);
+std::string joinCountries(const std::vector<epoch_core::Country>& countries);
 std::string joinStrings(const std::vector<std::string>& values);
 
 // Split comma-separated string into vector

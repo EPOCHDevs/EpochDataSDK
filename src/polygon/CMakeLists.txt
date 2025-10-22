@@ -15,6 +15,7 @@ target_sources(epoch_data_sdk
         splits_client.cpp
         dividends_client.cpp
         news_client.cpp
+        economy_client.cpp
 
         # WebSocket
         websocket_client.cpp

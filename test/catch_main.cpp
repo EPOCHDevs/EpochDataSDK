@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
     }
 
     setenv("POLYGON_API_KEY", "ptMp4LUoa1sgSpTFS7v8diiVtnimqH46", 1);
+    setenv("FRED_API_KEY", "b6561c96d3615458fcae0b57580664f3", 1);
     const int result = Catch::Session().run(argc, argv);
 
     // your clean-up...

@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-namespace data_sdk::tradingeconomics {
+namespace data_sdk::fred {
 
 struct HttpError {
   int http_status{0};
@@ -13,4 +13,4 @@ struct HttpError {
   std::optional<int> rate_limit_limit;
 };
 
-} // namespace data_sdk::tradingeconomics
+} // namespace data_sdk::fred

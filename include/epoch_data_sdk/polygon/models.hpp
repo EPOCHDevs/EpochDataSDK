@@ -314,4 +314,67 @@ struct IPOListingResponse {
   std::string status;
 };
 
+// Treasury Yields (Fed/Economy API)
+struct TreasuryYieldData {
+  std::optional<std::string> date;
+  std::optional<double> yield_1_month;
+  std::optional<double> yield_3_month;
+  std::optional<double> yield_6_month;
+  std::optional<double> yield_1_year;
+  std::optional<double> yield_2_year;
+  std::optional<double> yield_3_year;
+  std::optional<double> yield_5_year;
+  std::optional<double> yield_7_year;
+  std::optional<double> yield_10_year;
+  std::optional<double> yield_20_year;
+  std::optional<double> yield_30_year;
+};
+
+struct TreasuryYieldsResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<TreasuryYieldData> results;
+  std::string status;
+};
+
+// Inflation Data (Fed/Economy API)
+struct InflationData {
+  std::optional<std::string> date;
+  std::optional<double> cpi;
+  std::optional<double> cpi_core;
+  std::optional<double> cpi_year_over_year;
+  std::optional<double> pce;
+  std::optional<double> pce_core;
+  std::optional<double> pce_spending;
+};
+
+struct InflationResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<InflationData> results;
+  std::string status;
+};
+
+// Inflation Expectations (Fed/Economy API)
+struct InflationExpectationData {
+  std::optional<std::string> date;
+  std::optional<double> market_5_year;
+  std::optional<double> market_10_year;
+  std::optional<double> forward_years_5_to_10;
+  std::optional<double> model_1_year;
+  std::optional<double> model_5_year;
+  std::optional<double> model_10_year;
+  std::optional<double> model_30_year;
+};
+
+struct InflationExpectationsResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<InflationExpectationData> results;
+  std::string status;
+};
+
 } // namespace data_sdk::polygon

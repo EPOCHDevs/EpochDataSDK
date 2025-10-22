@@ -12,10 +12,6 @@ namespace data_sdk::polygon {
 
 namespace {
 
-std::string urlEncode(const std::string &value) {
-  return drogon::utils::urlEncode(value);
-}
-
 // V3 Quotes JSON structures
 struct V3QuoteRow {
   std::optional<int> ask_exchange;
@@ -68,7 +64,7 @@ public:
     if (timestamp_lt.has_value())
       q.emplace_back("timestamp.lt", *timestamp_lt);
 
-    const std::string path = "/v3/quotes/" + urlEncode(ticker);
+    const std::string path = "/v3/quotes/" + ticker;
     auto bodyRes = httpGet(path, q);
     if (!bodyRes)
       return std::unexpected(bodyRes.error());

@@ -6,6 +6,7 @@
 #include "epoch_data_sdk/polygon/short_volume_client.hpp"
 #include "epoch_data_sdk/polygon/short_interest_client.hpp"
 #include "epoch_data_sdk/polygon/ipo_client.hpp"
+#include "epoch_data_sdk/polygon/economy_client.hpp"
 #include <catch2/catch_all.hpp>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/factory/dataframe_factory.h>
@@ -94,62 +95,154 @@ TEST_CASE("integration: real API call when POLYGON_API_KEY is set",
     QuotesClient quotes_cli(opt);
     TradesClient trades_cli(opt);
 
-    for (std::string const& asset : {"AAPL", "C:EURUSD", "X:BTCUSD"}) {
-        SECTION(asset) {
-            // A tiny query window to minimize data size
-            auto df_eod = aggs_cli.getAggregates(asset, "2020-04-25", "2021-04-25", true);
+    // Test STOCKS (AAPL) - Full field support
+    SECTION("Stocks: AAPL") {
+        SECTION("Get eod aggregates") {
+            auto df_eod = aggs_cli.getAggregates("AAPL", "2020-04-25", "2021-04-25", true);
             if (!df_eod.has_value()) {
                 FAIL(df_eod.error().message);
             }
             INFO(df_eod->head().repr());
             REQUIRE(df_eod.has_value());
             REQUIRE(df_eod->num_rows() > 0);
-            // Aggregates required columns
-            REQUIRE(df_eod->contains("o"));
-            REQUIRE(df_eod->contains("h"));
-            REQUIRE(df_eod->contains("l"));
-            REQUIRE(df_eod->contains("c"));
-            REQUIRE(df_eod->contains("v"));
-
-            // Only test minute-level aggregates, quotes, and trades for stocks
-            // FX and crypto have limited historical granular data availability
-            if (asset == "AAPL") {
-                auto df_minute = aggs_cli.getAggregates(asset, "2021-04-26", "2021-04-26", false);
-                if (!df_minute.has_value()) {
-                    FAIL(df_minute.error().message);
-                }
-                INFO(df_minute->head().repr());
-                REQUIRE(df_minute.has_value());
-                REQUIRE(df_minute->num_rows() > 0);
-                // Aggregates required columns
-                REQUIRE(df_minute->contains("o"));
-                REQUIRE(df_minute->contains("h"));
-                REQUIRE(df_minute->contains("l"));
-                REQUIRE(df_minute->contains("c"));
-                REQUIRE(df_minute->contains("v"));
-
-                auto dfq = quotes_cli.getQuotes(asset, "2021-04-26", "2021-04-26", 1);
-                if (!dfq.has_value()) {
-                    FAIL(dfq.error().message);
-                }
-                INFO(dfq->head().repr());
-                REQUIRE(dfq.has_value());
-                REQUIRE(dfq->num_rows() > 0);
-                // Quotes expected columns (at minimum ask/bid prices)
-                REQUIRE(dfq->contains("ap"));
-                REQUIRE(dfq->contains("bp"));
-
-                auto dft = trades_cli.getTrades(asset, "2021-04-26", "2021-04-26", 1);
-                if (!dft.has_value()) {
-                    FAIL(dft.error().message);
-                }
-                INFO(dft->head().repr());
-                REQUIRE(dft.has_value());
-                REQUIRE(dft->num_rows() > 0);
-                // Trades expected columns (at minimum price and size)
-                REQUIRE(dft->contains("p"));
-                REQUIRE(dft->contains("s"));
+            // Stocks should have all aggregate fields including vw and n
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v", "vw", "n"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_eod->contains(col));
             }
+        }
+
+        SECTION("Get minute aggregates") {
+            auto df_minute = aggs_cli.getAggregates("AAPL", "2021-04-26", "2021-04-26", false);
+            if (!df_minute.has_value()) {
+                FAIL(df_minute.error().message);
+            }
+            INFO(df_minute->head().repr());
+            REQUIRE(df_minute.has_value());
+            REQUIRE(df_minute->num_rows() > 0);
+            // Stocks should have all aggregate fields including vw and n
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v", "vw", "n"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_minute->contains(col));
+            }
+        }
+
+        SECTION("Get quotes") {
+            auto dfq = quotes_cli.getQuotes("AAPL", "2021-04-26", "2021-04-26", 1);
+            if (!dfq.has_value()) {
+                FAIL(dfq.error().message);
+            }
+            INFO(dfq->head().repr());
+            REQUIRE(dfq.has_value());
+            REQUIRE(dfq->num_rows() > 0);
+            // Stock quotes should have at minimum: ap, bp
+            REQUIRE(dfq->contains("ap"));
+            REQUIRE(dfq->contains("bp"));
+        }
+
+        SECTION("Get trades") {
+            auto dft = trades_cli.getTrades("AAPL", "2021-04-26", "2021-04-26", 1);
+            if (!dft.has_value()) {
+                FAIL(dft.error().message);
+            }
+            INFO(dft->head().repr());
+            REQUIRE(dft.has_value());
+            REQUIRE(dft->num_rows() > 0);
+            // Stock trades should have at minimum: p, s
+            REQUIRE(dft->contains("p"));
+            REQUIRE(dft->contains("s"));
+        }
+    }
+
+    // Test FOREX (C:EURUSD) - Limited field support
+    SECTION("Forex: C:EURUSD") {
+        SECTION("Get eod aggregates") {
+            auto df_eod = aggs_cli.getAggregates("C:EURUSD", "2020-04-25", "2021-04-25", true);
+            if (!df_eod.has_value()) {
+                FAIL(df_eod.error().message);
+            }
+            INFO(df_eod->head().repr());
+            REQUIRE(df_eod.has_value());
+            REQUIRE(df_eod->num_rows() > 0);
+            // Forex may not have vw and n - only check core OHLCV
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_eod->contains(col));
+            }
+        }
+
+        SECTION("Get minute aggregates") {
+            auto df_minute = aggs_cli.getAggregates("C:EURUSD", "2021-04-26", "2021-04-26", false);
+            if (!df_minute.has_value()) {
+                FAIL(df_minute.error().message);
+            }
+            INFO(df_minute->head().repr());
+            REQUIRE(df_minute.has_value());
+            REQUIRE(df_minute->num_rows() > 0);
+            // Forex may not have vw and n - only check core OHLCV
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_minute->contains(col));
+            }
+        }
+
+        SECTION("Get quotes") {
+            auto dfq = quotes_cli.getQuotes("C:EURUSD", "2021-04-26", "2021-04-26", 1);
+            if (!dfq.has_value()) {
+                FAIL(dfq.error().message);
+            }
+            INFO(dfq->head().repr());
+            REQUIRE(dfq.has_value());
+            REQUIRE(dfq->num_rows() > 0);
+            // Forex quotes should have at minimum: ap, bp
+            REQUIRE(dfq->contains("ap"));
+            REQUIRE(dfq->contains("bp"));
+        }
+    }
+
+    // Test CRYPTO (X:BTCUSD) - Limited field support
+    SECTION("Crypto: X:BTCUSD") {
+        SECTION("Get eod aggregates") {
+            auto df_eod = aggs_cli.getAggregates("X:BTCUSD", "2020-04-25", "2021-04-25", true);
+            if (!df_eod.has_value()) {
+                FAIL(df_eod.error().message);
+            }
+            INFO(df_eod->head().repr());
+            REQUIRE(df_eod.has_value());
+            REQUIRE(df_eod->num_rows() > 0);
+            // Crypto may not have vw and n - only check core OHLCV
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_eod->contains(col));
+            }
+        }
+
+        SECTION("Get minute aggregates") {
+            auto df_minute = aggs_cli.getAggregates("X:BTCUSD", "2021-04-26", "2021-04-26", false);
+            if (!df_minute.has_value()) {
+                FAIL(df_minute.error().message);
+            }
+            INFO(df_minute->head().repr());
+            REQUIRE(df_minute.has_value());
+            REQUIRE(df_minute->num_rows() > 0);
+            // Crypto may not have vw and n - only check core OHLCV
+            std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v"};
+            for (const auto& col : expected_cols) {
+                REQUIRE(df_minute->contains(col));
+            }
+        }
+
+        SECTION("Get trades") {
+            auto dft = trades_cli.getTrades("X:BTCUSD", "2021-04-26", "2021-04-26", 1);
+            if (!dft.has_value()) {
+                FAIL(dft.error().message);
+            }
+            INFO(dft->head().repr());
+            REQUIRE(dft.has_value());
+            REQUIRE(dft->num_rows() > 0);
+            // Crypto trades should have at minimum: p, s
+            REQUIRE(dft->contains("p"));
+            REQUIRE(dft->contains("s"));
         }
     }
 }
@@ -175,12 +268,15 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("period_end"));
-        REQUIRE(df->contains("fiscal_year"));
-        REQUIRE(df->contains("fiscal_quarter"));
-        REQUIRE(df->contains("cash"));
-        REQUIRE(df->contains("lt_debt"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+            "accounts_payable", "accrued_liabilities", "aoci", "cash",
+            "debt_current", "deferred_revenue", "inventories", "lt_debt",
+            "ppe_net", "receivables", "retained_earnings"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 
     SECTION("Cash Flow Statements") {
@@ -192,11 +288,15 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("period_end"));
-        REQUIRE(df->contains("cfo"));
-        REQUIRE(df->contains("capex"));
-        REQUIRE(df->contains("ncf_operating"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+            "cfo", "change_cash", "change_assets", "dda", "dividends",
+            "lt_debt_issuances", "ncf_financing", "ncf_investing",
+            "ncf_operating", "net_income", "capex"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 
     SECTION("Income Statements") {
@@ -208,11 +308,14 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("period_end"));
-        REQUIRE(df->contains("revenue"));
-        REQUIRE(df->contains("net_income"));
-        REQUIRE(df->contains("basic_eps"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+            "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
+            "operating_income", "net_income", "rd", "sga"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 }
 
@@ -236,10 +339,13 @@ TEST_CASE("integration: short volume API call", "[polygon][rest][integration]") 
     REQUIRE(df.has_value());
     REQUIRE(df->num_rows() > 0);
     // Check required columns
-    REQUIRE(df->contains("ticker"));
-    REQUIRE(df->contains("short_volume"));
-    REQUIRE(df->contains("total_volume"));
-    REQUIRE(df->contains("short_volume_ratio"));
+    std::vector<std::string> expected_cols = {
+        "ticker", "short_volume", "total_volume", "short_volume_ratio",
+        "exempt_volume", "non_exempt_volume"
+    };
+    for (const auto& col : expected_cols) {
+        REQUIRE(df->contains(col));
+    }
 }
 
 TEST_CASE("integration: short interest API call", "[polygon][rest][integration]") {
@@ -264,10 +370,12 @@ TEST_CASE("integration: short interest API call", "[polygon][rest][integration]"
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 2); // Should have fetched multiple pages
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("short_interest"));
-        REQUIRE(df->contains("avg_daily_volume"));
-        REQUIRE(df->contains("days_to_cover"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "short_interest", "avg_daily_volume", "days_to_cover"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 
     SECTION("Normal query") {
@@ -279,10 +387,12 @@ TEST_CASE("integration: short interest API call", "[polygon][rest][integration]"
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("short_interest"));
-        REQUIRE(df->contains("avg_daily_volume"));
-        REQUIRE(df->contains("days_to_cover"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "short_interest", "avg_daily_volume", "days_to_cover"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 }
 
@@ -308,12 +418,15 @@ TEST_CASE("integration: IPO API call", "[polygon][rest][integration]") {
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
         // Check required columns
-        REQUIRE(df->contains("ticker"));
-        REQUIRE(df->contains("issuer_name"));
-        REQUIRE(df->contains("listing_date"));
-        REQUIRE(df->contains("ipo_status"));
-        REQUIRE(df->contains("exchange"));
-        REQUIRE(df->contains("final_price"));
+        std::vector<std::string> expected_cols = {
+            "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
+            "exchange", "us_code", "isin", "final_price", "highest_price",
+            "lowest_price", "total_offer_size", "shares_outstanding",
+            "min_shares_offered", "max_shares_offered"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
     }
 
     SECTION("Filter by ticker") {
@@ -323,9 +436,85 @@ TEST_CASE("integration: IPO API call", "[polygon][rest][integration]") {
         if (df.has_value()) {
             INFO(df->head().repr());
             if (df->num_rows() > 0) {
-                REQUIRE(df->contains("ticker"));
-                REQUIRE(df->contains("listing_date"));
+                std::vector<std::string> expected_cols = {
+                    "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
+                    "exchange", "us_code", "isin", "final_price", "highest_price",
+                    "lowest_price", "total_offer_size", "shares_outstanding",
+                    "min_shares_offered", "max_shares_offered"
+                };
+                for (const auto& col : expected_cols) {
+                    REQUIRE(df->contains(col));
+                }
             }
+        }
+    }
+}
+
+TEST_CASE("integration: economy API calls", "[polygon][rest][integration]") {
+    auto api_key = getenv_or("POLYGON_API_KEY");
+    if (api_key.empty()) {
+        SKIP("POLYGON_API_KEY not set; skipping integration test");
+    }
+
+    Options opt;
+    opt.api_key = api_key;
+    opt.request_timeout_sec = 5.0;
+
+    EconomyClient economy_cli(opt);
+
+    SECTION("Treasury Yields") {
+        auto df = economy_cli.getTreasuryYields("2024-01-01", "2024-01-31", 10);
+        if (!df.has_value()) {
+            FAIL(df.error().message);
+        }
+        INFO(df->head().repr());
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        // Check all treasury yield columns
+        std::vector<std::string> expected_cols = {
+            "yield_1_month", "yield_3_month", "yield_6_month",
+            "yield_1_year", "yield_2_year", "yield_3_year",
+            "yield_5_year", "yield_7_year", "yield_10_year",
+            "yield_20_year", "yield_30_year"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
+    }
+
+    SECTION("Inflation") {
+        auto df = economy_cli.getInflation("2023-01-01", "2024-01-31", 10);
+        if (!df.has_value()) {
+            FAIL(df.error().message);
+        }
+        INFO(df->head().repr());
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        // Check all inflation columns
+        std::vector<std::string> expected_cols = {
+            "cpi", "cpi_core", "cpi_year_over_year",
+            "pce", "pce_core", "pce_spending"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
+    }
+
+    SECTION("Inflation Expectations") {
+        auto df = economy_cli.getInflationExpectations("2023-01-01", "2024-01-31", 10);
+        if (!df.has_value()) {
+            FAIL(df.error().message);
+        }
+        INFO(df->head().repr());
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        // Check all inflation expectation columns
+        std::vector<std::string> expected_cols = {
+            "market_5_year", "market_10_year", "forward_years_5_to_10",
+            "model_1_year", "model_5_year", "model_10_year", "model_30_year"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
         }
     }
 }
@@ -350,8 +539,100 @@ TEST_CASE("aggregates parses successfully", "[polygon][rest]") {
   AggsClient cli(opt);
   auto res = cli.getAggregates("SPY", "2020-01-01", "2020-01-02", true);
   REQUIRE(res.has_value());
-  // Expect a single row DataFrame with o,h,l,c,v columns
+  // SPY is a stock ETF, should have all fields including vw and n
   REQUIRE(res->num_rows() == 1);
-  REQUIRE(res->contains("c"));
+  std::vector<std::string> expected_cols = {"o", "h", "l", "c", "v", "vw", "n"};
+  for (const auto& col : expected_cols) {
+    REQUIRE(res->contains(col));
+  }
   REQUIRE(res->operator[]("c").iloc(0).as_double() == Catch::Approx(321.0));
+}
+
+TEST_CASE("EconomyClient: getTreasuryYields builds correct query", "[polygon][rest][economy]") {
+  Options opt;
+  opt.api_key = "test";
+  std::string capturedPath;
+  std::vector<std::pair<std::string, std::string>> capturedQuery;
+  opt.http_get_override =
+      [&](const std::string &path,
+          const std::vector<std::pair<std::string, std::string>> &q) {
+        capturedPath = path;
+        capturedQuery = q;
+        return std::expected<std::string, HttpError>(
+            R"({"results":[{"date":"2024-01-15","yield_10_year":4.25}],"status":"OK","request_id":"req"})");
+      };
+
+  EconomyClient cli(opt);
+  auto res = cli.getTreasuryYields("2024-01-01", "2024-01-31", 100);
+  REQUIRE(res.has_value());
+  REQUIRE(capturedPath == "/fed/v1/treasury-yields");
+
+  auto has = [&](std::string k, std::string v) {
+    return std::find(capturedQuery.begin(), capturedQuery.end(),
+                     std::make_pair(k, v)) != capturedQuery.end();
+  };
+  REQUIRE(has("date.gte", "2024-01-01"));
+  REQUIRE(has("date.lte", "2024-01-31"));
+  REQUIRE(has("sort", "date"));
+  REQUIRE(has("order", "desc"));
+  REQUIRE(has("limit", "100"));
+}
+
+TEST_CASE("EconomyClient: getInflation builds correct query", "[polygon][rest][economy]") {
+  Options opt;
+  opt.api_key = "test";
+  std::string capturedPath;
+  std::vector<std::pair<std::string, std::string>> capturedQuery;
+  opt.http_get_override =
+      [&](const std::string &path,
+          const std::vector<std::pair<std::string, std::string>> &q) {
+        capturedPath = path;
+        capturedQuery = q;
+        return std::expected<std::string, HttpError>(
+            R"({"results":[{"date":"2024-01-01","cpi":310.5,"cpi_core":320.1}],"status":"OK","request_id":"req"})");
+      };
+
+  EconomyClient cli(opt);
+  auto res = cli.getInflation("2024-01-01", "2024-12-31");
+  REQUIRE(res.has_value());
+  REQUIRE(capturedPath == "/fed/v1/inflation");
+
+  auto has = [&](std::string k, std::string v) {
+    return std::find(capturedQuery.begin(), capturedQuery.end(),
+                     std::make_pair(k, v)) != capturedQuery.end();
+  };
+  REQUIRE(has("date.gte", "2024-01-01"));
+  REQUIRE(has("date.lte", "2024-12-31"));
+  REQUIRE(has("sort", "date"));
+  REQUIRE(has("order", "desc"));
+}
+
+TEST_CASE("EconomyClient: getInflationExpectations builds correct query", "[polygon][rest][economy]") {
+  Options opt;
+  opt.api_key = "test";
+  std::string capturedPath;
+  std::vector<std::pair<std::string, std::string>> capturedQuery;
+  opt.http_get_override =
+      [&](const std::string &path,
+          const std::vector<std::pair<std::string, std::string>> &q) {
+        capturedPath = path;
+        capturedQuery = q;
+        return std::expected<std::string, HttpError>(
+            R"({"results":[{"date":"2024-01-01","market_5_year":2.5,"model_10_year":2.3}],"status":"OK","request_id":"req"})");
+      };
+
+  EconomyClient cli(opt);
+  auto res = cli.getInflationExpectations("2023-01-01", "2024-01-01", 50);
+  REQUIRE(res.has_value());
+  REQUIRE(capturedPath == "/fed/v1/inflation-expectations");
+
+  auto has = [&](std::string k, std::string v) {
+    return std::find(capturedQuery.begin(), capturedQuery.end(),
+                     std::make_pair(k, v)) != capturedQuery.end();
+  };
+  REQUIRE(has("date.gte", "2023-01-01"));
+  REQUIRE(has("date.lte", "2024-01-01"));
+  REQUIRE(has("sort", "date"));
+  REQUIRE(has("order", "desc"));
+  REQUIRE(has("limit", "50"));
 }
