@@ -7,6 +7,7 @@
 #include "epoch_data_sdk/polygon/short_interest_client.hpp"
 #include "epoch_data_sdk/polygon/ipo_client.hpp"
 #include "epoch_data_sdk/polygon/economy_client.hpp"
+#include "epoch_data_sdk/polygon/news_client.hpp"
 #include <catch2/catch_all.hpp>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/factory/dataframe_factory.h>
@@ -635,4 +636,33 @@ TEST_CASE("EconomyClient: getInflationExpectations builds correct query", "[poly
   REQUIRE(has("sort", "date"));
   REQUIRE(has("order", "desc"));
   REQUIRE(has("limit", "50"));
+}
+
+TEST_CASE("NewsClient: getNews integration test", "[polygon][rest][news][integration]") {
+    Options opt;
+    opt.api_key = getenv_or("POLYGON_API_KEY", "");
+    if (opt.api_key.empty()) {
+        SKIP("POLYGON_API_KEY not set");
+    }
+
+    NewsClient news_cli(opt);
+
+    SECTION("Get news for ticker") {
+        auto df = news_cli.getNews("AAPL", "2024-01-01", "2024-01-31", 10);
+        if (!df.has_value()) {
+            FAIL(df.error().message);
+        }
+        INFO(df->head().repr());
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+
+        // Exhaustive column check
+        std::vector<std::string> expected_cols = {
+            "id", "tickers", "title", "author", "publisher",
+            "article_url", "description"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
+    }
 }

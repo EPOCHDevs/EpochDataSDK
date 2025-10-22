@@ -29,14 +29,14 @@ public:
 
   // Get historical news articles
   // Useful for sentiment analysis and event-driven backtesting
+  // ticker: Filter by ticker symbol (e.g., "AAPL")
+  // from/to: Date range for published_utc in YYYY-MM-DD format
+  // limit: Maximum number of results (default 10)
   Expected<epoch_frame::DataFrame>
   getNews(std::optional<std::string> ticker = std::nullopt,
-          std::optional<std::string> published_utc = std::nullopt,
-          std::optional<std::string> published_utc_gte = std::nullopt,
-          std::optional<std::string> published_utc_lte = std::nullopt,
-          std::optional<int> limit = std::nullopt,
-          std::optional<std::string> sort = std::string("published_utc"),
-          std::optional<std::string> order = std::string("desc")) const;
+          std::optional<std::string> from = std::nullopt,
+          std::optional<std::string> to = std::nullopt,
+          std::optional<int> limit = 10) const;
 
 private:
   class Impl;

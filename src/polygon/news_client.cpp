@@ -51,28 +51,23 @@ public:
 
   Expected<epoch_frame::DataFrame>
   getNews(std::optional<std::string> ticker,
-          std::optional<std::string> published_utc,
-          std::optional<std::string> published_utc_gte,
-          std::optional<std::string> published_utc_lte,
-          std::optional<int> limit,
-          std::optional<std::string> sort,
-          std::optional<std::string> order) const {
+          std::optional<std::string> from,
+          std::optional<std::string> to,
+          std::optional<int> limit) const {
 
     std::vector<std::pair<std::string, std::string>> q;
     if (ticker.has_value())
       q.emplace_back("ticker", *ticker);
-    if (published_utc.has_value())
-      q.emplace_back("published_utc", *published_utc);
-    if (published_utc_gte.has_value())
-      q.emplace_back("published_utc.gte", *published_utc_gte);
-    if (published_utc_lte.has_value())
-      q.emplace_back("published_utc.lte", *published_utc_lte);
+    if (from.has_value())
+      q.emplace_back("published_utc.gte", *from);
+    if (to.has_value())
+      q.emplace_back("published_utc.lte", *to);
     if (limit.has_value())
       q.emplace_back("limit", std::to_string(*limit));
-    if (sort.has_value())
-      q.emplace_back("sort", *sort);
-    if (order.has_value())
-      q.emplace_back("order", *order);
+
+    // Always sort by published_utc ascending for consistent backtesting
+    q.emplace_back("sort", "published_utc");
+    q.emplace_back("order", "asc");
 
     const std::string path = "/v2/reference/news";
     auto bodyRes = httpGet(path, q);
@@ -152,14 +147,10 @@ NewsClient::~NewsClient() = default;
 
 Expected<epoch_frame::DataFrame>
 NewsClient::getNews(std::optional<std::string> ticker,
-                    std::optional<std::string> published_utc,
-                    std::optional<std::string> published_utc_gte,
-                    std::optional<std::string> published_utc_lte,
-                    std::optional<int> limit,
-                    std::optional<std::string> sort,
-                    std::optional<std::string> order) const {
-  return impl_->getNews(ticker, published_utc, published_utc_gte,
-                        published_utc_lte, limit, sort, order);
+                    std::optional<std::string> from,
+                    std::optional<std::string> to,
+                    std::optional<int> limit) const {
+  return impl_->getNews(ticker, from, to, limit);
 }
 
 } // namespace data_sdk::polygon
