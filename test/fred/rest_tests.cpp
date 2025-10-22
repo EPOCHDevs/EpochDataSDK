@@ -35,7 +35,8 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    // With ALFRED enabled by default, we should have observation_date and value
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -48,7 +49,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -61,7 +62,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -74,7 +75,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -87,7 +88,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -100,7 +101,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     }
     REQUIRE(df->num_rows() > 0);
 
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -112,7 +113,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -124,7 +125,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -136,7 +137,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -148,7 +149,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -160,7 +161,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -172,7 +173,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -184,7 +185,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -196,7 +197,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -208,7 +209,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -220,7 +221,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -232,7 +233,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -244,7 +245,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -256,7 +257,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
-    std::vector<std::string> expected_cols = {"value"};
+    std::vector<std::string> expected_cols = {"observation_date", "value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
@@ -268,6 +269,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
+    // SP500 not available in ALFRED, so only value column
     std::vector<std::string> expected_cols = {"value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
@@ -280,6 +282,7 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
       FAIL(df.error().message);
     }
     REQUIRE(df->num_rows() > 0);
+    // VIX not available in ALFRED, so only value column
     std::vector<std::string> expected_cols = {"value"};
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));

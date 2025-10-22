@@ -20,20 +20,22 @@ public:
   getSeries(const std::string &series_id,
             const std::string &from,
             const std::string &to,
-            std::optional<std::string> published_from,
-            std::optional<std::string> published_to) const {
+            bool use_alfred) const {
 
     std::vector<std::pair<std::string, std::string>> q;
     q.emplace_back("series_id", series_id);
-    q.emplace_back("observation_start", from);
-    q.emplace_back("observation_end", to);
     q.emplace_back("sort_order", "asc");
 
-    // ALFRED realtime period filters for point-in-time data
-    if (published_from.has_value())
-      q.emplace_back("realtime_start", *published_from);
-    if (published_to.has_value())
-      q.emplace_back("realtime_end", *published_to);
+    if (use_alfred) {
+      // ALFRED mode: Get data as published during the backtest period
+      // realtime filters determine when the data was available
+      q.emplace_back("realtime_start", from);
+      q.emplace_back("realtime_end", to);
+    } else {
+      // Non-ALFRED mode: Get current/revised data for observation period
+      q.emplace_back("observation_start", from);
+      q.emplace_back("observation_end", to);
+    }
 
     const std::string path = "/fred/series/observations";
     auto bodyRes = httpGet(path, q);
@@ -54,9 +56,8 @@ public:
     dates.reserve(N);
     values.reserve(N);
 
-    // Track if we have ALFRED data (published_at column)
-    bool has_alfred = published_from.has_value() || published_to.has_value();
-    if (has_alfred)
+    // Track if we have ALFRED data
+    if (use_alfred)
       published_at_dates.reserve(N);
 
     for (const auto &obs : parsed.observations) {
@@ -77,26 +78,33 @@ public:
       values.push_back(val);
 
       // ALFRED published date (realtime_start is when data became available)
-      if (has_alfred) {
+      if (use_alfred) {
         published_at_dates.push_back(obs.realtime_start.value_or(""));
       }
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "date");
-
-    // Build columns based on whether we have ALFRED data
+    // Build columns and index based on whether we have ALFRED data
     std::vector<std::string> columns;
     std::vector<arrow::ChunkedArrayPtr> arrays;
+    epoch_frame::IndexPtr index;
+
+    if (use_alfred) {
+      // When we have ALFRED data, use published_at as index
+      index = epoch_frame::factory::index::make_index(
+          epoch_frame::factory::array::make_array(published_at_dates),  // Use ALFRED dates!
+          epoch_frame::MonotonicDirection::NotMonotonic, "published_at");
+
+      columns.push_back("observation_date");  // Which economic period this measures
+      arrays.push_back(epoch_frame::factory::array::make_array(dates));
+    } else {
+      // When no ALFRED data, use observation date as index (backward compatibility)
+      index = epoch_frame::factory::index::make_index(
+          epoch_frame::factory::array::make_array(dates),
+          epoch_frame::MonotonicDirection::NotMonotonic, "date");
+    }
 
     columns.push_back("value");
     arrays.push_back(epoch_frame::factory::array::make_array(values));
-
-    if (has_alfred) {
-      columns.push_back("published_at");
-      arrays.push_back(epoch_frame::factory::array::make_array(published_at_dates));
-    }
 
     return epoch_frame::make_dataframe(index, arrays, columns);
   }
@@ -112,9 +120,8 @@ Expected<epoch_frame::DataFrame>
 SeriesClient::getSeries(const std::string &series_id,
                         const std::string &from,
                         const std::string &to,
-                        std::optional<std::string> published_from,
-                        std::optional<std::string> published_to) const {
-  return impl_->getSeries(series_id, from, to, published_from, published_to);
+                        bool use_alfred) const {
+  return impl_->getSeries(series_id, from, to, use_alfred);
 }
 
 } // namespace data_sdk::fred
