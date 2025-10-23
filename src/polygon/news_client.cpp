@@ -119,9 +119,10 @@ public:
       tickers_str.push_back(tickers_joined);
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(published_times),
-        epoch_frame::MonotonicDirection::NotMonotonic, "published_utc");
+    // Convert RFC3339 published_utc strings to nanosecond timestamps
+    auto timestamps = parseRFC3339ToNanoseconds(published_times);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "published_utc", "UTC");
 
     std::vector<std::string> columns = {
         "id", "tickers", "title", "author", "publisher",

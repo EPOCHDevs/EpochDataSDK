@@ -94,9 +94,10 @@ public:
       split_ratio.push_back(to > 0 ? from / to : 1.0);
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "execution_date");
+    // Convert execution_date strings to nanosecond timestamps
+    auto timestamps = parseDateStringsToMidnightUTC(dates);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "execution_date", "UTC");
 
     std::vector<std::string> columns = {"ticker", "split_from", "split_to", "split_ratio"};
     std::vector<arrow::ChunkedArrayPtr> arrays{

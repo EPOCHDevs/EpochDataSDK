@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <utility>
@@ -15,6 +16,69 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Date/Time Parsing Helpers
+// Parse "YYYY-MM-DD" date strings to nanoseconds since epoch at midnight UTC
+inline std::vector<std::int64_t> parseDateStringsToMidnightUTC(
+    const std::vector<std::string>& date_strings) {
+  std::vector<std::int64_t> timestamps;
+  timestamps.reserve(date_strings.size());
+
+  for (const auto& date_str : date_strings) {
+    if (date_str.size() < 10) {
+      timestamps.push_back(0);
+      continue;
+    }
+
+    int y_val = std::atoi(date_str.substr(0, 4).c_str());
+    int m_val = std::atoi(date_str.substr(5, 2).c_str());
+    int d_val = std::atoi(date_str.substr(8, 2).c_str());
+
+    using namespace std::chrono;
+    auto ymd = year_month_day{year{y_val}, month{static_cast<unsigned>(m_val)},
+                               day{static_cast<unsigned>(d_val)}};
+    auto dp = sys_days{ymd};
+    timestamps.push_back(duration_cast<nanoseconds>(dp.time_since_epoch()).count());
+  }
+
+  return timestamps;
+}
+
+// Parse RFC3339 "YYYY-MM-DDTHH:MM:SSZ" timestamp strings to nanoseconds since epoch
+// Preserves time component (unlike parseDateStringsToMidnightUTC)
+inline std::vector<std::int64_t> parseRFC3339ToNanoseconds(
+    const std::vector<std::string>& timestamp_strings) {
+  std::vector<std::int64_t> timestamps;
+  timestamps.reserve(timestamp_strings.size());
+
+  for (const auto& ts_str : timestamp_strings) {
+    if (ts_str.size() < 19) {  // Minimum: "YYYY-MM-DDTHH:MM:SS"
+      timestamps.push_back(0);
+      continue;
+    }
+
+    // Parse date part: YYYY-MM-DD
+    int year = std::atoi(ts_str.substr(0, 4).c_str());
+    int month = std::atoi(ts_str.substr(5, 2).c_str());
+    int day = std::atoi(ts_str.substr(8, 2).c_str());
+
+    // Parse time part: HH:MM:SS (after the 'T')
+    int hour = std::atoi(ts_str.substr(11, 2).c_str());
+    int minute = std::atoi(ts_str.substr(14, 2).c_str());
+    int second = std::atoi(ts_str.substr(17, 2).c_str());
+
+    using namespace std::chrono;
+    auto ymd = year_month_day{std::chrono::year{year},
+                               std::chrono::month{static_cast<unsigned>(month)},
+                               std::chrono::day{static_cast<unsigned>(day)}};
+    auto dp = sys_days{ymd};
+    auto time_point = dp + hours{hour} + minutes{minute} + seconds{second};
+
+    timestamps.push_back(duration_cast<nanoseconds>(time_point.time_since_epoch()).count());
+  }
+
+  return timestamps;
+}
 
 // BaseClient - Private base class containing shared HTTP functionality
 // This class is NOT exposed in the public API (not in include/)

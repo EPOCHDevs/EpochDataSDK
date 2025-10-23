@@ -65,9 +65,10 @@ public:
       y30y.push_back(r.yield_30_year.value_or(std::numeric_limits<double>::quiet_NaN()));
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "date");
+    // Convert date strings to nanosecond timestamps
+    auto timestamps = parseDateStringsToMidnightUTC(dates);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "date", "UTC");
 
     std::vector<std::string> columns = {
         "yield_1_month", "yield_3_month", "yield_6_month",
@@ -133,9 +134,10 @@ public:
       pce_spending.push_back(r.pce_spending.value_or(std::numeric_limits<double>::quiet_NaN()));
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "date");
+    // Convert date strings to nanosecond timestamps
+    auto timestamps = parseDateStringsToMidnightUTC(dates);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "date", "UTC");
 
     std::vector<std::string> columns = {
         "cpi", "cpi_core", "cpi_year_over_year",
@@ -196,9 +198,10 @@ public:
       model_30y.push_back(r.model_30_year.value_or(std::numeric_limits<double>::quiet_NaN()));
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "date");
+    // Convert date strings to nanosecond timestamps
+    auto timestamps = parseDateStringsToMidnightUTC(dates);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "date", "UTC");
 
     std::vector<std::string> columns = {
         "market_5_year", "market_10_year", "forward_years_5_to_10",

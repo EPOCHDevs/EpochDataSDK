@@ -117,9 +117,10 @@ public:
       div_types.push_back(r.dividend_type.value_or(""));
     }
 
-    auto index = epoch_frame::factory::index::make_index(
-        epoch_frame::factory::array::make_array(ex_dates),
-        epoch_frame::MonotonicDirection::NotMonotonic, "ex_dividend_date");
+    // Convert ex_dividend_date strings to nanosecond timestamps
+    auto timestamps = parseDateStringsToMidnightUTC(ex_dates);
+    auto index = epoch_frame::factory::index::make_datetime_index(
+        timestamps, "ex_dividend_date", "UTC");
 
     std::vector<std::string> columns = {
         "ticker", "cash_amount", "declaration_date", "record_date",
