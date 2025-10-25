@@ -281,10 +281,10 @@ AggsClient::getAggregatesAsync(std::string ticker, std::string from_date,
                            std::to_string(multiplier) + "/" + timespan + "/" +
                            from_date + "/" + to_date;
 
-  // First request (async)
+  // First request (async with retry)
   SPDLOG_WARN("getAggregatesAsync BEFORE CO_AWAIT: ticker={}, path={}", ticker, path);
 
-  auto bodyRes = co_await httpAsyncGet(path, q);
+  auto bodyRes = co_await httpAsyncGetWithRetry(path, q, options().max_retries);
   if (!bodyRes)
     co_return std::unexpected(bodyRes.error());
 
@@ -367,10 +367,10 @@ AggsClient::getAggregatesAsync(std::string ticker, std::string from_date,
       }
     }
 
-    auto bodyRes2 = co_await httpAsyncGet(next_path, next_q);
+    auto bodyRes2 = co_await httpAsyncGetWithRetry(next_path, next_q, options().max_retries);
     if (!bodyRes2) {
-      SPDLOG_ERROR("Polygon pagination failed at page {} after retries: {}",
-                   page_count + 1, bodyRes2.error().message);
+      SPDLOG_ERROR("Polygon pagination failed at page {} after {} retries: {}",
+                   page_count + 1, options().max_retries, bodyRes2.error().message);
       co_return makeError<epoch_frame::DataFrame>(
           bodyRes2.error().http_status,
           "Pagination failed: " + bodyRes2.error().message, nullptr);

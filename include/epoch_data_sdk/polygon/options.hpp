@@ -19,6 +19,11 @@ struct Options {
   double connect_timeout_sec = 10.0;
   double request_timeout_sec = 10.0;
 
+  // Retry configuration
+  // Maximum number of retry attempts for transient errors (5xx, network failures)
+  // Client errors (4xx) are never retried
+  int max_retries = 3;
+
   // Rate limiting configuration
   // Set to false to disable rate limiting (default: true)
   bool enable_rate_limiting = true;

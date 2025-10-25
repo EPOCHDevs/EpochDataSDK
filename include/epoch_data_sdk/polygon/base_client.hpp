@@ -95,6 +95,12 @@ protected:
       std::string path,
       std::vector<std::pair<std::string, std::string>> query) const;
 
+  // Async retry wrapper - retries on 5xx and network errors only (not 4xx)
+  drogon::Task<Expected<std::string>> httpAsyncGetWithRetry(
+      std::string path,
+      std::vector<std::pair<std::string, std::string>> query,
+      int max_retries) const;
+
   Expected<std::string>
   httpGet(const std::string &path,
           const std::vector<std::pair<std::string, std::string>> &query) const {
