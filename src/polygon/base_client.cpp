@@ -82,7 +82,6 @@ auto BaseClient::httpAsyncGet(
     -> drogon::Task<Expected<std::string>> {
   // Parameters are passed by value to avoid coroutine lifetime issues
 
-  SPDLOG_WARN("IN httpAsyncGet: {} (override={})", path, options_.http_get_override ? "yes" : "no");
   if (options_.http_get_override) {
     auto result = options_.http_get_override(path, query);
     SPDLOG_WARN("httpAsyncGet override returned for: {}", path);
