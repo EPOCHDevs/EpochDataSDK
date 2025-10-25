@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
 #include "error.hpp"
@@ -11,6 +12,14 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Options for news data requests
+struct NewsOptions {
+  std::optional<std::string> ticker = std::nullopt;
+  std::optional<std::string> from = std::nullopt;
+  std::optional<std::string> to = std::nullopt;
+  std::optional<int> limit = 10;
+};
 
 // NewsClient - Handles news article data
 // OPTIONAL for backtesting: sentiment analysis, event-driven strategies
@@ -37,6 +46,26 @@ public:
           std::optional<std::string> from = std::nullopt,
           std::optional<std::string> to = std::nullopt,
           std::optional<int> limit = 10) const;
+
+  // Struct-based overload
+  Expected<epoch_frame::DataFrame>
+  getNews(const NewsOptions &opts) const {
+    return getNews(opts.ticker, opts.from, opts.to, opts.limit);
+  }
+
+  // Async variant - pass-by-value to avoid coroutine lifetime issues
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getNewsAsync(std::optional<std::string> ticker = std::nullopt,
+               std::optional<std::string> from = std::nullopt,
+               std::optional<std::string> to = std::nullopt,
+               std::optional<int> limit = 10) const;
+
+  // Struct-based async overload
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getNewsAsync(NewsOptions opts) const {
+    return getNewsAsync(std::move(opts.ticker), std::move(opts.from),
+                        std::move(opts.to), opts.limit);
+  }
 
 private:
   class Impl;

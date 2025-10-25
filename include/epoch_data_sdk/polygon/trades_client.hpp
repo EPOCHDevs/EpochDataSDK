@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
 #include "error.hpp"
@@ -11,6 +12,14 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Options for trades data requests
+struct TradesOptions {
+  std::string ticker;
+  std::string from_date;  // "YYYY-MM-DD"
+  std::string to_date;    // "YYYY-MM-DD"
+  std::optional<int> limit = std::nullopt;
+};
 
 // TradesClient - Handles historical trade data
 // Supports stocks, crypto historical trades
@@ -33,6 +42,24 @@ public:
   Expected<epoch_frame::DataFrame>
   getTrades(const std::string &ticker, const std::string &from_date,
             const std::string &to_date, std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based overload
+  Expected<epoch_frame::DataFrame>
+  getTrades(const TradesOptions &opts) const {
+    return getTrades(opts.ticker, opts.from_date, opts.to_date, opts.limit);
+  }
+
+  // Async variant - pass-by-value to avoid coroutine lifetime issues
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getTradesAsync(std::string ticker, std::string from_date,
+                 std::string to_date, std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based async overload
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getTradesAsync(TradesOptions opts) const {
+    return getTradesAsync(std::move(opts.ticker), std::move(opts.from_date),
+                          std::move(opts.to_date), opts.limit);
+  }
 
 private:
   class Impl;

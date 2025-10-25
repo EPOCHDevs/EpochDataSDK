@@ -24,9 +24,10 @@ protected:
   virtual ~BaseClient();
 
   // HTTP request methods
+  // NOTE: Parameters taken by value to avoid coroutine lifetime issues
   drogon::Task<Expected<std::string>> httpAsyncGet(
-      const std::string &path,
-      const std::vector<std::pair<std::string, std::string>> &query) const;
+      std::string path,
+      std::vector<std::pair<std::string, std::string>> query) const;
 
   Expected<std::string>
   httpGet(const std::string &path,

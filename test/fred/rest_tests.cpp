@@ -1,8 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
 #include <cstdlib>
+#include <iostream>
+
+#include <epoch_data_sdk/common/async_batch.hpp>
 #include <epoch_data_sdk/fred/series_client.hpp>
 
 using namespace data_sdk::fred;
+using namespace data_sdk::common;
 
 static std::string getApiKey() {
   const char *env = std::getenv("FRED_API_KEY");
@@ -299,5 +304,91 @@ TEST_CASE("FRED SeriesClient - error handling", "[fred][series][error]") {
     auto df = client.getCPI("2023-01-01", "2023-12-31");
     REQUIRE_FALSE(df.has_value());
     REQUIRE(df.error().http_status == 400);
+  }
+}
+
+TEST_CASE("FRED SeriesClient - async batch requests", "[fred][series][async][integration]") {
+  if (!hasApiKey()) {
+    SKIP("FRED_API_KEY not set");
+  }
+
+  SeriesClient client(makeOptions());
+
+  SECTION("Concurrent async requests for multiple economic indicators") {
+    INFO("Creating concurrent async tasks for CPI, Fed Funds, and GDP...");
+
+    // Create 3 concurrent tasks for different economic indicators
+    std::vector<drogon::Task<Expected<epoch_frame::DataFrame>>> tasks;
+    tasks.push_back(client.getCPIAsync("2023-01-01", "2023-12-31", true));
+    tasks.push_back(client.getFedFundsAsync("2023-01-01", "2023-12-31", true));
+    tasks.push_back(client.getGDPAsync("2023-01-01", "2023-12-31", true));
+
+    INFO("Executing all 3 tasks concurrently with syncJoinAll()...");
+
+    auto start = std::chrono::steady_clock::now();
+    auto results = syncJoinAll(std::move(tasks));
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - start).count();
+
+    std::cout << "\n=== FRED Async Test Results ===\n";
+    std::cout << "Completed in " << elapsed << "ms\n";
+
+    // Validate all succeeded
+    REQUIRE(results.size() == 3);
+
+    INFO("Validating CPI result (index 0)...");
+    REQUIRE(results[0].has_value());
+    if (!results[0].has_value()) {
+      INFO("CPI error: " << results[0].error().message);
+    }
+
+    INFO("Validating Fed Funds result (index 1)...");
+    REQUIRE(results[1].has_value());
+    if (!results[1].has_value()) {
+      INFO("Fed Funds error: " << results[1].error().message);
+    }
+
+    INFO("Validating GDP result (index 2)...");
+    REQUIRE(results[2].has_value());
+    if (!results[2].has_value()) {
+      INFO("GDP error: " << results[2].error().message);
+    }
+
+    // Check that we got meaningful amounts of data
+    auto cpi_rows = results[0]->num_rows();
+    auto fedfunds_rows = results[1]->num_rows();
+    auto gdp_rows = results[2]->num_rows();
+
+    std::cout << "CPI rows: " << cpi_rows << "\n";
+    std::cout << "Fed Funds rows: " << fedfunds_rows << "\n";
+    std::cout << "GDP rows: " << gdp_rows << "\n";
+
+    // Sanity check - should have at least some data for 2023
+    REQUIRE(cpi_rows > 0);
+    REQUIRE(fedfunds_rows > 0);
+    REQUIRE(gdp_rows > 0);
+
+    // Verify DataFrames have expected columns with ALFRED enabled
+    REQUIRE(results[0]->contains("observation_date"));
+    REQUIRE(results[0]->contains("value"));
+    REQUIRE(results[1]->contains("observation_date"));
+    REQUIRE(results[1]->contains("value"));
+    REQUIRE(results[2]->contains("observation_date"));
+    REQUIRE(results[2]->contains("value"));
+
+    std::cout << "=== All validations passed! ===\n\n";
+  }
+
+  SECTION("SeriesOptions struct usage with async") {
+    INFO("Testing SeriesOptions struct with async API...");
+
+    SeriesOptions opts{"UNRATE", "2023-01-01", "2023-12-31", true};
+    auto result = drogon::sync_wait(client.getSeriesAsync(opts));
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() > 0);
+
+    std::cout << "SeriesOptions async test: Unemployment data for 2023\n";
+    std::cout << "Rows: " << result->num_rows() << "\n";
   }
 }

@@ -27,6 +27,21 @@ BaseClient::BaseClient(Options options) : options_(std::move(options)) {
       loopThread_);
 
   httpClient_ = drogon::HttpClient::newHttpClient(options_.base_url, loop);
+
+  // Initialize rate limiter (TokenBucket, thread-safe)
+  if (options_.enable_rate_limiting) {
+    size_t capacity = options_.rate_limit_burst_capacity.value_or(
+        static_cast<size_t>(options_.max_requests_per_second * 2.0));
+
+    // Create token bucket rate limiter with per-second granularity
+    auto limiter = drogon::RateLimiter::newRateLimiter(
+        drogon::RateLimiterType::kTokenBucket,
+        capacity,
+        std::chrono::seconds(1));
+
+    // Wrap in SafeRateLimiter for thread safety
+    rateLimiter_ = std::make_shared<drogon::SafeRateLimiter>(limiter);
+  }
 }
 
 BaseClient::~BaseClient() {
@@ -62,11 +77,26 @@ std::string BaseClient::buildQueryString(
 }
 
 auto BaseClient::httpAsyncGet(
-    const std::string &path,
-    const std::vector<std::pair<std::string, std::string>> &query) const
+    std::string path,
+    std::vector<std::pair<std::string, std::string>> query) const
     -> drogon::Task<Expected<std::string>> {
-  if (options_.http_get_override)
-    co_return options_.http_get_override(path, query);
+  // Parameters are passed by value to avoid coroutine lifetime issues
+
+  SPDLOG_WARN("IN httpAsyncGet: {} (override={})", path, options_.http_get_override ? "yes" : "no");
+  if (options_.http_get_override) {
+    auto result = options_.http_get_override(path, query);
+    SPDLOG_WARN("httpAsyncGet override returned for: {}", path);
+    co_return result;
+  }
+
+  // Acquire rate limit token before making request
+  // Poll until request is allowed (blocking)
+  if (rateLimiter_) {
+    while (!rateLimiter_->isAllowed()) {
+      // Sleep briefly before retrying (10ms)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
 
   auto client = httpClient_
                     ? httpClient_
@@ -76,9 +106,8 @@ auto BaseClient::httpAsyncGet(
   req->addHeader("User-Agent", options_.user_agent);
   req->addHeader("Accept", "application/json");
 
-  std::vector<std::pair<std::string, std::string>> q = query;
-  q.emplace_back("apiKey", options_.api_key);
-  req->setPath(path + buildQueryString(q));
+  query.emplace_back("apiKey", options_.api_key);
+  req->setPath(path + buildQueryString(query));
 
   try {
     auto resp =

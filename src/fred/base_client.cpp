@@ -62,9 +62,11 @@ std::string BaseClient::buildQueryString(
 }
 
 auto BaseClient::httpAsyncGet(
-    const std::string &path,
-    const std::vector<std::pair<std::string, std::string>> &query) const
+    std::string path,
+    std::vector<std::pair<std::string, std::string>> query) const
     -> drogon::Task<Expected<std::string>> {
+  // Parameters are passed by value to avoid coroutine lifetime issues
+
   if (options_.http_get_override)
     co_return options_.http_get_override(path, query);
 
@@ -76,10 +78,9 @@ auto BaseClient::httpAsyncGet(
   req->addHeader("User-Agent", options_.user_agent);
   req->addHeader("Accept", "application/json");
 
-  std::vector<std::pair<std::string, std::string>> q = query;
-  q.emplace_back("api_key", options_.api_key);
-  q.emplace_back("file_type", "json");
-  req->setPath(path + buildQueryString(q));
+  query.emplace_back("api_key", options_.api_key);
+  query.emplace_back("file_type", "json");
+  req->setPath(path + buildQueryString(query));
 
   try {
     auto resp =

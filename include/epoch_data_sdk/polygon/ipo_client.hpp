@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
 #include "error.hpp"
@@ -12,6 +13,14 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Options for IPO data requests
+struct IPOOptions {
+  std::string from_date;  // "YYYY-MM-DD"
+  std::string to_date;    // "YYYY-MM-DD"
+  std::optional<std::string> ticker = std::nullopt;
+  std::optional<int> limit = std::nullopt;
+};
 
 class IPOClient {
 public:
@@ -40,6 +49,25 @@ public:
           const std::string &to_date,
           std::optional<std::string> ticker = std::nullopt,
           std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based overload
+  Expected<epoch_frame::DataFrame>
+  getIPOs(const IPOOptions &opts) const {
+    return getIPOs(opts.from_date, opts.to_date, opts.ticker, opts.limit);
+  }
+
+  // Async variant - pass-by-value to avoid coroutine lifetime issues
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getIPOsAsync(std::string from_date, std::string to_date,
+               std::optional<std::string> ticker = std::nullopt,
+               std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based async overload
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getIPOsAsync(IPOOptions opts) const {
+    return getIPOsAsync(std::move(opts.from_date), std::move(opts.to_date),
+                        std::move(opts.ticker), opts.limit);
+  }
 
 private:
   class Impl;

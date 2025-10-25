@@ -1,12 +1,14 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <drogon/drogon.h>
+#include <drogon/RateLimiter.h>
 #include <expected>
 #include <trantor/net/EventLoopThread.h>
 
@@ -88,9 +90,10 @@ protected:
   virtual ~BaseClient();
 
   // HTTP request methods
+  // NOTE: Parameters taken by value to avoid coroutine lifetime issues
   drogon::Task<Expected<std::string>> httpAsyncGet(
-      const std::string &path,
-      const std::vector<std::pair<std::string, std::string>> &query) const;
+      std::string path,
+      std::vector<std::pair<std::string, std::string>> query) const;
 
   Expected<std::string>
   httpGet(const std::string &path,
@@ -131,6 +134,8 @@ private:
   // Dedicated event loop and HTTP client bound to it
   std::unique_ptr<trantor::EventLoopThread> loopThread_;
   drogon::HttpClientPtr httpClient_;
+  // Rate limiter for API throttling (thread-safe)
+  drogon::RateLimiterPtr rateLimiter_;
 };
 
 } // namespace data_sdk::polygon

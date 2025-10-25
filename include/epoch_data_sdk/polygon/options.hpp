@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 #include <expected>
+#include <optional>
 
 #include "enums.hpp"
 #include "error.hpp"
@@ -17,6 +18,15 @@ struct Options {
   std::string user_agent = "EpochStratifyX-PolygonSDK/1.0";
   double connect_timeout_sec = 10.0;
   double request_timeout_sec = 10.0;
+
+  // Rate limiting configuration
+  // Set to false to disable rate limiting (default: true)
+  bool enable_rate_limiting = true;
+  // Maximum requests per second (default: 100 for Polygon paid tier)
+  // Set to 5.0/60.0 (0.083) for free tier (5 requests per minute)
+  double max_requests_per_second = 100.0;
+  // Burst capacity - allows short bursts above rate limit (default: 2x max_requests_per_second)
+  std::optional<size_t> rate_limit_burst_capacity = std::nullopt;
 
   // WebSocket settings
   std::string websocket_base_url = "wss://socket.polygon.io";

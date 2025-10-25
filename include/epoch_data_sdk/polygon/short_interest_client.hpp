@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
 #include "error.hpp"
@@ -11,6 +12,14 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Options for short interest data requests
+struct ShortInterestOptions {
+  std::string ticker;
+  std::string date_from;  // "YYYY-MM-DD"
+  std::string date_to;    // "YYYY-MM-DD"
+  std::optional<int> limit = std::nullopt;
+};
 
 // ShortInterestClient - Handles short interest data for stocks
 class ShortInterestClient {
@@ -34,6 +43,24 @@ public:
                    const std::string &date_from,
                    const std::string &date_to,
                    std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based overload
+  Expected<epoch_frame::DataFrame>
+  getShortInterest(const ShortInterestOptions &opts) const {
+    return getShortInterest(opts.ticker, opts.date_from, opts.date_to, opts.limit);
+  }
+
+  // Async variant - pass-by-value to avoid coroutine lifetime issues
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getShortInterestAsync(std::string ticker, std::string date_from,
+                        std::string date_to, std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based async overload
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getShortInterestAsync(ShortInterestOptions opts) const {
+    return getShortInterestAsync(std::move(opts.ticker), std::move(opts.date_from),
+                                 std::move(opts.date_to), opts.limit);
+  }
 
 private:
   class Impl;

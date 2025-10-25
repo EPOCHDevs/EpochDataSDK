@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
 #include "error.hpp"
@@ -11,6 +12,14 @@
 namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
+
+// Options for short volume data requests
+struct ShortVolumeOptions {
+  std::string ticker;
+  std::string date_from;  // "YYYY-MM-DD"
+  std::string date_to;    // "YYYY-MM-DD"
+  std::optional<int> limit = std::nullopt;
+};
 
 // ShortVolumeClient - Handles short volume data for stocks
 class ShortVolumeClient {
@@ -34,6 +43,24 @@ public:
                  const std::string &date_from,
                  const std::string &date_to,
                  std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based overload
+  Expected<epoch_frame::DataFrame>
+  getShortVolume(const ShortVolumeOptions &opts) const {
+    return getShortVolume(opts.ticker, opts.date_from, opts.date_to, opts.limit);
+  }
+
+  // Async variant - pass-by-value to avoid coroutine lifetime issues
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getShortVolumeAsync(std::string ticker, std::string date_from,
+                      std::string date_to, std::optional<int> limit = std::nullopt) const;
+
+  // Struct-based async overload
+  drogon::Task<Expected<epoch_frame::DataFrame>>
+  getShortVolumeAsync(ShortVolumeOptions opts) const {
+    return getShortVolumeAsync(std::move(opts.ticker), std::move(opts.date_from),
+                               std::move(opts.date_to), opts.limit);
+  }
 
 private:
   class Impl;
