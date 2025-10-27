@@ -92,8 +92,8 @@ auto BaseClient::httpAsyncGet(
   // Poll until request is allowed (blocking)
   if (rateLimiter_) {
     while (!rateLimiter_->isAllowed()) {
-      // Sleep briefly before retrying (10ms)
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      // Yield control back to event loop
+      co_await drogon::sleepCoro(httpClient_->getLoop(), 0.01); // 10ms
     }
   }
 
