@@ -32,7 +32,7 @@ int main() {
 
       if (result.has_value()) {
         auto response = result.value();
-        spdlog::info("Found {} total filings", response.total);
+        spdlog::info("Found {} total filings", response.total.value);
 
         for (const auto& filing : response.filings) {
           spdlog::info("  - {} {} filed on {}",

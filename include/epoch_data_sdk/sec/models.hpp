@@ -184,8 +184,17 @@ struct InsiderTransaction {
 
 /**
  * @brief Form 13F holding entry
+ *
+ * IMPORTANT: For backtesting without forward bias, always use filedAt as the
+ * as-of date, not periodOfReport. You only knew about these holdings on filedAt.
  */
 struct Form13FHolding {
+  // Filing metadata (critical for no forward bias)
+  std::string filedAt;           // When filed with SEC (ISO 8601) - USE THIS for backtesting
+  std::string periodOfReport;    // Quarter end date (YYYY-MM-DD) - historical only
+  std::string cik;               // Institution CIK (who filed)
+
+  // Holding details
   std::string nameOfIssuer;
   std::string titleOfClass;
   std::string cusip;
@@ -201,10 +210,13 @@ struct Form13FHolding {
 
 /**
  * @brief Generic response for list-based APIs
+ *
+ * Note: total.relation = "eq" means exact count
+ *       total.relation = "gte" means >= 10,000 results (API limit)
  */
 template <typename T> struct ListResponse {
   std::vector<T> data;
-  int total{0};
+  TotalInfo total;
 };
 
 /**
@@ -221,6 +233,7 @@ struct InsiderTradingOptions {
   std::optional<double> min_value;  // Minimum transaction value filter
   std::optional<std::string> owner_name;  // Filter by insider name
   std::optional<int> limit;  // Max results (default: API limit)
+  bool is_eod = true;  // Aggregate to daily data (guarantees unique index)
 };
 
 /**
@@ -237,6 +250,7 @@ struct Form13FOptions {
   std::optional<std::string> institution_cik;  // Filter by institution
   std::optional<double> min_value;  // Minimum position value filter
   std::optional<int> limit;  // Max results (default: API limit)
+  bool is_eod = true;  // Aggregate to daily data (guarantees unique index)
 };
 
 } // namespace data_sdk::sec

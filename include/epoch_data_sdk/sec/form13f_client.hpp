@@ -106,8 +106,10 @@ public:
    * @param ticker Stock ticker symbol (or use cusip in opts)
    * @param from_date Filing date range start (YYYY-MM-DD)
    * @param to_date Filing date range end (YYYY-MM-DD)
+   * @param is_eod If true (default), aggregate to daily data with date index (guarantees uniqueness).
+   *               If false, keep second-level timestamps (may have duplicate timestamps).
    * @return DataFrame with columns: shares, value, security_type,
-   *         investment_discretion (range index)
+   *         investment_discretion (filed_at index)
    *
    * Example:
    *   // Get all AAPL institutional holdings for 2024
@@ -116,7 +118,8 @@ public:
   Expected<epoch_frame::DataFrame>
     getHoldingsDataFrame(const std::string &ticker,
                         const std::string &from_date,
-                        const std::string &to_date) const;
+                        const std::string &to_date,
+                        bool is_eod = true) const;
 
   /**
    * @brief Get 13F holdings as DataFrame (struct-based overload)
@@ -136,12 +139,14 @@ public:
    * @param ticker Stock ticker symbol
    * @param from_date Filing date range start (YYYY-MM-DD)
    * @param to_date Filing date range end (YYYY-MM-DD)
+   * @param is_eod If true (default), aggregate to daily data
    * @return DataFrame with institutional holdings data
    */
   drogon::Task<Expected<epoch_frame::DataFrame>>
     getHoldingsDataFrameAsync(std::string ticker,
                               std::string from_date,
-                              std::string to_date) const;
+                              std::string to_date,
+                              bool is_eod = true) const;
 
   /**
    * @brief Async variant - get 13F holdings as DataFrame (struct-based)

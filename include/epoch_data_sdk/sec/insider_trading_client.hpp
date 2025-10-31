@@ -142,6 +142,8 @@ public:
    * @param from_date Filing date range start (YYYY-MM-DD)
    * @param to_date Filing date range end (YYYY-MM-DD)
    * @param transaction_code Optional transaction code filter (P, S, A, M, etc.)
+   * @param is_eod If true (default), aggregate to daily data with date index (guarantees uniqueness).
+   *               If false, keep second-level timestamps (may have duplicate timestamps).
    * @return DataFrame with columns: filed_at (index), transaction_date,
    *         owner_name, transaction_code, shares, price, ownership_after
    *
@@ -152,7 +154,8 @@ public:
     getTransactionsDataFrame(const std::string &ticker,
                             const std::string &from_date,
                             const std::string &to_date,
-                            std::optional<epoch_core::TransactionCode> transaction_code = std::nullopt) const;
+                            std::optional<epoch_core::TransactionCode> transaction_code = std::nullopt,
+                            bool is_eod = true) const;
 
   /**
    * @brief Get insider transactions as DataFrame (struct-based overload)
@@ -173,13 +176,15 @@ public:
    * @param from_date Filing date range start (YYYY-MM-DD)
    * @param to_date Filing date range end (YYYY-MM-DD)
    * @param transaction_code Optional transaction code filter
+   * @param is_eod If true (default), aggregate to daily data
    * @return DataFrame with insider transaction data
    */
   drogon::Task<Expected<epoch_frame::DataFrame>>
     getTransactionsDataFrameAsync(std::string ticker,
                                   std::string from_date,
                                   std::string to_date,
-                                  std::optional<epoch_core::TransactionCode> transaction_code = std::nullopt) const;
+                                  std::optional<epoch_core::TransactionCode> transaction_code = std::nullopt,
+                                  bool is_eod = true) const;
 
   /**
    * @brief Async variant - get insider transactions as DataFrame (struct-based)

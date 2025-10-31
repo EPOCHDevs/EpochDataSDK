@@ -5,4 +5,5 @@ target_sources(epoch_data_sdk_test
         real_api_tests.cpp
         insider_trading_tests.cpp
         form13f_tests.cpp
+        pagination_tests.cpp
 )
