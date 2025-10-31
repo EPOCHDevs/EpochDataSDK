@@ -1,0 +1,8 @@
+target_sources(epoch_data_sdk_test
+    PRIVATE
+        query_tests.cpp
+        mapping_tests.cpp
+        real_api_tests.cpp
+        insider_trading_tests.cpp
+        form13f_tests.cpp
+)

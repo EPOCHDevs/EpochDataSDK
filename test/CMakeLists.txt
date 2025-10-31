@@ -9,4 +9,5 @@ target_link_libraries(epoch_data_sdk_test
 
 add_subdirectory(polygon)
 add_subdirectory(fred)
+add_subdirectory(sec)
 #add_subdirectory(trading_economics)
