@@ -62,14 +62,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> tickers_col, period_ends, timeframes;
+    std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
         deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -113,8 +114,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -143,12 +145,13 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
                                         "debt_current", "deferred_revenue", "inventories", "lt_debt",
                                         "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
@@ -196,14 +199,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> period_ends, tickers_col, timeframes;
+    std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> cfo, change_cash, change_assets, dda, dividends,
         lt_debt_iss, ncf_fin, ncf_inv, ncf_oper, net_income, capex;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -247,8 +251,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -277,12 +282,13 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
                                         "lt_debt_issuances", "ncf_financing", "ncf_investing",
                                         "ncf_operating", "net_income", "capex"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
@@ -330,14 +336,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> period_ends, tickers_col, timeframes;
+    std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> basic_eps, diluted_eps, revenue, cogs, gross_profit,
         operating_income, net_income, rd, sga;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -379,8 +386,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -407,11 +415,12 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
                                         "operating_income", "net_income", "rd", "sga"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
@@ -458,14 +467,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> tickers_col, period_ends, timeframes;
+    std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
         deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -509,8 +519,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -539,12 +550,13 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
                                         "debt_current", "deferred_revenue", "inventories", "lt_debt",
                                         "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
@@ -592,14 +604,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> period_ends, tickers_col, timeframes;
+    std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> cfo, change_cash, change_assets, dda, dividends,
         lt_debt_iss, ncf_fin, ncf_inv, ncf_oper, net_income, capex;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -643,8 +656,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -673,12 +687,13 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
                                         "lt_debt_issuances", "ncf_financing", "ncf_investing",
                                         "ncf_operating", "net_income", "capex"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
@@ -726,14 +741,15 @@ public:
     }
 
     std::vector<std::int64_t> dates;
-    std::vector<std::string> period_ends, tickers_col, timeframes;
+    std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> basic_eps, diluted_eps, revenue, cogs, gross_profit,
         operating_income, net_income, rd, sga;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
       dates.push_back(date_ns);
+      filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
       fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -775,8 +791,9 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.period_end.value_or(""));
+        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
         dates.push_back(date_ns);
+        filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
         fiscal_years.push_back(r.fiscal_year.value_or(0));
@@ -803,11 +820,12 @@ public:
     }
 
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
-    std::vector<std::string> columns = {"ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
+    std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
                                         "operating_income", "net_income", "rd", "sga"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
+        epoch_frame::factory::array::make_array(filing_dates),
         epoch_frame::factory::array::make_array(period_ends),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
