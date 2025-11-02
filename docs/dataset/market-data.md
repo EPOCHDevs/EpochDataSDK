@@ -67,25 +67,10 @@ Market data provides the foundation for quantitative trading strategies, includi
 
 ### Use Cases
 
-**Backtesting Trading Strategies**
-- Query multi-year daily bars for systematic strategy development
-- Include split and dividend adjustments for accurate total returns
-- Use daily aggregates to ensure clean, duplicate-free data
-
-**Technical Analysis**
-- Calculate moving averages, RSI, MACD from OHLCV data
-- Identify support/resistance levels using high/low prices
-- Analyze volume patterns and trends
-
-**Price Discovery**
-- Compare daily close prices across assets
-- Identify gaps between close and next open
-- Track volatility using high-low ranges
-
-**Intraday Analysis**
-- Use minute bars for intraday pattern recognition
-- Analyze opening and closing auction behavior
-- Study time-of-day volume patterns
+- **Backtesting**: Multi-year daily bars for systematic strategy development with split/dividend adjustments
+- **Technical Analysis**: Calculate indicators (MA, RSI, MACD), identify support/resistance, analyze volume patterns
+- **Price Discovery**: Compare closes across assets, identify gaps, track volatility (high-low ranges)
+- **Intraday Analysis**: Minute bars for pattern recognition, opening/closing auctions, time-of-day volume patterns
 
 ---
 
@@ -114,25 +99,10 @@ Market data provides the foundation for quantitative trading strategies, includi
 
 ### Use Cases
 
-**Execution Analysis**
-- Analyze your fills vs. market trades
-- Study execution quality and slippage
-- Benchmark against VWAP
-
-**Market Microstructure**
-- Research price formation mechanisms
-- Study trade size distributions
-- Analyze inter-trade time patterns
-
-**High-Frequency Strategy Development**
-- Simulate tick-by-tick strategy execution
-- Backtest ultra-short-term strategies
-- Analyze order flow dynamics
-
-**Volume Profile Analysis**
-- Build price-volume histograms
-- Identify high-volume price nodes
-- Study volume-weighted price levels
+- **Execution Analysis**: Analyze fills vs. market trades, study slippage, benchmark against VWAP
+- **Market Microstructure**: Research price formation, trade size distributions, inter-trade timing
+- **High-Frequency Development**: Simulate tick-by-tick execution, backtest ultra-short strategies, analyze order flow
+- **Volume Profile**: Build price-volume histograms, identify high-volume nodes
 
 ---
 
@@ -172,30 +142,11 @@ Market data provides the foundation for quantitative trading strategies, includi
 
 ### Use Cases
 
-**Spread Analysis**
-- Measure liquidity across different stocks
-- Identify times of day with best/worst spreads
-- Estimate transaction costs before trading
-
-**Liquidity Research**
-- Study depth at best bid/ask
-- Compare liquidity across similar securities
-- Identify liquid vs. illiquid periods
-
-**Market Making Strategy Development**
-- Analyze bid-ask dynamics
-- Study quote update frequency
-- Model inventory risk
-
-**Fair Value Estimation**
-- Use mid-price for mark-to-market
-- Calculate theoretical prices between trades
-- Estimate entry/exit prices
-
-**Order Type Selection**
-- Determine when to use limit vs. market orders
-- Estimate probability of limit order execution
-- Optimize limit order placement
+- **Spread Analysis**: Measure liquidity across stocks, identify best/worst spread times, estimate transaction costs
+- **Liquidity Research**: Study bid/ask depth, compare across securities, identify liquid vs. illiquid periods
+- **Market Making**: Analyze bid-ask dynamics, quote update frequency, inventory risk modeling
+- **Fair Value**: Use mid-price for mark-to-market, calculate theoretical prices between trades
+- **Order Optimization**: Determine limit vs. market orders, estimate execution probability, optimize placement
 
 ---
 
@@ -212,50 +163,9 @@ All market data undergoes quality checks:
 
 ## Practical Considerations
 
-### Choosing the Right Dataset
+**Data Volume**: Daily aggregates (small, multi-year queries), minute aggregates (moderate, days/weeks), tick data (very large, hours/days)
 
-**Use OHLCV Aggregates When**:
-- Developing daily or swing trading strategies
-- Need clean, manageable dataset sizes
-- Performing long-term backtests (multi-year)
-- Calculating standard technical indicators
-
-**Use Tick Trades When**:
-- Analyzing execution quality
-- Researching market microstructure
-- Need most granular view of trading activity
-- Studying order flow
-
-**Use Quotes When**:
-- Modeling transaction costs
-- Researching liquidity patterns
-- Developing market-making strategies
-- Need bid-ask spread analysis
-
-### Data Volume Management
-
-**Daily Aggregates**: Small, efficient datasets suitable for multi-year queries
-
-**Minute Aggregates**: Moderate size, good for intraday analysis over days/weeks
-
-**Tick Data**: Very large datasets, query smaller date ranges (hours/days)
-
-### Asset Class Differences
-
-**Stocks**:
-- Trade on major U.S. exchanges during market hours (9:30 AM - 4:00 PM ET)
-- Subject to corporate actions (splits, dividends)
-- Regulated markets with NBBO requirements
-
-**Cryptocurrencies**:
-- Trade 24/7 across multiple exchanges
-- High volatility, especially for smaller coins
-- No corporate actions (splits/dividends)
-
-**Forex**:
-- Trade 24/5 (Sunday evening - Friday evening)
-- Continuous market with no central exchange
-- Influenced by global macro events
+**Asset Class Differences**: Stocks (9:30 AM-4 PM ET, corporate actions, NBBO), Crypto (24/7, high volatility, no corporate actions), Forex (24/5, no central exchange)
 
 ---
 
@@ -282,26 +192,11 @@ Market data becomes more powerful when combined with other datasets:
 
 ## Best Practices
 
-### For Backtesting
+**Backtesting**: Use daily aggregates (stable, efficient), include split/dividend adjustments, avoid survivorship bias
 
-1. **Use Daily Aggregates**: More stable and easier to work with for most strategies
-2. **Include Adjustments**: Always account for splits and dividends in total return calculations
-3. **Avoid Duplicates**: Use daily aggregation to ensure one bar per day
-4. **Survive Bias**: Include delisted stocks if possible (avoid survivorship bias)
+**Live Trading**: Start with aggregates, monitor spreads before large orders, validate prices, account for latency
 
-### For Live Trading
-
-1. **Start with Aggregates**: Use daily/minute bars for most use cases
-2. **Monitor Spreads**: Check quote data before executing large orders
-3. **Validate Prices**: Cross-reference trade prices with quotes
-4. **Respect Latency**: Real-time data has minimal but non-zero delay
-
-### For Research
-
-1. **Sample First**: Query small date ranges to understand data structure
-2. **Filter by Volume**: Focus on liquid securities for reliable results
-3. **Check for Gaps**: Verify continuous data during expected trading hours
-4. **Document Assumptions**: Note adjustment settings and data sources
+**Research**: Query small date ranges first, filter by volume for liquidity, check for data gaps, document adjustments
 
 ---
 

@@ -21,20 +21,9 @@ Corporate data provides fundamental information about publicly traded companies,
 
 ## Designed for Realistic Backtesting
 
-**Financial data is indexed by SEC filing dates, not quarter-end dates, preventing look-ahead bias in your strategies.**
+Financial data is indexed by SEC filing dates, not quarter-end dates. When a quarter ends (e.g., March 31), financial numbers aren't public until filed (up to 45 days later). Using quarter-end dates creates look-ahead bias - trading on data unavailable for 45 days.
 
-When a company's quarter ends (say, March 31), the financial numbers aren't public yet. Companies have up to 45 days to file their 10-Q with the SEC. This means Q1 numbers that "belong to" March 31 might not be available until mid-May.
-
-**The problem with using quarter-end dates:**
-If your backtest uses Q1 data on March 31, you're making trading decisions with information you couldn't have had for another 45 days. Over a 10-year backtest, this creates years of "seeing the future."
-
-**How we solve this:**
-- All financial data is **indexed by the filing date** (when reports became public)
-- The quarter-end date is included in the data so you know which period the financials cover
-- You can only "trade" on financial information after it was actually filed with the SEC
-- This ensures your fundamental strategies reflect real-world timing
-
-For value investors and fundamental traders, this means your backtest won't show artificially perfect timing from using data before it was publicly available.
+**Timing Solution:** All financial data indexed by `filing_date` (when public); `period_end` included for reference. Ensures fundamental strategies reflect real-world availability, preventing artificially perfect timing.
 
 ---
 
@@ -91,25 +80,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**Profitability Analysis**
-- Compare gross margins across competitors
-- Track operating margin trends over time
-- Identify improving/deteriorating profitability
-
-**Growth Screening**
-- Find companies with accelerating revenue growth
-- Identify earnings growth consistency
-- Compare growth rates to stock valuations
-
-**Quality Assessment**
-- Analyze R&D intensity (R&D / Revenue)
-- Evaluate operating leverage (operating income growth vs. revenue growth)
-- Track earnings consistency and predictability
-
-**Valuation**
-- Calculate P/E ratios using latest EPS
-- Build earnings-based DCF models
-- Compare earnings yields across securities
+- **Profitability Analysis**: Compare gross/operating margins across competitors, track trends over time
+- **Growth Screening**: Find accelerating revenue/earnings growth, compare growth rates to valuations
+- **Quality Assessment**: Analyze R&D intensity, operating leverage, earnings consistency
+- **Valuation**: Calculate P/E ratios, build DCF models, compare earnings yields
 
 ---
 
@@ -146,25 +120,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**Financial Health Assessment**
-- Calculate current ratio (current assets / current liabilities)
-- Measure debt-to-equity ratio
-- Analyze asset quality and composition
-
-**Value Investing**
-- Calculate price-to-book (P/B) ratio
-- Identify net-net opportunities (current assets > market cap)
-- Find asset-rich companies trading below book value
-
-**Credit Analysis**
-- Evaluate leverage (debt / equity)
-- Assess liquidity (cash relative to obligations)
-- Analyze debt maturity schedule
-
-**Working Capital Analysis**
-- Calculate working capital (current assets - current liabilities)
-- Analyze days sales outstanding (receivables / daily revenue)
-- Evaluate inventory turnover
+- **Financial Health**: Calculate current ratio, debt-to-equity, analyze asset quality and composition
+- **Value Investing**: Calculate P/B ratio, identify net-net opportunities (current assets > market cap)
+- **Credit Analysis**: Evaluate leverage, liquidity, debt maturity schedule
+- **Working Capital**: Calculate working capital, days sales outstanding, inventory turnover
 
 ---
 
@@ -191,25 +150,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**Cash Generation Quality**
-- Compare operating cash flow to net income (>1 is good)
-- Identify earnings quality (high income but low cash = red flag)
-- Track free cash flow (operating cash - capex)
-
-**Capital Allocation Analysis**
-- See how company invests cash (capex, acquisitions)
-- Track shareholder returns (dividends + buybacks)
-- Analyze debt management (issuance vs. repayment)
-
-**Financial Sustainability**
-- Verify company can fund operations from cash flow
-- Identify reliance on external financing
-- Track cash burn rate for unprofitable companies
-
-**Dividend Coverage**
-- Ensure operating cash flow > dividends (sustainable)
-- Identify dividend cuts risk (cash flow deteriorating)
-- Calculate payout ratio from cash flow perspective
+- **Cash Quality**: Compare operating cash flow to net income (>1 = good), track free cash flow (OCF - capex)
+- **Capital Allocation**: Analyze spending (capex, acquisitions), shareholder returns (dividends + buybacks), debt management
+- **Financial Sustainability**: Verify operations funded by cash flow, identify external financing reliance, track burn rate
+- **Dividend Coverage**: Ensure OCF > dividends (sustainable), identify dividend cut risk from deteriorating cash flow
 
 ---
 
@@ -241,30 +185,11 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**Total Return Calculation**
-- **Critical for accurate backtesting**: Price returns alone understate total returns
-- Add dividends back to calculate true investment performance
-- Compound reinvested dividends for long-term returns
-
-**Income Strategy Development**
-- Screen for high dividend yields
-- Build dividend growth portfolios
-- Track dividend consistency and reliability
-
-**Dividend Analysis**
-- Calculate dividend yield (annual dividend / price)
-- Track dividend growth rates
-- Identify dividend cuts or increases
-
-**Event Trading**
-- Dividend capture strategies
-- Study price behavior around ex-dividend dates
-- Analyze dividend aristocrats vs. non-payers
-
-**Risk Assessment**
-- Dividend cuts signal financial stress
-- Consistent dividend growth = quality signal
-- Compare dividend to free cash flow (coverage ratio)
+- **Total Return Calculation**: Critical for backtesting - add dividends to price returns for true performance
+- **Income Strategies**: Screen for high yields, build dividend growth portfolios, track consistency
+- **Dividend Analysis**: Calculate yield, track growth rates, identify cuts or increases
+- **Event Trading**: Dividend capture strategies, study price behavior around ex-dates
+- **Risk Assessment**: Cuts signal distress, consistent growth signals quality, compare to FCF (coverage)
 
 ---
 
@@ -299,25 +224,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**Price Adjustment (Critical for Backtesting)**
-- **Must adjust historical prices** for splits to maintain continuity
-- Without adjustment: artificial price discontinuities
-- Prevents false signals in technical analysis
-
-**Corporate Action Tracking**
-- Forward splits often signal management confidence
-- Reverse splits often signal distress (maintaining listing requirements)
-- Study price behavior post-split
-
-**Data Cleaning**
-- Verify data quality by checking for split adjustments
-- Ensure volume is adjusted proportionally
-- Reconcile historical price series
-
-**Strategy Impact**
-- Some strategies exclude low-priced stocks (reverse splits push up)
-- Splits affect option strike prices and contracts
-- Share count changes impact position sizing
+- **Price Adjustment**: Must adjust historical prices for splits to maintain continuity and prevent false technical signals
+- **Corporate Action Tracking**: Forward splits signal confidence; reverse splits signal distress (maintaining listing)
+- **Data Cleaning**: Verify split adjustments applied, ensure volume adjusted proportionally
+- **Strategy Impact**: Splits affect price filters, option contracts, and position sizing calculations
 
 ---
 
@@ -350,27 +260,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ### Use Cases
 
-**IPO Trading Strategies**
-- Track IPO calendar for upcoming opportunities
-- Study first-day price movements
-- Analyze pricing (final price vs. range)
-- Identify over/under-subscribed deals
-
-**New Issue Research**
-- Compare offering size across similar companies
-- Track IPO market cycles (hot vs. cold)
-- Analyze industry IPO clusters
-- Study sponsor/underwriter patterns
-
-**Portfolio Screening**
-- Exclude recent IPOs (often volatile, limited history)
-- Focus on seasoned companies with >2 years public
-- Track IPO lockup expiration dates (insiders can sell)
-
-**Market Sentiment**
-- IPO volume as market sentiment indicator
-- First-day pops signal investor enthusiasm
-- Withdrawn IPOs signal weak market conditions
+- **IPO Trading**: Track calendar, study first-day movements, analyze pricing vs. range, identify over/under-subscribed deals
+- **New Issue Research**: Compare offering sizes, track market cycles (hot vs. cold), analyze industry clusters
+- **Portfolio Screening**: Exclude recent IPOs (volatile, limited history), track lockup expirations
+- **Market Sentiment**: IPO volume signals market appetite, first-day pops signal enthusiasm, withdrawals signal weakness
 
 ---
 
@@ -402,42 +295,6 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 ---
 
-## Fundamental Analysis Examples
-
-### Value Screening
-
-Combine multiple data points:
-- **P/E Ratio**: Price / Diluted EPS < 15
-- **P/B Ratio**: Market cap / Total Equity < 1.5
-- **Debt/Equity**: Total Liabilities / Total Equity < 0.5
-- **Dividend Yield**: Annual Dividend / Price > 3%
-
-### Growth Screening
-
-Look for acceleration:
-- Revenue growth > 20% year-over-year
-- Earnings growth > revenue growth (margin expansion)
-- Positive operating cash flow
-- Low debt-to-equity < 0.3
-
-### Quality Metrics
-
-Financial health indicators:
-- **ROE**: Net Income / Total Equity > 15%
-- **Current Ratio**: Current Assets / Current Liabilities > 2.0
-- **Free Cash Flow**: Operating Cash Flow - Capex > 0
-- **Dividend Coverage**: Operating Cash Flow / Dividends > 2.0
-
-### Relative Valuation
-
-Compare across peers:
-- P/E relative to sector average
-- Revenue growth vs. industry median
-- Margin analysis vs. competitors
-- Balance sheet strength ranking
-
----
-
 ## Integration with Other Datasets
 
 ### + Market Data
@@ -462,26 +319,11 @@ Compare across peers:
 
 ## Best Practices
 
-### For Backtesting
+**Backtesting**: Use `filing_date` (not period end), include dividends for total returns, adjust for splits, use point-in-time data
 
-1. **Use Filing Dates**: Always use when data became public (filing_date), not period end
-2. **Include Dividends**: Calculate total returns, not just price returns
-3. **Adjust for Splits**: Apply split adjustments to all historical prices
-4. **Point-in-Time**: Use data as it was originally filed (avoid restated data)
+**Screening**: Multiple criteria to filter false positives, relative metrics vs. sector/industry, trend analysis over snapshots, include delisted companies
 
-### For Screening
-
-1. **Multiple Criteria**: Use multiple metrics to filter false positives
-2. **Relative Metrics**: Compare to sector/industry, not absolute values
-3. **Trend Analysis**: Look at trends (improving margins) not just snapshots
-4. **Survivorship**: Include delisted/bankrupt companies to avoid bias
-
-### For Analysis
-
-1. **Context Matters**: Compare companies in same industry
-2. **Read Footnotes**: Understand accounting changes and one-time items
-3. **Cash is King**: Prioritize cash flow over earnings quality
-4. **Trend > Absolute**: Watch direction of metrics, not just levels
+**Analysis**: Compare within same industry, understand accounting changes (read footnotes), prioritize cash flow over earnings, watch metric direction
 
 ### Common Ratios
 

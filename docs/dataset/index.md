@@ -122,29 +122,13 @@ All datasets support historical queries with flexible date ranges. History depth
 
 ## Common Use Cases
 
-### Backtesting a Trading Strategy
-- Query historical price data (OHLCV aggregates)
-- Include dividend and split adjustments for total returns
-- Add economic indicators for macro factors
-- Use institutional holdings to detect smart money flows
+**Backtesting**: Historical OHLCV with split/dividend adjustments, economic indicators for macro factors, institutional holdings for flow analysis
 
-### Fundamental Analysis
-- Pull quarterly financial statements (income, balance sheet, cash flow)
-- Track dividend history and yield trends
-- Monitor insider buying/selling activity
-- Compare metrics across peer companies
+**Fundamental Analysis**: Quarterly financials (income, balance sheet, cash flow), dividend history, insider activity, peer comparisons
 
-### Risk Management
-- Access Treasury yields for risk-free rate calculations
-- Monitor VIX for volatility regime detection
-- Track economic indicators for regime shifts
-- Use short interest for crowding analysis
+**Risk Management**: Treasury yields (risk-free rate), VIX (volatility regime), economic indicators (regime shifts), short interest (crowding)
 
-### Event-Driven Strategies
-- Track IPO schedules and pricing
-- Monitor insider transactions for sentiment signals
-- Analyze institutional ownership changes quarterly
-- React to corporate actions (splits, dividends)
+**Event-Driven**: IPO schedules, insider transactions, institutional ownership changes, corporate actions (splits, dividends)
 
 ---
 

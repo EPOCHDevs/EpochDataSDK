@@ -22,17 +22,9 @@ Economic data provides critical macro context for trading decisions, including i
 
 ## Designed for Realistic Backtesting
 
-**Our economic data is carefully engineered to prevent look-ahead bias in your backtests.**
+Economic indicators are revised after initial release (e.g., GDP reported at +2.0%, revised to +1.8%, then +2.1%). Using final revised numbers creates look-ahead bias.
 
-Economic indicators are constantly revised after their initial release. For example, GDP might be first reported as +2.0% growth, then revised to +1.8% a month later, and revised again to +2.1% in an annual revision. Using the final revised numbers in your backtest means you're making decisions with information you didn't have at the time.
-
-**How we solve this:**
-- Data uses **publication dates as the index**, not economic period dates
-- You see what was actually known when you would have made trading decisions
-- Revisions are tracked so you can see how data evolved over time
-- This ensures your strategy performance reflects reality, not hindsight
-
-For systematic traders, this means your backtests won't show artificially inflated returns from "perfect" economic data that didn't exist during your backtest period.
+**Timing Solution:** Data indexed by publication dates (not economic period dates), showing what was actually known at decision time. Prevents artificially inflated returns from "perfect" data unavailable during backtest period.
 
 ---
 
@@ -50,11 +42,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 - **CPI (All Items)** - Headline inflation including all categories
 - **Core CPI** - Excludes volatile food and energy prices (preferred by Fed)
 
-**Use Cases**:
-- Calculate real (inflation-adjusted) returns
-- Identify inflation regime changes
-- Build inflation factor models
-- Adjust historical prices to current dollars
+**Use Cases**: Calculate real returns, identify regime changes, build inflation factor models, adjust historical prices
 
 ### Personal Consumption Expenditures (PCE)
 
@@ -70,10 +58,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Why It Matters**: The Fed uses Core PCE for monetary policy decisions, making it more market-relevant than CPI for anticipating rate changes.
 
-**Use Cases**:
-- Predict Federal Reserve policy decisions
-- Assess whether economy is above/below Fed's 2% target
-- Build interest rate forecasting models
+**Use Cases**: Predict Fed policy decisions, assess position vs. Fed's 2% target, build interest rate forecasting models
 
 ---
 
@@ -89,11 +74,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Typical Range**: 0% to 6% (varies with economic conditions)
 
-**Use Cases**:
-- Identify monetary policy regimes (easing vs. tightening)
-- Model equity risk premiums
-- Understand funding costs for leveraged strategies
-- Predict market regime changes
+**Use Cases**: Identify monetary policy regimes, model equity risk premiums, calculate funding costs, track regime changes
 
 ### Treasury Yields
 
@@ -119,25 +100,10 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 ### Use Cases
 
-**Risk-Free Rate for Sharpe Ratio**
-- Use 10-year Treasury as risk-free benchmark
-- Calculate excess returns over Treasury rates
-- Adjust for changing rate environments
-
-**Yield Curve Analysis**
-- Compare 2-year vs. 10-year for curve shape
-- Identify inversions (recession signal)
-- Track term premium changes
-
-**Interest Rate Factor Models**
-- Model portfolio sensitivity to rate changes
-- Hedge duration risk
-- Build rate-sensitive trading strategies
-
-**Discount Rate for Valuation**
-- Use appropriate maturity for cash flow discounting
-- Adjust valuation models for rate environment
-- Calculate duration and convexity
+- **Risk-Free Rate**: Use 10-year Treasury for Sharpe ratio calculation, excess return benchmarks
+- **Yield Curve Analysis**: Compare 2y vs. 10y for curve shape, identify inversions, track term premium
+- **Factor Models**: Model portfolio sensitivity to rate changes, hedge duration risk
+- **Valuation**: Select appropriate maturity for discounting, calculate duration and convexity
 
 ---
 
@@ -155,11 +121,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Growth Calculation**: Quarter-over-quarter change (annualized) is widely reported
 
-**Use Cases**:
-- Identify recession vs. expansion periods
-- Build business cycle indicators
-- Predict earnings growth at market level
-- Time cyclical vs. defensive positioning
+**Use Cases**: Identify recession vs. expansion, build business cycle indicators, analyze earnings growth correlation
 
 ### Industrial Production Index
 
@@ -171,11 +133,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Index (2017 = 100)
 
-**Use Cases**:
-- Leading indicator for manufacturing sector
-- Track production cycles in real-time
-- Identify sector-specific trends
-- Predict commodity demand
+**Use Cases**: Leading indicator for manufacturing, track production cycles, identify sector trends
 
 ### Retail Sales
 
@@ -187,11 +145,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Millions of dollars
 
-**Use Cases**:
-- Gauge consumer spending strength
-- Predict consumer discretionary stock performance
-- Identify seasonal patterns
-- Early indicator of GDP (consumption is 70% of GDP)
+**Use Cases**: Gauge consumer spending strength, identify seasonal patterns, early indicator of GDP (consumption ~70%)
 
 ---
 
@@ -207,11 +161,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Typical Range**: 3% to 10% (varies with business cycle)
 
-**Use Cases**:
-- Identify economic expansions vs. recessions
-- Predict Fed policy (unemployment is half of Fed's dual mandate)
-- Time cyclical sector exposure
-- Build sentiment indicators
+**Use Cases**: Identify economic expansions vs. recessions, track Fed dual mandate metric, build economic indicators
 
 ### Initial Jobless Claims
 
@@ -225,11 +175,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Why It Matters**: Most timely indicator of labor market health (updated weekly vs. monthly jobs report).
 
-**Use Cases**:
-- Early warning of labor market deterioration
-- Predict monthly unemployment rate
-- Recession indicator (sharp spikes signal weakness)
-- High-frequency economic tracking
+**Use Cases**: Early warning of labor market changes, high-frequency tracking, recession indicator (spikes signal weakness)
 
 ### Nonfarm Payrolls
 
@@ -241,11 +187,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Thousands of employees
 
-**Use Cases**:
-- Track job growth trends
-- Major market-moving indicator (released monthly)
-- Predict consumer spending capacity
-- Gauge tightness of labor market
+**Use Cases**: Track job growth trends, market-moving indicator (monthly release), gauge labor market tightness
 
 ---
 
@@ -259,11 +201,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **History**: 90+ years (dating back to 1920s)
 
-**Use Cases**:
-- Benchmark for U.S. equity performance
-- Calculate beta relative to market
-- Track broad market trends
-- Build market timing models
+**Use Cases**: Benchmark for U.S. equity performance, calculate beta, track broad market trends
 
 ### VIX (Volatility Index)
 
@@ -281,11 +219,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 - **High VIX (20-30)**: Elevated uncertainty
 - **Extreme VIX (30+)**: Market stress, panic
 
-**Use Cases**:
-- Risk-on vs. risk-off regime identification
-- Position sizing (reduce size when VIX spikes)
-- Contrarian indicator (extreme VIX = opportunity)
-- Volatility trading strategies
+**Use Cases**: Risk regime identification, position sizing input, contrarian indicator (extreme levels), volatility factor
 
 ---
 
@@ -301,11 +235,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Index (1966 = 100)
 
-**Use Cases**:
-- Predict consumer spending behavior
-- Early indicator of economic turning points
-- Sentiment-based trading signals
-- Risk appetite gauge
+**Use Cases**: Consumer spending indicator, early signal of economic turning points, sentiment factor
 
 ### Housing Starts
 
@@ -317,11 +247,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Thousands of housing units (annualized)
 
-**Use Cases**:
-- Leading indicator for economy (housing is cyclical)
-- Predict construction sector performance
-- Gauge residential real estate market health
-- Leading indicator for furniture, appliance demand
+**Use Cases**: Leading economic indicator (housing cyclicality), gauge residential real estate market, construction sector signal
 
 ---
 
@@ -337,11 +263,7 @@ For systematic traders, this means your backtests won't show artificially inflat
 
 **Units**: Billions of dollars
 
-**Use Cases**:
-- Track money supply growth (inflation signal)
-- Understand liquidity conditions
-- Quantitative easing / tightening assessment
-- Build monetary models
+**Use Cases**: Track money supply growth (inflation signal), assess liquidity conditions, QE/QT monitoring
 
 ---
 
@@ -377,74 +299,13 @@ Most indicators are seasonally adjusted (SA) to remove predictable seasonal patt
 
 ---
 
-## Building Macro Factor Models
+## Common Applications
 
-### Common Factor Approaches
+**Risk-Free Rate**: 3-Month Treasury (daily strategies), 10-Year Treasury (monthly+ strategies). Convert annual yield: daily = annual / 252
 
-**Inflation Factor**:
-- Use Core CPI or Core PCE year-over-year change
-- Rising inflation = pressure on margins, Fed tightening risk
+**Inflation Adjustment**: Real Return = Nominal Return - Inflation Rate. Use CPI (consumer context) or PCE (Fed policy context)
 
-**Interest Rate Factor**:
-- Use 10-Year Treasury yield or change in Fed Funds rate
-- Rising rates = headwind for growth stocks, positive for financials
-
-**Economic Growth Factor**:
-- Use GDP growth rate or Industrial Production change
-- Strong growth = cyclicals outperform
-
-**Unemployment Factor**:
-- Use unemployment rate level or jobless claims trend
-- Rising unemployment = recession risk, defensive positioning
-
-### Regime Identification
-
-Use economic data to identify market regimes:
-
-**Expansion**: Low unemployment + positive GDP growth + moderate inflation
-- Favor: Cyclicals, small caps, value stocks
-
-**Late Cycle**: Low unemployment + high inflation + Fed tightening
-- Favor: Commodities, defensive sectors
-
-**Recession**: Rising unemployment + negative GDP + Fed easing
-- Favor: Treasuries, consumer staples, utilities
-
-**Recovery**: Falling unemployment + GDP acceleration + low rates
-- Favor: Cyclicals, financials, technology
-
----
-
-## Practical Applications
-
-### Risk-Free Rate Calculation
-
-**For Sharpe Ratio**:
-- Daily strategies: Use 3-Month Treasury yield
-- Monthly+ strategies: Use 10-Year Treasury yield
-- Convert annual yield to strategy period: daily yield = annual / 252
-
-### Discount Rate Selection
-
-**For DCF Models**:
-- Start with 10-Year Treasury as base risk-free rate
-- Add equity risk premium (typically 4-6%)
-- Adjust for company-specific risk
-
-### Inflation Adjustment
-
-**Real Returns Calculation**:
-```
-Real Return = Nominal Return - Inflation Rate
-```
-Use appropriate inflation measure (CPI for consumer purchasing power, PCE for Fed policy context).
-
-### Market Timing Signals
-
-**Example Combinations**:
-- **Risk-On**: VIX < 20 + unemployment falling + GDP positive
-- **Risk-Off**: VIX > 30 + unemployment rising + yield curve inverted
-- **Fed Tightening**: Core PCE > 2.5% + unemployment < 4%
+**Regime Identification**: Combine indicators (unemployment, GDP, inflation, VIX, yield curve) to classify economic/market conditions
 
 ---
 
@@ -460,26 +321,11 @@ FRED data represents official U.S. government statistics:
 
 ## Best Practices
 
-### For Strategy Development
+**Data Usage**: Match frequency to strategy period, account for release delays, avoid look-ahead bias (use original releases not revisions)
 
-1. **Match Frequency**: Use monthly data for monthly strategies, daily rates for daily strategies
-2. **Align Timing**: Account for release delays (data for "January" released mid-February)
-3. **Avoid Look-Ahead**: Use data as it was available historically, not revised values
-4. **Combine Indicators**: Single indicators can give false signals; use multiple confirmations
+**Indicator Selection**: Combine multiple indicators (single indicators can give false signals), use both leading and coincident metrics
 
-### For Risk Management
-
-1. **Monitor Fed Policy**: Track Fed Funds and Core PCE (Fed's targets)
-2. **Watch Curve**: 2y-10y yield curve inversion predicts recessions
-3. **Track Volatility**: VIX spikes signal risk-off periods
-4. **Multiple Horizons**: Use both leading (claims) and coincident (unemployment) indicators
-
-### For Research
-
-1. **Understand Units**: Verify whether data is in levels, rates, or index form
-2. **Check Seasonality**: Most series are seasonally adjusted by default
-3. **Long History**: FRED offers very long time series for robust analysis
-4. **Document Sources**: Note the FRED series ID for reproducibility
+**Technical**: Verify units (levels/rates/index), check seasonal adjustment status, document FRED series IDs for reproducibility
 
 ---
 

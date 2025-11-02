@@ -21,22 +21,14 @@ Alternative data provides non-traditional signals for trading strategies, includ
 
 ## Designed for Realistic Backtesting
 
-**Alternative data is carefully indexed to reflect when information actually became public, not when events occurred.**
+Alternative data is indexed to reflect when information became public, not when events occurred. Using quarter-end dates for 13F holdings creates look-ahead bias (effectively front-running disclosure with 45 days of advance knowledge).
 
-"Following the smart money" sounds great, but if your backtest uses quarter-end dates for 13F holdings, you're effectively front-running Buffett with 45 days of insider knowledge. Similarly, insider purchases are only reported within 2 business days - your backtest needs to respect that timing.
+**Timing Adjustments:**
+- **13F data**: Indexed by filing date (institutions have 45-day reporting window)
+- **Insider transactions**: Use filing date (2-day disclosure requirement)
+- **Short interest**: Reflects bi-weekly settlement schedule
 
-**How we solve this:**
-- **13F data** is indexed by filing date, not quarter-end (institutions have 45 days to report)
-- **Insider transactions** use the filing date (when you actually learned about the trade)
-- **Dividends** use the ex-dividend date (the trading date that matters for returns)
-- **Short interest** reflects the settlement schedule (bi-weekly snapshots, not continuous)
-
-**What this means for your strategies:**
-- "Copy the whales" strategies see holdings when they were disclosed, not when positions were established
-- Insider buying signals appear when filings hit, not when insiders actually bought
-- Dividend capture strategies use the correct dates for entry/exit timing
-
-For alternative data strategies, this ensures you're not accidentally trading on information you couldn't have known, keeping your backtest results honest.
+**Backtest Impact:** Strategies see data when it was disclosed to the market, not when positions were established, preventing unrealistic results from future information.
 
 ---
 
@@ -90,47 +82,17 @@ For alternative data strategies, this ensures you're not accidentally trading on
 
 ### Use Cases
 
-**"Follow the Smart Money"**
-- Track what elite hedge funds are buying/selling
-- Compare your holdings to successful investors
-- Identify emerging positions before they become widely known
-
-**Crowding Analysis**
-- Find stocks with concentrated hedge fund ownership
-- Identify "crowded trades" at risk of unwinding
-- Spot hedge fund hotels (many funds in same stock)
-
-**Ownership Tracking**
-- Monitor institutional ownership percentage
-- Track changes quarter-over-quarter (new positions, exits, additions)
-- Identify accumulation vs. distribution patterns
-
-**Position Analysis**
-- Find an institution's largest positions (conviction bets)
-- Calculate position size as % of institution's portfolio
-- Track position changes (increasing vs. decreasing)
-
-**Screening**
-- Find stocks recently bought by 10+ top hedge funds
-- Identify "smart money divergence" (insiders buying, institutions selling)
-- Screen for institutional favorites in specific sectors
+- **Smart Money Tracking**: Monitor elite fund holdings, identify new positions before widespread knowledge
+- **Crowding Analysis**: Detect concentrated ownership, identify "hedge fund hotels" at risk of unwinding
+- **Ownership Changes**: Track quarter-over-quarter changes (new positions, exits, additions vs. distributions)
+- **Conviction Analysis**: Identify largest positions (>10% of portfolio) as high-conviction bets
+- **Screening**: Find stocks bought by 10+ top funds, detect smart money divergence from retail
 
 ### Query Patterns
 
-**By Ticker**: Who owns this stock?
-- See all institutions holding AAPL
-- Calculate total institutional ownership
-- Track ownership changes over time
-
-**By Institution (CIK)**: What does this fund own?
-- View complete portfolio of Berkshire Hathaway
-- Compare current vs. previous quarter
-- Identify new positions and exits
-
-**Large Positions**: Find conviction bets
-- Query positions >10% of institution's portfolio
-- Find positions >$1B in size
-- Identify outsized bets
+- **By Ticker**: View all institutions holding a stock, calculate total ownership, track changes over time
+- **By Institution (CIK)**: View complete portfolio, compare quarter-over-quarter, identify new positions and exits
+- **Large Positions**: Query positions >10% of portfolio or >$1B in size (conviction bets)
 
 ### Important Considerations
 
@@ -207,59 +169,19 @@ For alternative data strategies, this ensures you're not accidentally trading on
 
 ### Use Cases
 
-**Insider Buying as Signal**
-- **Strong signal**: Multiple insiders buying (especially executives)
-- **Strongest**: CEO/CFO buying large amounts
-- Focus on open market purchases (code = P)
-- Cluster buying = high conviction
-
-**Identifying Confidence**
-- Large purchases relative to insider's salary
-- Purchases near 52-week lows (buying the dip)
-- Insider buying during negative news
-- Board members buying (outsider perspective)
-
-**Red Flags**
-- Heavy insider selling (especially executives)
-- Selling by multiple insiders simultaneously
-- Sales near highs (perfect timing = suspicious)
-- 10%+ owner distributions
-
-**Strategy Development**
-- Build "insider buying" signal
-- Weight by size, role, timing
-- Combine with price action (insider buy + price strength)
-- Screen for clusters (3+ insiders in 30 days)
-
-**Research & Studies**
-- Analyze insider returns (buying before runups)
-- Study regulatory effectiveness (2-day reporting)
-- Sector differences (tech vs. value)
-- Compare insider vs. institutional flows
+- **Bullish Signals**: Multiple insiders buying (especially CEO/CFO), cluster buying (3+ in 30 days), purchases near 52-week lows
+- **Red Flags**: Heavy executive selling, multiple simultaneous sellers, sales near all-time highs
+- **Signal Development**: Weight by purchase size, insider role, and timing; combine with price action for confirmation
+- **Research**: Analyze insider return predictability, sector differences, compare to institutional flows
 
 ### Interpretation Guidelines
 
-**Buying > Selling**:
-- Insiders buy for one reason: they think stock will go up
-- Insiders sell for many reasons: diversification, taxes, house, divorce, etc.
-- Buying is a stronger signal than selling
-
-**Size Matters**:
-- $10k purchase by CEO earning $5M = not meaningful
-- $1M purchase by CEO = very meaningful
-- Compare to insider's compensation and existing holdings
-
-**Timing Context**:
-- Buying after bad news = confidence
-- Buying at multi-year lows = value signal
-- Selling at all-time highs = less concerning
-- Selling before earnings = potential red flag
-
-**Position Matters**:
-- CEO/CFO = best information
-- Directors = good outside perspective
-- 10%+ owners = different motivations (activist, financial investor)
-- Lower-level officers = less informative
+| Factor | Interpretation |
+|--------|----------------|
+| **Buying > Selling** | Insiders buy for one reason (expect gains); sell for many (diversification, taxes, etc.) |
+| **Size Matters** | Compare to compensation and holdings ($10k by $5M CEO = noise; $1M = meaningful) |
+| **Timing Context** | Buying after bad news or at multi-year lows = strong confidence; selling at highs = less concerning |
+| **Position Matters** | CEO/CFO = best informed; Directors = outside perspective; 10%+ owners = different motivations |
 
 ---
 
@@ -299,20 +221,9 @@ For alternative data strategies, this ensures you're not accidentally trading on
 
 #### Use Cases
 
-**Short-Term Sentiment**
-- High short volume ratio (>50%) = heavy shorting pressure
-- Track daily shorting intensity
-- Compare to historical averages
-
-**Relative Analysis**
-- Compare short volume to stock's typical ratio
-- Sector comparison (which stocks getting shorted most)
-- Time-series patterns (increasing shorting)
-
-**Trading Strategy**
-- Fade extreme short volume (contrarian)
-- Avoid stocks with persistently high short volume
-- Combine with price action (short volume + down day = pressure)
+- **Short-Term Sentiment**: Track daily shorting intensity (>50% = heavy pressure), compare to historical averages
+- **Relative Analysis**: Compare to stock's typical ratio, identify most-shorted stocks by sector
+- **Trading Strategy**: Fade extreme short volume (contrarian), avoid persistently high levels, combine with price action
 
 ---
 
@@ -343,25 +254,10 @@ For alternative data strategies, this ensures you're not accidentally trading on
 
 #### Use Cases
 
-**Short Squeeze Potential**
-- **Days to Cover > 10**: High squeeze risk
-- **Short Interest > 20% of float**: Heavily shorted
-- Combine with catalysts (earnings beat, insider buying, positive news)
-
-**Crowding Indicator**
-- Very high short interest = crowded short
-- Risk of violent squeeze if sentiment changes
-- Compare to peers (relatively over-shorted?)
-
-**Sentiment Gauge**
-- Rising short interest = growing bearishness
-- Falling short interest = shorts covering (could be bottom)
-- Extreme short interest = potential contrarian signal
-
-**Position Management**
-- Avoid heavily shorted stocks for long positions (unless contrarian)
-- High short interest = potential borrowing costs
-- Track changes (shorts adding vs. covering)
+- **Squeeze Potential**: Days to cover >10 + short interest >20% + catalyst = high squeeze risk
+- **Crowding Indicator**: Extreme short interest signals crowded trade at risk of violent reversal
+- **Sentiment Gauge**: Rising = growing bearishness; falling = covering (potential bottom)
+- **Position Management**: Avoid heavily shorted for longs unless contrarian; track changes (adding vs. covering)
 
 #### Key Metrics
 
@@ -414,54 +310,16 @@ Short % = Short Interest / Shares Outstanding × 100%
 
 ### Use Cases
 
-**Event Detection**
-- Identify earnings announcements
-- Track M&A announcements
-- Find product launches, regulatory actions
-- Detect management changes
-
-**Sentiment Analysis**
-- Use NLP to extract sentiment (positive/negative/neutral)
-- Track sentiment changes over time
-- Compare news sentiment to price action
-- Build news-based trading signals
-
-**Thematic Investing**
-- Search for keywords (AI, renewable energy, biotech)
-- Track narrative trends
-- Identify emerging themes
-- Find companies mentioned in context
-
-**Fundamental Research**
-- Read company-specific news
-- Track industry developments
-- Monitor competitors
-- Understand context behind price moves
-
-**News-Based Strategies**
-- Trade on news surprises
-- Fade overreactions
-- Follow momentum from positive news
-- Detect information leakage (price moves before news)
+- **Event Detection**: Identify earnings, M&A, product launches, regulatory actions, management changes
+- **Sentiment Analysis**: Extract sentiment via NLP, track changes over time, compare to price action
+- **Thematic Investing**: Search keywords (AI, renewable energy), track narrative trends, identify emerging themes
+- **Trading Strategies**: Trade news surprises, fade overreactions, detect information leakage (price moves before news)
 
 ### Processing News Data
 
-**Structured Metadata**:
-- Timestamp for event studies
-- Ticker linking for portfolio context
-- Publisher for source quality filtering
-
-**Text Analysis**:
-- Headline sentiment (positive/negative words)
-- Entity recognition (companies, people, products)
-- Topic classification (earnings, M&A, legal, etc.)
-- Comparison to historical news patterns
-
-**Signal Generation**:
-- News surprise (unexpected news)
-- News volume (increased coverage)
-- Sentiment shift (negative to positive)
-- Cross-asset impact (news on supplier affects company)
+- **Structured Metadata**: Timestamp for event studies, ticker linking, publisher quality filtering
+- **Text Analysis**: Sentiment extraction, entity recognition, topic classification (earnings, M&A, legal)
+- **Signal Generation**: News surprise, volume spikes, sentiment shifts, cross-asset impact
 
 ---
 
@@ -539,65 +397,13 @@ Short % = Short Interest / Shares Outstanding × 100%
 
 ## Best Practices
 
-### For 13F Analysis
+**13F Analysis**: Use `filed_at` (avoid look-ahead bias), focus on changes vs. continuations, track proven investors, account for 45-day lag
 
-1. **Use Filing Date**: Always use `filed_at` to avoid look-ahead bias
-2. **Focus on Changes**: New positions and big increases more meaningful than continuations
-3. **Quality over Quantity**: Track proven investors, not all filers
-4. **Lag Awareness**: 45-day delay limits actionability
-5. **Aggregate View**: Look at multiple institutions for conviction
+**Insider Trading**: Prioritize purchases over sales, require meaningful size relative to compensation, look for clusters (3+ insiders), CEO/CFO most informed
 
-### For Insider Trading
+**Short Interest**: High interest + catalyst = squeeze opportunity, track trends not just levels, combine daily volume with settlement data
 
-1. **Buys > Sells**: Prioritize purchase analysis
-2. **Size Matters**: Large relative purchases most meaningful
-3. **Clusters**: Multiple insiders buying = stronger signal
-4. **Exclude Routine**: Filter out automatic 10b5-1 plans if possible
-5. **Title Matters**: CEO/CFO most informed
-
-### For Short Interest
-
-1. **Context Required**: High short interest + catalyst = squeeze opportunity
-2. **Trend > Level**: Rising short interest more important than absolute level
-3. **Compare to History**: Stock's own history, sector peers
-4. **Combine Metrics**: Use both daily volume and settlement data
-5. **Beware Crowding**: Extreme shorts = risky (either direction)
-
-### For News
-
-1. **Filter Quality**: Focus on reputable publishers
-2. **Timestamp Precision**: Critical for event studies
-3. **Validate NLP**: Sentiment analysis not perfect - spot check
-4. **Unique Info**: Focus on new information, not rehashed
-5. **Scale + Depth**: Automate extraction, read manually for nuance
-
----
-
-## Common Strategies
-
-### Smart Money Following
-1. Identify proven investors (Berkshire, quality funds)
-2. Track new 13F positions within days of filing
-3. Enter positions with small size
-4. Hold for medium term (quarters)
-
-### Insider Cluster Signal
-1. Screen for 3+ insider purchases in 30 days
-2. Filter for P (purchase) transactions only
-3. Require total purchases >$500k
-4. Combine with technical setup (oversold, support)
-
-### Short Squeeze Candidate
-1. Short interest >20% of float
-2. Days to cover >7
-3. Positive catalyst (earnings beat, insider buy, upgrade)
-4. Recent bottom in price
-
-### News Momentum
-1. Detect unusually high news volume for stock
-2. Extract sentiment (positive/negative)
-3. Enter on positive surprise with follow-through
-4. Exit if sentiment reverses or volume normalizes
+**News**: Focus on reputable publishers, validate NLP sentiment (spot check), prioritize unique information over rehashed content
 
 ---
 
