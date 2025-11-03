@@ -1,11 +1,10 @@
 ---
-page_type: reference
-layout: default
-order: 4
-category: Datasets
+title: Alternative Data
 description: Institutional holdings, insider trading, short interest, news
-parent: ./index.md
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Alternative Data
 
@@ -15,38 +14,35 @@ Smart money signals - institutional holdings (13F), insider transactions, short 
 
 ## Datasets
 
-:::grid
-[
-  {
-    "title": "Institutional Holdings (13F)",
-    "description": "Quarterly filings from $100M+ managers. Track elite fund positions.",
-    "category": "Smart Money",
-    "coverage": "10+ years",
-    "frequencies": "Quarterly (45-day filing lag)"
-  },
-  {
-    "title": "Insider Trading",
-    "description": "Officer, director, and major shareholder transactions. Sentiment signals.",
-    "category": "Corporate Insiders",
-    "coverage": "20+ years",
-    "frequencies": "Event-driven (2-day lag)"
-  },
-  {
-    "title": "Short Interest",
-    "description": "Daily short volume and bi-weekly settlement data. Crowding detection.",
-    "category": "Market Positioning",
-    "coverage": "Multi-year",
-    "frequencies": "Daily and bi-weekly"
-  },
-  {
-    "title": "Financial News",
-    "description": "Corporate news and press releases. Event detection and sentiment.",
-    "category": "Information Flow",
-    "coverage": "Multi-year",
-    "frequencies": "Real-time"
-  }
-]
-:::
+<Cards>
+  <Card title="Institutional Holdings (13F)" href="#institutional-holdings-form-13f">
+    Quarterly filings from $100M+ managers. Track elite fund positions.
+
+    **Coverage**: 10+ years
+    **Frequencies**: Quarterly (45-day filing lag)
+  </Card>
+
+  <Card title="Insider Trading" href="#insider-trading">
+    Officer, director, and major shareholder transactions. Sentiment signals.
+
+    **Coverage**: 20+ years
+    **Frequencies**: Event-driven (2-day lag)
+  </Card>
+
+  <Card title="Short Interest" href="#short-interest">
+    Daily short volume and bi-weekly settlement data. Crowding detection.
+
+    **Coverage**: Multi-year
+    **Frequencies**: Daily and bi-weekly
+  </Card>
+
+  <Card title="Financial News" href="#financial-news">
+    Corporate news and press releases. Event detection and sentiment.
+
+    **Coverage**: Multi-year
+    **Frequencies**: Real-time
+  </Card>
+</Cards>
 
 ---
 
@@ -67,7 +63,7 @@ Smart money signals - institutional holdings (13F), insider transactions, short 
 
 ## Designed for Realistic Backtesting
 
-:::warning Disclosure Timing
+<Callout type="warning" title="Disclosure Timing">
 Alternative data indexed by **public disclosure** dates, not event dates.
 
 - **13F**: Use `filed_at` (not `period_of_report`) - 45-day lag is material
@@ -75,7 +71,7 @@ Alternative data indexed by **public disclosure** dates, not event dates.
 - **Short interest**: Bi-weekly settlement snapshots, not real-time
 
 Prevents front-running disclosures with information you couldn't have known.
-:::
+</Callout>
 
 ---
 
@@ -143,11 +139,11 @@ Prevents front-running disclosures with information you couldn't have known.
 
 ### Important Considerations
 
-:::tip Critical Date Field
+<Callout type="tip" title="Critical Date Field">
 **Always use `filed_at`** for backtesting, not `period_of_report`.
 
 Q1 position (3/31) not public until filing (5/15). Using `period_of_report` = 45 days of future knowledge.
-:::
+</Callout>
 
 **Longs Only**:
 - 13F only reports long positions
@@ -224,11 +220,11 @@ Q1 position (3/31) not public until filing (5/15). Using `period_of_report` = 45
 
 ### Interpretation Guidelines
 
-:::tip Insider Buying Signal
+<Callout type="tip" title="Insider Buying Signal">
 Insiders buy for **one reason** (expect gains). They sell for **many reasons** (diversification, taxes, liquidity).
 
 Focus on purchases, especially clusters of 3+ insiders buying within 30 days.
-:::
+</Callout>
 
 | Factor | Interpretation |
 |--------|----------------|
@@ -322,7 +318,7 @@ Days to Cover = Short Interest / Average Daily Volume
 - < 3 days: Low short interest
 - 3-7 days: Moderate
 - 7-10 days: High
-- \> 10 days: Extreme (squeeze risk)
+- > 10 days: Extreme (squeeze risk)
 
 **Short % of Float**:
 ```
@@ -331,7 +327,7 @@ Short % = Short Interest / Shares Outstanding × 100%
 - < 5%: Low
 - 5-10%: Moderate
 - 10-20%: High
-- \> 20%: Extreme
+- > 20%: Extreme
 
 ---
 
@@ -463,6 +459,6 @@ Short % = Short Interest / Shares Outstanding × 100%
 
 ## Next Steps
 
-- **[Market Data](market-data.md)** - Combine alternative data signals with price confirmation
-- **[Corporate Data](corporate-data.md)** - Validate alternative data with fundamental quality
-- **[Economic Data](economic-data.md)** - Understand macro context for positioning data
+- [Market Data](/docs/market-data) - Combine alternative data signals with price confirmation
+- [Corporate Data](/docs/corporate-data) - Validate alternative data with fundamental quality
+- [Economic Data](/docs/economic-data) - Understand macro context for positioning data

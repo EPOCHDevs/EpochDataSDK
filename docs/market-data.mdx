@@ -1,11 +1,10 @@
 ---
-page_type: reference
-layout: default
-order: 1
-category: Datasets
+title: Market Data
 description: Price and volume data across stocks, crypto, and forex
-parent: ./index.md
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Market Data
 
@@ -15,31 +14,28 @@ Price and volume data foundation for quantitative trading - OHLCV bars, tick tra
 
 ## Datasets
 
-:::grid
-[
-  {
-    "title": "OHLCV Aggregates",
-    "description": "Historical price bars at daily and minute frequencies. Multi-year depth.",
-    "category": "Time Series",
-    "coverage": "2004-present",
-    "frequencies": "1min, 5min, 1hr, daily"
-  },
-  {
-    "title": "Tick Trades",
-    "description": "Individual trade executions. Most granular market data available.",
-    "category": "Tick-Level",
-    "coverage": "Multi-year",
-    "frequencies": "Real-time, microsecond precision"
-  },
-  {
-    "title": "Quotes",
-    "description": "National Best Bid/Offer (NBBO). Spread and liquidity analysis.",
-    "category": "Order Book",
-    "coverage": "Multi-year",
-    "frequencies": "Real-time quote updates"
-  }
-]
-:::
+<Cards>
+  <Card title="OHLCV Aggregates" href="#ohlcv-aggregates">
+    Historical price bars at daily and minute frequencies. Multi-year depth.
+
+    **Coverage**: 2004-present
+    **Frequencies**: 1min, 5min, 1hr, daily
+  </Card>
+
+  <Card title="Tick Trades" href="#tick-trades">
+    Individual trade executions. Most granular market data available.
+
+    **Coverage**: Multi-year
+    **Frequencies**: Real-time, microsecond precision
+  </Card>
+
+  <Card title="Quotes" href="#quotes">
+    National Best Bid/Offer (NBBO). Spread and liquidity analysis.
+
+    **Coverage**: Multi-year
+    **Frequencies**: Real-time quote updates
+  </Card>
+</Cards>
 
 ---
 
@@ -89,9 +85,9 @@ Price and volume data foundation for quantitative trading - OHLCV bars, tick tra
 - Can be adjusted for dividends
 - Raw (unadjusted) data also available
 
-:::warning Backtesting Adjustments
+<Callout type="warning" title="Backtesting Adjustments">
 Always use split/dividend-adjusted prices for backtesting to avoid false signals from corporate actions. Unadjusted prices show artificial gaps that don't represent tradeable opportunities.
-:::
+</Callout>
 
 **History Depth**:
 - Multi-year history for daily data
@@ -99,11 +95,11 @@ Always use split/dividend-adjusted prices for backtesting to avoid false signals
 
 ### Asset Formats
 
-:::tip Asset Identifier Patterns
+<Callout type="tip" title="Asset Identifier Patterns">
 - **Stocks**: Standard tickers (`AAPL`, `MSFT`, `TSLA`)
 - **Crypto**: `X:` prefix (`X:BTCUSD`, `X:ETHUSD`)
 - **Forex**: `C:` prefix (`C:EURUSD`, `C:GBPJPY`)
-:::
+</Callout>
 
 ### Use Cases
 
@@ -137,9 +133,9 @@ Always use split/dividend-adjusted prices for backtesting to avoid false signals
 
 **Data Volume**: Very large datasets - use date filtering for specific analysis periods
 
-:::warning Tick Data Volume
+<Callout type="warning" title="Tick Data Volume">
 Tick data is extremely large. Query small date ranges (hours or days, not months). Consider aggregating to minute bars for most backtesting use cases.
-:::
+</Callout>
 
 ### Use Cases
 
@@ -246,6 +242,6 @@ Market data becomes more powerful when combined with other datasets:
 
 ## Next Steps
 
-- **[Economic Data](economic-data.md)** - Add macro factors to your market analysis
-- **[Corporate Data](corporate-data.md)** - Incorporate fundamental data
-- **[Alternative Data](alternative-data.md)** - Enhance with sentiment and positioning data
+- [Economic Data](/docs/economic-data) - Add macro factors to your market analysis
+- [Corporate Data](/docs/corporate-data) - Incorporate fundamental data
+- [Alternative Data](/docs/alternative-data) - Enhance with sentiment and positioning data

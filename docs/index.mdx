@@ -1,10 +1,11 @@
 ---
-page_type: overview
-layout: grid
-order: 1
-category: Data Reference
+title: Dataset Reference
 description: Institutional-grade financial datasets for quantitative analysis
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Database, Building, TrendingUp, Users } from 'lucide-react';
 
 # Dataset Reference
 
@@ -14,42 +15,32 @@ Comprehensive coverage of market, corporate, economic, and alternative data for 
 
 ## Available Datasets
 
-:::grid
-[
-  {
-    "title": "Market Data",
-    "description": "OHLCV bars, tick trades, quotes across stocks, crypto, forex. Multi-year intraday history.",
-    "link": "./market-data.md",
-    "icon": "chart-line",
-    "category": "Price & Volume",
-    "coverage": "2004-present, minute to daily"
-  },
-  {
-    "title": "Corporate Data",
-    "description": "Financial statements, dividends, splits, IPOs. Indexed by filing dates to avoid lookahead bias.",
-    "link": "./corporate-data.md",
-    "icon": "building",
-    "category": "Fundamentals",
-    "coverage": "10+ years, quarterly updates"
-  },
-  {
-    "title": "Economic Data",
-    "description": "FRED indicators: inflation, rates, GDP, employment, VIX. Up to 100+ year history.",
-    "link": "./economic-data.md",
-    "icon": "chart-area",
-    "category": "Macro Factors",
-    "coverage": "1920s-present, daily to quarterly"
-  },
-  {
-    "title": "Alternative Data",
-    "description": "Institutional holdings (13F), insider trading, short interest, news. Smart money signals.",
-    "link": "./alternative-data.md",
-    "icon": "users",
-    "category": "Positioning",
-    "coverage": "10-20+ years, event-driven to quarterly"
-  }
-]
-:::
+<Cards>
+  <Card
+    title="Market Data"
+    description="OHLCV bars, tick trades, quotes across stocks, crypto, forex. Multi-year intraday history."
+    href="/docs/market-data"
+    icon={<TrendingUp />}
+  />
+  <Card
+    title="Corporate Data"
+    description="Financial statements, dividends, splits, IPOs. Indexed by filing dates to avoid lookahead bias."
+    href="/docs/corporate-data"
+    icon={<Building />}
+  />
+  <Card
+    title="Economic Data"
+    description="FRED indicators: inflation, rates, GDP, employment, VIX. Up to 100+ year history."
+    href="/docs/economic-data"
+    icon={<Database />}
+  />
+  <Card
+    title="Alternative Data"
+    description="Institutional holdings (13F), insider trading, short interest, news. Smart money signals."
+    href="/docs/alternative-data"
+    icon={<Users />}
+  />
+</Cards>
 
 ---
 
@@ -90,14 +81,15 @@ Comprehensive coverage of market, corporate, economic, and alternative data for 
 
 ## Backtesting-Ready
 
-:::tip Realistic Timing
+<Callout type="tip" title="Realistic Timing">
 All datasets indexed by **public availability** dates, not event dates:
+
 - Financials by `filing_date` (not quarter-end)
 - 13F by `filed_at` (not portfolio date)
 - Insider trades by `filed_at` (not transaction date)
 
 Prevents lookahead bias in backtesting.
-:::
+</Callout>
 
 ---
 

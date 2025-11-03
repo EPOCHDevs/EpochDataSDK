@@ -1,11 +1,10 @@
 ---
-page_type: reference
-layout: default
-order: 2
-category: Datasets
+title: Corporate Data
 description: Financial statements, dividends, splits, and IPO data
-parent: ./index.md
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Corporate Data
 
@@ -15,38 +14,35 @@ Fundamental company data - financial statements, dividends, splits, and IPO info
 
 ## Datasets
 
-:::grid
-[
-  {
-    "title": "Financial Statements",
-    "description": "Income statement, balance sheet, cash flow. Quarterly and annual.",
-    "category": "Fundamentals",
-    "coverage": "10+ years",
-    "frequencies": "Quarterly (10-Q), Annual (10-K)"
-  },
-  {
-    "title": "Dividends",
-    "description": "Cash and stock distributions. Critical for total return calculations.",
-    "category": "Corporate Actions",
-    "coverage": "10+ years",
-    "frequencies": "Event-driven"
-  },
-  {
-    "title": "Stock Splits",
-    "description": "Forward and reverse splits. Required for price adjustment.",
-    "category": "Corporate Actions",
-    "coverage": "Complete history",
-    "frequencies": "Event-driven"
-  },
-  {
-    "title": "IPO Data",
-    "description": "New listings, pricing, offering details. Calendar tracking.",
-    "category": "Events",
-    "coverage": "10+ years",
-    "frequencies": "Event-driven"
-  }
-]
-:::
+<Cards>
+  <Card title="Financial Statements" href="#financial-statements">
+    Income statement, balance sheet, cash flow. Quarterly and annual.
+
+    **Coverage**: 10+ years
+    **Frequencies**: Quarterly (10-Q), Annual (10-K)
+  </Card>
+
+  <Card title="Dividends" href="#dividends">
+    Cash and stock distributions. Critical for total return calculations.
+
+    **Coverage**: 10+ years
+    **Frequencies**: Event-driven
+  </Card>
+
+  <Card title="Stock Splits" href="#stock-splits">
+    Forward and reverse splits. Required for price adjustment.
+
+    **Coverage**: Complete history
+    **Frequencies**: Event-driven
+  </Card>
+
+  <Card title="IPO Data" href="#ipo-data">
+    New listings, pricing, offering details. Calendar tracking.
+
+    **Coverage**: 10+ years
+    **Frequencies**: Event-driven
+  </Card>
+</Cards>
 
 ---
 
@@ -67,13 +63,13 @@ Fundamental company data - financial statements, dividends, splits, and IPO info
 
 ## Designed for Realistic Backtesting
 
-:::warning Lookahead Bias Prevention
+<Callout type="warning" title="Lookahead Bias Prevention">
 Financial data indexed by `filing_date`, **not** `period_end`.
 
 When Q1 ends (March 31), earnings aren't public until filed (up to 45 days later). Using `period_end` = trading on data you couldn't have known = lookahead bias.
 
 **Always use `filing_date`** for backtesting. `period_end` included for reference only.
-:::
+</Callout>
 
 ---
 
@@ -233,9 +229,9 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 
 **Important Date**: **Ex-dividend date** is critical - buy before this date to receive the dividend.
 
-:::tip Total Returns
+<Callout type="tip" title="Total Returns">
 Dividends are essential for accurate backtesting. Stock returns without dividends severely understate actual performance. Always include dividend adjustments in price data or add dividends separately.
-:::
+</Callout>
 
 ### Use Cases
 
@@ -406,6 +402,6 @@ Dividends are essential for accurate backtesting. Stock returns without dividend
 
 ## Next Steps
 
-- **[Market Data](market-data.md)** - Combine fundamentals with price action
-- **[Economic Data](economic-data.md)** - Add macro context to fundamental analysis
-- **[Alternative Data](alternative-data.md)** - Validate fundamental story with smart money moves
+- [Market Data](/docs/market-data) - Combine fundamentals with price action
+- [Economic Data](/docs/economic-data) - Add macro context to fundamental analysis
+- [Alternative Data](/docs/alternative-data) - Validate fundamental story with smart money moves
