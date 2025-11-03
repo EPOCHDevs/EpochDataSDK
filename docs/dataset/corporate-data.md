@@ -1,6 +1,52 @@
+---
+page_type: reference
+layout: default
+order: 2
+category: Datasets
+description: Financial statements, dividends, splits, and IPO data
+parent: ./index.md
+---
+
 # Corporate Data
 
-Corporate data provides fundamental information about publicly traded companies, including financial statements, dividend payments, stock splits, and initial public offerings.
+Fundamental company data - financial statements, dividends, splits, and IPO information. Indexed by filing dates for backtesting accuracy.
+
+---
+
+## Datasets
+
+:::grid
+[
+  {
+    "title": "Financial Statements",
+    "description": "Income statement, balance sheet, cash flow. Quarterly and annual.",
+    "category": "Fundamentals",
+    "coverage": "10+ years",
+    "frequencies": "Quarterly (10-Q), Annual (10-K)"
+  },
+  {
+    "title": "Dividends",
+    "description": "Cash and stock distributions. Critical for total return calculations.",
+    "category": "Corporate Actions",
+    "coverage": "10+ years",
+    "frequencies": "Event-driven"
+  },
+  {
+    "title": "Stock Splits",
+    "description": "Forward and reverse splits. Required for price adjustment.",
+    "category": "Corporate Actions",
+    "coverage": "Complete history",
+    "frequencies": "Event-driven"
+  },
+  {
+    "title": "IPO Data",
+    "description": "New listings, pricing, offering details. Calendar tracking.",
+    "category": "Events",
+    "coverage": "10+ years",
+    "frequencies": "Event-driven"
+  }
+]
+:::
 
 ---
 
@@ -21,9 +67,13 @@ Corporate data provides fundamental information about publicly traded companies,
 
 ## Designed for Realistic Backtesting
 
-Financial data is indexed by SEC filing dates, not quarter-end dates. When a quarter ends (e.g., March 31), financial numbers aren't public until filed (up to 45 days later). Using quarter-end dates creates look-ahead bias - trading on data unavailable for 45 days.
+:::warning Lookahead Bias Prevention
+Financial data indexed by `filing_date`, **not** `period_end`.
 
-**Timing Solution:** All financial data indexed by `filing_date` (when public); `period_end` included for reference. Ensures fundamental strategies reflect real-world availability, preventing artificially perfect timing.
+When Q1 ends (March 31), earnings aren't public until filed (up to 45 days later). Using `period_end` = trading on data you couldn't have known = lookahead bias.
+
+**Always use `filing_date`** for backtesting. `period_end` included for reference only.
+:::
 
 ---
 
@@ -182,6 +232,10 @@ Quarterly and annual financial reports filed with the SEC by public companies, p
 **Coverage**: All dividend-paying U.S. stocks
 
 **Important Date**: **Ex-dividend date** is critical - buy before this date to receive the dividend.
+
+:::tip Total Returns
+Dividends are essential for accurate backtesting. Stock returns without dividends severely understate actual performance. Always include dividend adjustments in price data or add dividends separately.
+:::
 
 ### Use Cases
 

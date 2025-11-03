@@ -1,6 +1,59 @@
+---
+page_type: reference
+layout: default
+order: 3
+category: Datasets
+description: FRED economic indicators - inflation, rates, GDP, employment
+parent: ./index.md
+---
+
 # Economic Data
 
-Economic data provides critical macro context for trading decisions, including inflation rates, interest rates, GDP, employment metrics, and market indicators from the Federal Reserve Economic Data (FRED) system.
+Macro economic indicators from FRED - inflation, interest rates, GDP, employment, and market indicators. Up to 100+ years of history.
+
+---
+
+## Indicator Categories
+
+:::grid
+[
+  {
+    "title": "Inflation Metrics",
+    "description": "CPI, Core CPI, PCE. Fed's preferred inflation measures.",
+    "category": "Price Levels",
+    "coverage": "60+ years",
+    "frequencies": "Monthly"
+  },
+  {
+    "title": "Interest Rates",
+    "description": "Fed Funds, Treasury yields (3M to 30Y). Risk-free rates.",
+    "category": "Monetary Policy",
+    "coverage": "30-60+ years",
+    "frequencies": "Daily"
+  },
+  {
+    "title": "Economic Activity",
+    "description": "GDP, industrial production, retail sales. Growth indicators.",
+    "category": "Output",
+    "coverage": "70+ years",
+    "frequencies": "Monthly to Quarterly"
+  },
+  {
+    "title": "Labor Market",
+    "description": "Unemployment, jobless claims, payrolls. Employment metrics.",
+    "category": "Employment",
+    "coverage": "70+ years",
+    "frequencies": "Weekly to Monthly"
+  },
+  {
+    "title": "Market Indicators",
+    "description": "S&P 500, VIX. Equity and volatility benchmarks.",
+    "category": "Markets",
+    "coverage": "30-90+ years",
+    "frequencies": "Daily"
+  }
+]
+:::
 
 ---
 
@@ -22,9 +75,11 @@ Economic data provides critical macro context for trading decisions, including i
 
 ## Designed for Realistic Backtesting
 
-Economic indicators are revised after initial release (e.g., GDP reported at +2.0%, revised to +1.8%, then +2.1%). Using final revised numbers creates look-ahead bias.
+:::warning Data Revisions
+Economic indicators are revised after initial release. GDP might be reported at +2.0%, revised to +1.8%, then +2.1%.
 
-**Timing Solution:** Data indexed by publication dates (not economic period dates), showing what was actually known at decision time. Prevents artificially inflated returns from "perfect" data unavailable during backtest period.
+Using final revised values = lookahead bias. Data indexed by **publication dates** showing what was actually known at decision time.
+:::
 
 ---
 
@@ -57,6 +112,10 @@ Economic indicators are revised after initial release (e.g., GDP reported at +2.
 - **Core PCE** - Excludes food and energy (Fed's 2% target references this)
 
 **Why It Matters**: The Fed uses Core PCE for monetary policy decisions, making it more market-relevant than CPI for anticipating rate changes.
+
+:::tip Fed's Preferred Gauge
+Core PCE is the Fed's official 2% inflation target. More important than CPI for predicting rate decisions and policy shifts.
+:::
 
 **Use Cases**: Predict Fed policy decisions, assess position vs. Fed's 2% target, build interest rate forecasting models
 

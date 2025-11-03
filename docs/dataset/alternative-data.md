@@ -1,6 +1,52 @@
+---
+page_type: reference
+layout: default
+order: 4
+category: Datasets
+description: Institutional holdings, insider trading, short interest, news
+parent: ./index.md
+---
+
 # Alternative Data
 
-Alternative data provides non-traditional signals for trading strategies, including institutional holdings, insider transactions, short interest metrics, and financial news. These datasets offer insights into smart money positioning, corporate insider sentiment, and market crowding.
+Smart money signals - institutional holdings (13F), insider transactions, short interest, and financial news. Track positioning and sentiment.
+
+---
+
+## Datasets
+
+:::grid
+[
+  {
+    "title": "Institutional Holdings (13F)",
+    "description": "Quarterly filings from $100M+ managers. Track elite fund positions.",
+    "category": "Smart Money",
+    "coverage": "10+ years",
+    "frequencies": "Quarterly (45-day filing lag)"
+  },
+  {
+    "title": "Insider Trading",
+    "description": "Officer, director, and major shareholder transactions. Sentiment signals.",
+    "category": "Corporate Insiders",
+    "coverage": "20+ years",
+    "frequencies": "Event-driven (2-day lag)"
+  },
+  {
+    "title": "Short Interest",
+    "description": "Daily short volume and bi-weekly settlement data. Crowding detection.",
+    "category": "Market Positioning",
+    "coverage": "Multi-year",
+    "frequencies": "Daily and bi-weekly"
+  },
+  {
+    "title": "Financial News",
+    "description": "Corporate news and press releases. Event detection and sentiment.",
+    "category": "Information Flow",
+    "coverage": "Multi-year",
+    "frequencies": "Real-time"
+  }
+]
+:::
 
 ---
 
@@ -21,14 +67,15 @@ Alternative data provides non-traditional signals for trading strategies, includ
 
 ## Designed for Realistic Backtesting
 
-Alternative data is indexed to reflect when information became public, not when events occurred. Using quarter-end dates for 13F holdings creates look-ahead bias (effectively front-running disclosure with 45 days of advance knowledge).
+:::warning Disclosure Timing
+Alternative data indexed by **public disclosure** dates, not event dates.
 
-**Timing Adjustments:**
-- **13F data**: Indexed by filing date (institutions have 45-day reporting window)
-- **Insider transactions**: Use filing date (2-day disclosure requirement)
-- **Short interest**: Reflects bi-weekly settlement schedule
+- **13F**: Use `filed_at` (not `period_of_report`) - 45-day lag is material
+- **Insider trades**: Use `filed_at` (not `transaction_date`) - 2-day disclosure
+- **Short interest**: Bi-weekly settlement snapshots, not real-time
 
-**Backtest Impact:** Strategies see data when it was disclosed to the market, not when positions were established, preventing unrealistic results from future information.
+Prevents front-running disclosures with information you couldn't have known.
+:::
 
 ---
 
@@ -96,10 +143,11 @@ Alternative data is indexed to reflect when information became public, not when 
 
 ### Important Considerations
 
-**Use `filed_at` for Backtesting**:
-- The `period_of_report` (e.g., 3/31) is the snapshot date
-- But data wasn't public until `filed_at` (e.g., 5/15)
-- Using `period_of_report` creates look-ahead bias
+:::tip Critical Date Field
+**Always use `filed_at`** for backtesting, not `period_of_report`.
+
+Q1 position (3/31) not public until filing (5/15). Using `period_of_report` = 45 days of future knowledge.
+:::
 
 **Longs Only**:
 - 13F only reports long positions
@@ -175,6 +223,12 @@ Alternative data is indexed to reflect when information became public, not when 
 - **Research**: Analyze insider return predictability, sector differences, compare to institutional flows
 
 ### Interpretation Guidelines
+
+:::tip Insider Buying Signal
+Insiders buy for **one reason** (expect gains). They sell for **many reasons** (diversification, taxes, liquidity).
+
+Focus on purchases, especially clusters of 3+ insiders buying within 30 days.
+:::
 
 | Factor | Interpretation |
 |--------|----------------|

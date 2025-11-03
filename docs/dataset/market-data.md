@@ -1,6 +1,45 @@
+---
+page_type: reference
+layout: default
+order: 1
+category: Datasets
+description: Price and volume data across stocks, crypto, and forex
+parent: ./index.md
+---
+
 # Market Data
 
-Market data provides the foundation for quantitative trading strategies, including historical prices, real-time trades, and bid-ask quotes across multiple asset classes.
+Price and volume data foundation for quantitative trading - OHLCV bars, tick trades, and quotes across stocks, crypto, and forex.
+
+---
+
+## Datasets
+
+:::grid
+[
+  {
+    "title": "OHLCV Aggregates",
+    "description": "Historical price bars at daily and minute frequencies. Multi-year depth.",
+    "category": "Time Series",
+    "coverage": "2004-present",
+    "frequencies": "1min, 5min, 1hr, daily"
+  },
+  {
+    "title": "Tick Trades",
+    "description": "Individual trade executions. Most granular market data available.",
+    "category": "Tick-Level",
+    "coverage": "Multi-year",
+    "frequencies": "Real-time, microsecond precision"
+  },
+  {
+    "title": "Quotes",
+    "description": "National Best Bid/Offer (NBBO). Spread and liquidity analysis.",
+    "category": "Order Book",
+    "coverage": "Multi-year",
+    "frequencies": "Real-time quote updates"
+  }
+]
+:::
 
 ---
 
@@ -50,20 +89,21 @@ Market data provides the foundation for quantitative trading strategies, includi
 - Can be adjusted for dividends
 - Raw (unadjusted) data also available
 
+:::warning Backtesting Adjustments
+Always use split/dividend-adjusted prices for backtesting to avoid false signals from corporate actions. Unadjusted prices show artificial gaps that don't represent tradeable opportunities.
+:::
+
 **History Depth**:
 - Multi-year history for daily data
 - Extended intraday history available (subscription dependent)
 
 ### Asset Formats
 
-**Stocks**: Use standard ticker symbols
-- Example: `AAPL`, `MSFT`, `TSLA`
-
-**Cryptocurrencies**: Prefix with `X:`
-- Example: `X:BTCUSD`, `X:ETHUSD`
-
-**Forex**: Prefix with `C:`
-- Example: `C:EURUSD`, `C:GBPJPY`
+:::tip Asset Identifier Patterns
+- **Stocks**: Standard tickers (`AAPL`, `MSFT`, `TSLA`)
+- **Crypto**: `X:` prefix (`X:BTCUSD`, `X:ETHUSD`)
+- **Forex**: `C:` prefix (`C:EURUSD`, `C:GBPJPY`)
+:::
 
 ### Use Cases
 
@@ -96,6 +136,10 @@ Market data provides the foundation for quantitative trading strategies, includi
 **History Depth**: Extensive tick history available for analysis
 
 **Data Volume**: Very large datasets - use date filtering for specific analysis periods
+
+:::warning Tick Data Volume
+Tick data is extremely large. Query small date ranges (hours or days, not months). Consider aggregating to minute bars for most backtesting use cases.
+:::
 
 ### Use Cases
 

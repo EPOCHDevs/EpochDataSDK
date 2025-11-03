@@ -1,144 +1,136 @@
+---
+page_type: overview
+layout: grid
+order: 1
+category: Data Reference
+description: Institutional-grade financial datasets for quantitative analysis
+---
+
 # Dataset Reference
 
-Welcome to the EpochDataSDK Dataset Reference. This guide provides comprehensive information about all the financial datasets available for querying in your trading strategies and analysis.
-
-## Overview
-
-EpochDataSDK provides access to institutional-grade financial data across multiple categories:
-
-- **[Market Data](market-data.md)** - Price, volume, and trade data for stocks, cryptocurrencies, and forex
-- **[Economic Data](economic-data.md)** - U.S. economic indicators and Federal Reserve data
-- **[Corporate Data](corporate-data.md)** - Company financials, dividends, stock splits, and IPO information
-- **[Alternative Data](alternative-data.md)** - Institutional holdings, insider trading, short interest, and financial news
-
-All data is returned in structured table format (DataFrames), optimized for quantitative analysis and backtesting.
+Comprehensive coverage of market, corporate, economic, and alternative data for quantitative trading strategies.
 
 ---
 
-## Quick Start
+## Available Datasets
 
-### What Data Is Available?
-
-| Category | Data Types | Update Frequency | History |
-|----------|-----------|------------------|---------|
-| **Market Data** | OHLCV bars, tick trades, bid-ask quotes | Real-time to daily | Multi-year |
-| **Economic Data** | GDP, inflation, unemployment, interest rates | Monthly/Quarterly | Up to 100+ years |
-| **Corporate Data** | Financial statements, dividends, splits, IPOs | Quarterly/As-filed | 10+ years |
-| **Alternative Data** | Institutional holdings, insider trades, short interest | Daily to quarterly | 10+ years |
-
----
-
-## Data Categories
-
-### [Market Data](market-data.md)
-
-Price and volume data for trading analysis:
-
-- **OHLCV Aggregates** - Historical price bars (daily, minute-level)
-- **Tick Trades** - Individual trade executions
-- **Quotes** - Best bid and ask prices
-
-**Coverage**: U.S. stocks, cryptocurrencies, foreign exchange
-
-**Use Cases**: Backtesting, technical analysis, price discovery, execution analysis
-
----
-
-### [Economic Data](economic-data.md)
-
-U.S. economic indicators from the Federal Reserve Economic Data (FRED):
-
-- **Inflation Metrics** - CPI, Core CPI, PCE
-- **Interest Rates** - Fed Funds, Treasury yields (3-month to 30-year)
-- **Economic Activity** - GDP, industrial production, retail sales
-- **Labor Market** - Unemployment rate, jobless claims, payrolls
-- **Market Indicators** - S&P 500 index, VIX volatility
-
-**Update Frequency**: Monthly to quarterly
-
-**Use Cases**: Macro factor models, regime detection, risk-free rate calculations
+:::grid
+[
+  {
+    "title": "Market Data",
+    "description": "OHLCV bars, tick trades, quotes across stocks, crypto, forex. Multi-year intraday history.",
+    "link": "./market-data.md",
+    "icon": "chart-line",
+    "category": "Price & Volume",
+    "coverage": "2004-present, minute to daily"
+  },
+  {
+    "title": "Corporate Data",
+    "description": "Financial statements, dividends, splits, IPOs. Indexed by filing dates to avoid lookahead bias.",
+    "link": "./corporate-data.md",
+    "icon": "building",
+    "category": "Fundamentals",
+    "coverage": "10+ years, quarterly updates"
+  },
+  {
+    "title": "Economic Data",
+    "description": "FRED indicators: inflation, rates, GDP, employment, VIX. Up to 100+ year history.",
+    "link": "./economic-data.md",
+    "icon": "chart-area",
+    "category": "Macro Factors",
+    "coverage": "1920s-present, daily to quarterly"
+  },
+  {
+    "title": "Alternative Data",
+    "description": "Institutional holdings (13F), insider trading, short interest, news. Smart money signals.",
+    "link": "./alternative-data.md",
+    "icon": "users",
+    "category": "Positioning",
+    "coverage": "10-20+ years, event-driven to quarterly"
+  }
+]
+:::
 
 ---
 
-### [Corporate Data](corporate-data.md)
+## Coverage Summary
 
-Company fundamentals and corporate actions:
-
-- **Financial Statements** - Income statements, balance sheets, cash flow statements
-- **Dividends** - Cash and stock dividend distributions
-- **Stock Splits** - Forward and reverse split history
-- **IPO Data** - Initial public offering details and schedules
-
-**Update Frequency**: Quarterly (financials), event-driven (dividends, splits)
-
-**Use Cases**: Fundamental analysis, value investing, total return calculations
+| Category | Datasets | Frequencies | Historical Range |
+|----------|----------|-------------|------------------|
+| **Market Data** | OHLCV, Trades, Quotes | 1min to daily | Multi-year depth |
+| **Corporate Data** | Financials, Dividends, Splits, IPOs | Quarterly, event-driven | 10+ years |
+| **Economic Data** | Inflation, Rates, GDP, Employment | Daily to quarterly | Up to 100+ years |
+| **Alternative Data** | 13F, Insider, Short Interest, News | Real-time to quarterly | 10-20+ years |
 
 ---
 
-### [Alternative Data](alternative-data.md)
+## Data Versatility
 
-Non-traditional data sources for edge discovery:
+**Intraday Strategies**
+- Minute/tick data for stocks, crypto, forex
+- Real-time quotes and trades
+- Intraday news flow
 
-- **Institutional Holdings** - Quarterly 13F-HR filings from hedge funds and institutions
-- **Insider Trading** - Officer, director, and major shareholder transactions
-- **Short Interest** - Daily short volume and bi-weekly settlement data
-- **Financial News** - Corporate news and announcements
+**Daily & Swing**
+- Daily OHLCV with corporate action adjustments
+- Daily short volume and news
+- Treasury yields and VIX
 
-**Update Frequency**: Daily to quarterly (varies by data type)
+**Fundamental & Macro**
+- Quarterly financials (10+ years)
+- Monthly economic indicators (decades of history)
+- Quarterly institutional holdings
 
-**Use Cases**: Smart money tracking, sentiment analysis, crowding detection
-
----
-
-## Data Characteristics
-
-### Time Ranges
-All datasets support historical queries with flexible date ranges. History depth varies by dataset:
-
-- **Market Data**: Multi-year tick and daily data
-- **Economic Data**: Up to 100+ years for key indicators
-- **Corporate/Alternative**: Generally 10-20+ years
-
-### Data Frequency
-
-| Frequency | Dataset Examples |
-|-----------|-----------------|
-| **Intraday** | Tick trades, minute bars, quotes |
-| **Daily** | OHLCV bars, short volume, news |
-| **Weekly** | Initial jobless claims |
-| **Monthly** | Inflation, unemployment, retail sales |
-| **Quarterly** | Financial statements, institutional holdings, GDP |
-| **Event-Driven** | Dividends, splits, insider trades, IPOs |
-
-### Coverage
-
-- **Equities**: All U.S. listed stocks (NYSE, NASDAQ, etc.)
-- **Cryptocurrencies**: Major cryptocurrencies with X: prefix (e.g., X:BTCUSD)
-- **Forex**: Currency pairs with C: prefix (e.g., C:EURUSD)
-- **Economic**: U.S. Federal Reserve and government data
-- **Corporate**: U.S. publicly traded companies
+**Event-Driven**
+- Insider transactions (2-day lag)
+- Dividend schedules and splits
+- IPO calendars
 
 ---
 
-## Common Use Cases
+## Backtesting-Ready
 
-**Backtesting**: Historical OHLCV with split/dividend adjustments, economic indicators for macro factors, institutional holdings for flow analysis
+:::tip Realistic Timing
+All datasets indexed by **public availability** dates, not event dates:
+- Financials by `filing_date` (not quarter-end)
+- 13F by `filed_at` (not portfolio date)
+- Insider trades by `filed_at` (not transaction date)
 
-**Fundamental Analysis**: Quarterly financials (income, balance sheet, cash flow), dividend history, insider activity, peer comparisons
-
-**Risk Management**: Treasury yields (risk-free rate), VIX (volatility regime), economic indicators (regime shifts), short interest (crowding)
-
-**Event-Driven**: IPO schedules, insider transactions, institutional ownership changes, corporate actions (splits, dividends)
+Prevents lookahead bias in backtesting.
+:::
 
 ---
 
-## Next Steps
+## Asset Coverage
 
-Explore each dataset category in detail:
+| Asset Class | Identifiers | Examples |
+|-------------|-------------|----------|
+| **U.S. Stocks** | Standard tickers | AAPL, MSFT, TSLA |
+| **Cryptocurrencies** | X: prefix | X:BTCUSD, X:ETHUSD |
+| **Forex** | C: prefix | C:EURUSD, C:GBPJPY |
+| **Economic** | FRED series codes | GDP, CPIAUCSL, DFF |
 
-1. **[Market Data](market-data.md)** - Start here for price and volume data
-2. **[Economic Data](economic-data.md)** - Add macro factors to your analysis
-3. **[Corporate Data](corporate-data.md)** - Incorporate fundamentals
-4. **[Alternative Data](alternative-data.md)** - Discover edge through alternative datasets
+---
 
-Each section provides detailed field descriptions, coverage information, and practical use cases for traders.
+## Data Quality
+
+- **Exchange-grade** market data with precise timestamps
+- **SEC filings** for corporate and alternative data
+- **Official government statistics** for economic indicators
+- **Transparent adjustments** for splits and dividends
+- **Point-in-time accuracy** to avoid lookahead bias
+
+---
+
+## Integration Patterns
+
+**Cross-Dataset Analysis**
+- Price action + institutional flows
+- Fundamentals + insider sentiment
+- Macro regime + sector rotation
+- News sentiment + short interest
+
+**Complete Coverage**
+- Combine market, fundamental, macro, and alternative signals
+- Build multi-factor models
+- Validate signals across data types
