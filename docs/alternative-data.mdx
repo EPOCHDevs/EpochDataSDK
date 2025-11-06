@@ -4,45 +4,25 @@ description: Institutional holdings, insider trading, short interest, news
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Alternative Data
 
 Smart money signals - institutional holdings (13F), insider transactions, short interest, and financial news. Track positioning and sentiment.
 
+<Callout type="info" title="Data Access Only">
+Epoch provides access to alternative data for research and analysis purposes. This is not investment advice.
+</Callout>
+
 ---
 
 ## Datasets
 
-<Cards>
-  <Card title="Institutional Holdings (13F)" href="#institutional-holdings-form-13f">
-    Quarterly filings from $100M+ managers. Track elite fund positions.
-
-    **Coverage**: 10+ years
-    **Frequencies**: Quarterly (45-day filing lag)
-  </Card>
-
-  <Card title="Insider Trading" href="#insider-trading">
-    Officer, director, and major shareholder transactions. Sentiment signals.
-
-    **Coverage**: 20+ years
-    **Frequencies**: Event-driven (2-day lag)
-  </Card>
-
-  <Card title="Short Interest" href="#short-interest">
-    Daily short volume and bi-weekly settlement data. Crowding detection.
-
-    **Coverage**: Multi-year
-    **Frequencies**: Daily and bi-weekly
-  </Card>
-
-  <Card title="Financial News" href="#financial-news">
-    Corporate news and press releases. Event detection and sentiment.
-
-    **Coverage**: Multi-year
-    **Frequencies**: Real-time
-  </Card>
-</Cards>
+| Dataset | Update Frequency | Coverage | Key Features |
+|---------|------------------|----------|--------------|
+| **Institutional Holdings (13F)** | Quarterly (45-day filing lag) | 10+ years | Quarterly filings from $100M+ managers. Track elite fund positions. |
+| **Insider Trading** | Event-driven (2-day lag) | 20+ years | Officer, director, and major shareholder transactions. Sentiment signals. |
+| **Short Interest** | Daily and bi-weekly | Multi-year | Daily short volume and bi-weekly settlement data. Crowding detection. |
+| **Financial News** | Real-time | Multi-year | Corporate news and press releases. Event detection and sentiment. |
 
 ---
 
@@ -273,7 +253,7 @@ Focus on purchases, especially clusters of 3+ insiders buying within 30 days.
 
 - **Short-Term Sentiment**: Track daily shorting intensity (>50% = heavy pressure), compare to historical averages
 - **Relative Analysis**: Compare to stock's typical ratio, identify most-shorted stocks by sector
-- **Trading Strategy**: Fade extreme short volume (contrarian), avoid persistently high levels, combine with price action
+- **Research Analysis**: Study extreme short volume patterns (contrarian signals), analyze persistently high levels, combine with price action
 
 ---
 
@@ -362,8 +342,8 @@ Short % = Short Interest / Shares Outstanding × 100%
 
 - **Event Detection**: Identify earnings, M&A, product launches, regulatory actions, management changes
 - **Sentiment Analysis**: Extract sentiment via NLP, track changes over time, compare to price action
-- **Thematic Investing**: Search keywords (AI, renewable energy), track narrative trends, identify emerging themes
-- **Trading Strategies**: Trade news surprises, fade overreactions, detect information leakage (price moves before news)
+- **Thematic Research**: Search keywords (AI, renewable energy), track narrative trends, identify emerging themes
+- **Analysis & Research**: Study news surprises, analyze market overreactions, detect information leakage (price moves before news)
 
 ### Processing News Data
 

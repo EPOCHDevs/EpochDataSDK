@@ -9,7 +9,11 @@ import { Database, Building, TrendingUp, Users } from 'lucide-react';
 
 # Dataset Reference
 
-Comprehensive coverage of market, corporate, economic, and alternative data for quantitative trading strategies.
+Comprehensive coverage of market, corporate, economic, and alternative data for quantitative research and analysis.
+
+<Callout type="info" title="Data Access Platform">
+Epoch provides institutional-grade financial data for research and analysis purposes. This is not investment advice.
+</Callout>
 
 ---
 
@@ -18,7 +22,7 @@ Comprehensive coverage of market, corporate, economic, and alternative data for 
 <Cards>
   <Card
     title="Market Data"
-    description="OHLCV bars, tick trades, quotes across stocks, crypto, forex. Multi-year intraday history."
+    description="OHLCV bars, tick trades, quotes across stocks, indices, futures, crypto, forex. Multi-year intraday history."
     href="/docs/market-data"
     icon={<TrendingUp />}
   />
@@ -46,83 +50,56 @@ Comprehensive coverage of market, corporate, economic, and alternative data for 
 
 ## Coverage Summary
 
-| Category | Datasets | Frequencies | Historical Range |
-|----------|----------|-------------|------------------|
-| **Market Data** | OHLCV, Trades, Quotes | 1min to daily | Multi-year depth |
-| **Corporate Data** | Financials, Dividends, Splits, IPOs | Quarterly, event-driven | 10+ years |
-| **Economic Data** | Inflation, Rates, GDP, Employment | Daily to quarterly | Up to 100+ years |
-| **Alternative Data** | 13F, Insider, Short Interest, News | Real-time to quarterly | 10-20+ years |
+| Category | Datasets | Asset Classes | Frequencies | Historical Range |
+|----------|----------|---------------|-------------|------------------|
+| **Market Data** | OHLCV, Trades, Quotes | Stocks, Indices, Futures, Crypto, Forex | 1min to daily | Multi-year depth |
+| **Corporate Data** | Financials, Dividends, Splits, IPOs | U.S. Public Companies | Quarterly, event-driven | 10+ years |
+| **Economic Data** | Inflation, Rates, GDP, Employment | U.S. Economic Indicators | Daily to quarterly | Up to 100+ years |
+| **Alternative Data** | 13F, Insider, Short Interest, News | U.S. Securities | Real-time to quarterly | 10-20+ years |
 
 ---
 
-## Data Versatility
+## What You Can Access
 
-**Intraday Strategies**
-- Minute/tick data for stocks, crypto, forex
-- Real-time quotes and trades
-- Intraday news flow
+**Market Data**
+- OHLCV bars (1min to daily) for stocks, indices, futures, crypto, forex from 2004-present
+- Individual tick trades with microsecond precision
+- Real-time quotes (NBBO) showing bid/ask spreads
+- Multi-year intraday history
 
-**Daily & Swing**
-- Daily OHLCV with corporate action adjustments
-- Daily short volume and news
-- Treasury yields and VIX
+**Corporate Data**
+- Financial statements (income, balance sheet, cash flow) with 10+ years quarterly/annual data
+- Dividend schedules and stock splits for total return calculations
+- IPO calendars and pricing information
 
-**Fundamental & Macro**
-- Quarterly financials (10+ years)
-- Monthly economic indicators (decades of history)
-- Quarterly institutional holdings
+**Economic Data**
+- FRED indicators: inflation (CPI, PCE), interest rates (Fed Funds, Treasury yields)
+- Economic activity: GDP, industrial production, retail sales
+- Labor market: unemployment, jobless claims, payrolls
+- Market indicators: S&P 500, VIX with up to 100+ years history
 
-**Event-Driven**
-- Insider transactions (2-day lag)
-- Dividend schedules and splits
-- IPO calendars
-
----
-
-## Backtesting-Ready
-
-<Callout type="tip" title="Realistic Timing">
-All datasets indexed by **public availability** dates, not event dates:
-
-- Financials by `filing_date` (not quarter-end)
-- 13F by `filed_at` (not portfolio date)
-- Insider trades by `filed_at` (not transaction date)
-
-Prevents lookahead bias in backtesting.
-</Callout>
+**Alternative Data**
+- Institutional holdings (13F) from $100M+ managers filed quarterly
+- Insider trading transactions with 2-day filing disclosure
+- Short interest data (daily volume + bi-weekly settlements)
+- Real-time financial news and press releases
 
 ---
 
 ## Asset Coverage
 
-| Asset Class | Identifiers | Examples |
-|-------------|-------------|----------|
-| **U.S. Stocks** | Standard tickers | AAPL, MSFT, TSLA |
-| **Cryptocurrencies** | X: prefix | X:BTCUSD, X:ETHUSD |
-| **Forex** | C: prefix | C:EURUSD, C:GBPJPY |
-| **Economic** | FRED series codes | GDP, CPIAUCSL, DFF |
+- **U.S. Stocks** - All listed equities including common stocks, ETFs, and REITs (2004-present)
+- **Indices** - S&P 500, Nasdaq, Dow Jones, sector and international indices
+- **Futures** - Commodities, indices, rates, and currency futures contracts
+- **Cryptocurrencies** - BTC, ETH, and other major pairs with 24/7 coverage
+- **Forex** - Major, cross, and exotic currency pairs with 24/5 coverage
 
 ---
 
-## Data Quality
+## Data Quality & Timing
 
 - **Exchange-grade** market data with precise timestamps
 - **SEC filings** for corporate and alternative data
-- **Official government statistics** for economic indicators
-- **Transparent adjustments** for splits and dividends
-- **Point-in-time accuracy** to avoid lookahead bias
-
----
-
-## Integration Patterns
-
-**Cross-Dataset Analysis**
-- Price action + institutional flows
-- Fundamentals + insider sentiment
-- Macro regime + sector rotation
-- News sentiment + short interest
-
-**Complete Coverage**
-- Combine market, fundamental, macro, and alternative signals
-- Build multi-factor models
-- Validate signals across data types
+- **Official government statistics** from FRED for economic indicators
+- **Point-in-time accuracy** - all data indexed by public availability dates (not event dates) to prevent lookahead bias
+- **Transparent adjustments** for corporate actions (splits, dividends)

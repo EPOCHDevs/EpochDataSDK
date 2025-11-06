@@ -1,6 +1,6 @@
 ---
 title: Market Data
-description: Price and volume data across stocks, crypto, and forex
+description: Price and volume data across stocks, indices, crypto, and forex
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -8,7 +8,11 @@ import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Market Data
 
-Price and volume data foundation for quantitative trading - OHLCV bars, tick trades, and quotes across stocks, crypto, and forex.
+Price and volume data foundation for quantitative research - OHLCV bars, tick trades, and quotes across stocks, indices, crypto, and forex.
+
+<Callout type="info" title="Data Access Only">
+Epoch provides access to historical and real-time market data for research and analysis purposes. This is not investment advice.
+</Callout>
 
 ---
 
@@ -43,11 +47,11 @@ Price and volume data foundation for quantitative trading - OHLCV bars, tick tra
 
 | Dataset | Frequency | Assets | Primary Use |
 |---------|-----------|--------|-------------|
-| **OHLCV Aggregates** | Daily, Minute | Stocks, Crypto, Forex | Backtesting, charting |
+| **OHLCV Aggregates** | Daily, Minute | Stocks, Indices, Crypto, Forex | Backtesting, charting |
 | **Tick Trades** | Real-time | Stocks, Crypto | Execution analysis, microstructure |
 | **Quotes** | Real-time | Stocks, Forex | Spread analysis, liquidity |
 
-**Coverage**: All U.S. listed equities, major cryptocurrencies, and forex pairs
+**Coverage**: All U.S. listed equities, major indices (S&P 500, Nasdaq, Dow Jones), cryptocurrencies, and forex pairs
 
 **History**: Multi-year historical data available
 
@@ -93,13 +97,27 @@ Always use split/dividend-adjusted prices for backtesting to avoid false signals
 - Multi-year history for daily data
 - Extended intraday history available (subscription dependent)
 
-### Asset Formats
+### Supported Assets
 
-<Callout type="tip" title="Asset Identifier Patterns">
-- **Stocks**: Standard tickers (`AAPL`, `MSFT`, `TSLA`)
-- **Crypto**: `X:` prefix (`X:BTCUSD`, `X:ETHUSD`)
-- **Forex**: `C:` prefix (`C:EURUSD`, `C:GBPJPY`)
-</Callout>
+**Stocks**:
+- All U.S. listed equities (NYSE, Nasdaq, AMEX)
+- Coverage includes common stocks, ETFs, and REITs
+- Historical data from 2004-present
+
+**Indices**:
+- Major U.S. indices: S&P 500, Nasdaq Composite, Dow Jones
+- Sector indices and international indices
+- Daily and intraday price tracking
+
+**Cryptocurrencies**:
+- Major pairs: BTC/USD, ETH/USD, and other top cryptocurrencies
+- 24/7 data availability
+- Multi-year historical coverage
+
+**Forex**:
+- Major currency pairs (EUR/USD, GBP/USD, USD/JPY, etc.)
+- Cross pairs and exotic pairs
+- 24/5 market coverage
 
 ### Use Cases
 
@@ -233,8 +251,6 @@ Market data becomes more powerful when combined with other datasets:
 ## Best Practices
 
 **Backtesting**: Use daily aggregates (stable, efficient), include split/dividend adjustments, avoid survivorship bias
-
-**Live Trading**: Start with aggregates, monitor spreads before large orders, validate prices, account for latency
 
 **Research**: Query small date ranges first, filter by volume for liquidity, check for data gaps, document adjustments
 

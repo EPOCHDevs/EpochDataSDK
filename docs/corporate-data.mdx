@@ -4,45 +4,25 @@ description: Financial statements, dividends, splits, and IPO data
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
-import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Corporate Data
 
-Fundamental company data - financial statements, dividends, splits, and IPO information. Indexed by filing dates for backtesting accuracy.
+Fundamental company data - financial statements, dividends, splits, and IPO information. Indexed by filing dates for research accuracy.
+
+<Callout type="info" title="Data Access Only">
+Epoch provides access to corporate financial data for research and analysis purposes. This is not investment advice.
+</Callout>
 
 ---
 
 ## Datasets
 
-<Cards>
-  <Card title="Financial Statements" href="#financial-statements">
-    Income statement, balance sheet, cash flow. Quarterly and annual.
-
-    **Coverage**: 10+ years
-    **Frequencies**: Quarterly (10-Q), Annual (10-K)
-  </Card>
-
-  <Card title="Dividends" href="#dividends">
-    Cash and stock distributions. Critical for total return calculations.
-
-    **Coverage**: 10+ years
-    **Frequencies**: Event-driven
-  </Card>
-
-  <Card title="Stock Splits" href="#stock-splits">
-    Forward and reverse splits. Required for price adjustment.
-
-    **Coverage**: Complete history
-    **Frequencies**: Event-driven
-  </Card>
-
-  <Card title="IPO Data" href="#ipo-data">
-    New listings, pricing, offering details. Calendar tracking.
-
-    **Coverage**: 10+ years
-    **Frequencies**: Event-driven
-  </Card>
-</Cards>
+| Dataset | Update Frequency | Coverage | Key Features |
+|---------|------------------|----------|--------------|
+| **Financial Statements** | Quarterly (10-Q), Annual (10-K) | 10+ years | Income statement, balance sheet, cash flow |
+| **Dividends** | Event-driven | 10+ years | Cash and stock distributions for total return calculations |
+| **Stock Splits** | Event-driven | Complete history | Forward and reverse splits for price adjustment |
+| **IPO Data** | Event-driven | 10+ years | New listings, pricing, offering details |
 
 ---
 
@@ -51,9 +31,9 @@ Fundamental company data - financial statements, dividends, splits, and IPO info
 | Dataset | Update Frequency | Coverage | Primary Use |
 |---------|------------------|----------|-------------|
 | **Financial Statements** | Quarterly | U.S. public companies | Fundamental analysis, screening |
-| **Dividends** | Event-driven | U.S. stocks | Income strategies, total returns |
-| **Stock Splits** | Event-driven | U.S. stocks | Price adjustment, corporate actions |
-| **IPO Data** | Event-driven | New listings | IPO strategies, calendar tracking |
+| **Dividends** | Event-driven | U.S. stocks | Income analysis, total return calculations |
+| **Stock Splits** | Event-driven | U.S. stocks | Price adjustment, corporate action analysis |
+| **IPO Data** | Event-driven | New listings | IPO research, calendar tracking |
 
 **Coverage**: All U.S. publicly traded companies
 
@@ -310,8 +290,8 @@ Dividends are essential for accurate backtesting. Stock returns without dividend
 
 ### Use Cases
 
-- **IPO Trading**: Track calendar, study first-day movements, analyze pricing vs. range, identify over/under-subscribed deals
-- **New Issue Research**: Compare offering sizes, track market cycles (hot vs. cold), analyze industry clusters
+- **IPO Research**: Track calendar, study first-day movements, analyze pricing vs. range, identify over/under-subscribed deals
+- **New Issue Analysis**: Compare offering sizes, track market cycles (hot vs. cold), analyze industry clusters
 - **Portfolio Screening**: Exclude recent IPOs (volatile, limited history), track lockup expirations
 - **Market Sentiment**: IPO volume signals market appetite, first-day pops signal enthusiasm, withdrawals signal weakness
 
