@@ -2,6 +2,7 @@ target_sources(epoch_data_sdk
     PRIVATE
         # Core dataloader
         api_cache_dataloader.cpp
+        factory.cpp
 
         # Cache infrastructure
         cache/cache_manifest.cpp

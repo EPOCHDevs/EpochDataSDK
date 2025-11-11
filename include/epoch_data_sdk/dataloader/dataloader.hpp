@@ -3,6 +3,7 @@
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/series.h>
 #include <epoch_data_sdk/model/asset/asset.hpp>
+#include <drogon/drogon.h>
 #include <memory>
 #include <optional>
 
