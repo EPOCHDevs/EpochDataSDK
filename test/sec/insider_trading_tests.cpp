@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/sec/insider_trading_client.hpp>
+#include "../src/sec/insider_trading_client.hpp"
 
 using namespace data_sdk::sec;
 using namespace epoch_core;

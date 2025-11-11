@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/polygon/economy_client.hpp"
+#include "polygon/economy_client.hpp"
 
 #include <glaze/glaze.hpp>
 
@@ -6,8 +6,8 @@
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
 
-#include "epoch_data_sdk/polygon/base_client.hpp"
-#include "epoch_data_sdk/polygon/models.hpp"
+#include "polygon/base_client.hpp"
+#include "polygon/models.hpp"
 
 namespace data_sdk::polygon {
 

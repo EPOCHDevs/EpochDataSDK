@@ -13,8 +13,8 @@ struct AssetDataS3Config {
   static constexpr const char* INDEX_CONSTITUENTS_KEY = "index_constituents.json";
 };
 
-// Default timestamp column name for parquet files
-constexpr std::string_view DEFAULT_TIMESTAMP_COLUMN = "timestamp";
+// Default timestamp column name for parquet files (matches EpochScript convention)
+constexpr std::string_view DEFAULT_TIMESTAMP_COLUMN = "t";
 
 // Bar attribute column names (matching Polygon API column names)
 constexpr std::string_view CLOSE_COLUMN = "c";

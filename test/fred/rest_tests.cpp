@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include <epoch_data_sdk/common/async_batch.hpp>
-#include <epoch_data_sdk/fred/series_client.hpp>
+#include "../src/fred/series_client.hpp"
 
 using namespace data_sdk::fred;
 using namespace data_sdk::common;

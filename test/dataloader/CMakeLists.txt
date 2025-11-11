@@ -1,0 +1,13 @@
+target_sources(epoch_data_sdk_test
+    PRIVATE
+        archive_fetcher_test.cpp
+        archive_fetcher_s3_integration_test.cpp
+        cache_provider_test.cpp
+        cache_utils_test.cpp
+        cache_orchestrator_test.cpp
+        cache_manifest_test.cpp
+        merge_strategy_test.cpp
+        polygon_fetcher_test.cpp
+        fetcher_provider_test.cpp
+        dataloader_option_test.cpp
+)

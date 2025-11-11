@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/trading_economics/common.hpp"
+#include "trading_economics/common.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -6,7 +6,7 @@
 #include <regex>
 #include <sstream>
 
-#include "epoch_data_sdk/trading_economics/enums.hpp"
+#include "trading_economics/enums.hpp"
 
 namespace data_sdk::trading_economics {
 

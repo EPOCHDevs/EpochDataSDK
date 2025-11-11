@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/polygon/dividends_client.hpp"
+#include "polygon/dividends_client.hpp"
 
 #include <glaze/glaze.hpp>
 
@@ -6,7 +6,7 @@
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
 
-#include "epoch_data_sdk/polygon/base_client.hpp"
+#include "polygon/base_client.hpp"
 
 namespace data_sdk::polygon {
 

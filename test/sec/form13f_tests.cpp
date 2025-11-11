@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/sec/form13f_client.hpp>
+#include "../src/sec/form13f_client.hpp"
 
 using namespace data_sdk::sec;
 
@@ -244,7 +244,7 @@ TEST_CASE("Form13FClient - getHoldingsByInstitution", "[sec][13f]") {
   }
 }
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/sec/form13f_client.hpp>
+#include "../src/sec/form13f_client.hpp"
 
 using namespace data_sdk::sec;
 

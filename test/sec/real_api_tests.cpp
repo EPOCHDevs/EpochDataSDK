@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/sec/client_factory.hpp>
-#include <epoch_data_sdk/sec/insider_trading_client.hpp>
-#include <epoch_data_sdk/sec/form13f_client.hpp>
+#include "../src/sec/client_factory.hpp"
+#include "../src/sec/insider_trading_client.hpp"
+#include "../src/sec/form13f_client.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <sstream>

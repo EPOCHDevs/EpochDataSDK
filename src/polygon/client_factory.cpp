@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/polygon/client_factory.hpp"
+#include "polygon/client_factory.hpp"
 
 namespace data_sdk::polygon {
 

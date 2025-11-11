@@ -1,15 +1,15 @@
 #pragma once
 #include <epoch_data_sdk/common/env_loader.hpp>
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
-#include <epoch_data_sdk/polygon/options.hpp>
-#include <epoch_data_sdk/polygon/client_factory.hpp>
-#include <epoch_data_sdk/polygon/aggs_client.hpp>
-#include <epoch_data_sdk/polygon/news_client.hpp>
-#include <epoch_data_sdk/polygon/dividends_client.hpp>
-#include <epoch_data_sdk/polygon/splits_client.hpp>
-#include <epoch_data_sdk/polygon/financials_client.hpp>
-#include <epoch_data_sdk/polygon/short_interest_client.hpp>
-#include <epoch_data_sdk/polygon/short_volume_client.hpp>
+#include "polygon/options.hpp"
+#include "polygon/client_factory.hpp"
+#include "polygon/aggs_client.hpp"
+#include "polygon/news_client.hpp"
+#include "polygon/dividends_client.hpp"
+#include "polygon/splits_client.hpp"
+#include "polygon/financials_client.hpp"
+#include "polygon/short_interest_client.hpp"
+#include "polygon/short_volume_client.hpp"
 #include <epoch_frame/common.h>
 #include <spdlog/spdlog.h>
 

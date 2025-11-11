@@ -11,8 +11,8 @@
 #include <expected>
 #include <trantor/net/EventLoopThread.h>
 
-#include "epoch_data_sdk/trading_economics/error.hpp"
-#include "epoch_data_sdk/trading_economics/options.hpp"
+#include "trading_economics/error.hpp"
+#include "trading_economics/options.hpp"
 
 namespace data_sdk::trading_economics {
 

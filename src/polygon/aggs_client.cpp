@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/polygon/aggs_client.hpp"
+#include "polygon/aggs_client.hpp"
 
 #include <chrono>
 #include <sstream>
@@ -10,7 +10,7 @@
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
 
-#include "epoch_data_sdk/polygon/models.hpp"
+#include "polygon/models.hpp"
 
 namespace data_sdk::polygon {
 

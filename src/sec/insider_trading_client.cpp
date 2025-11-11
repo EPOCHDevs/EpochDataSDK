@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/sec/insider_trading_client.hpp"
+#include "sec/insider_trading_client.hpp"
 
 #include <chrono>
 #include <numeric>

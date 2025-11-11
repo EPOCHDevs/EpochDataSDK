@@ -88,23 +88,32 @@ struct BalanceSheetData {
   std::optional<double> accumulated_other_comprehensive_income;
   std::optional<double> cash_and_equivalents;
   std::optional<std::string> cik;
-  std::optional<std::string> common_stock;
+  std::optional<double> common_stock;
   std::optional<double> debt_current;
   std::optional<double> deferred_revenue_current;
+  std::optional<std::string> filing_date;
   std::optional<std::int64_t> fiscal_quarter;
   std::optional<std::int64_t> fiscal_year;
   std::optional<double> inventories;
   std::optional<double> long_term_debt_and_capital_lease_obligations;
-  std::optional<std::string> other_assets;
+  std::optional<double> other_assets;
   std::optional<double> other_current_assets;
-  std::optional<std::string> other_equity;
+  std::optional<double> other_equity;
   std::optional<double> other_noncurrent_liabilities;
   std::optional<std::string> period_end;
   std::optional<double> property_plant_equipment_net;
   std::optional<double> receivables;
   std::optional<double> retained_earnings_deficit;
+  std::optional<double> short_term_investments;
   std::vector<std::string> tickers;
   std::optional<std::string> timeframe;
+  std::optional<double> total_assets;
+  std::optional<double> total_current_assets;
+  std::optional<double> total_current_liabilities;
+  std::optional<double> total_equity;
+  std::optional<double> total_equity_attributable_to_parent;
+  std::optional<double> total_liabilities;
+  std::optional<double> total_liabilities_and_equity;
 };
 
 struct BalanceSheetsResponse {
@@ -122,6 +131,7 @@ struct CashFlowData {
   std::optional<std::string> cik;
   std::optional<double> depreciation_depletion_and_amortization;
   std::optional<double> dividends;
+  std::optional<std::string> filing_date;
   std::optional<std::int64_t> fiscal_quarter;
   std::optional<std::int64_t> fiscal_year;
   std::optional<double> long_term_debt_issuances_repayments;
@@ -155,24 +165,35 @@ struct IncomeStatementData {
   std::optional<std::string> cik;
   std::optional<double> consolidated_net_income_loss;
   std::optional<double> cost_of_revenue;
+  std::optional<double> depreciation_depletion_amortization;
   std::optional<double> diluted_earnings_per_share;
   std::optional<double> diluted_shares_outstanding;
-  std::optional<std::string> dividends;
+  std::optional<double> discontinued_operations;
+  std::optional<double> ebitda;
+  std::optional<double> equity_in_affiliates;
+  std::optional<double> extraordinary_items;
+  std::optional<std::string> filing_date;
   std::optional<std::int64_t> fiscal_quarter;
   std::optional<std::int64_t> fiscal_year;
   std::optional<double> gross_profit;
   std::optional<double> income_before_income_taxes;
   std::optional<double> income_taxes;
-  std::optional<double> net_income_loss_attributable_to_common_shareholders;
+  std::optional<double> interest_expense;
+  std::optional<double> interest_income;
+  std::optional<double> net_income_loss_attributable_common_shareholders;
+  std::optional<double> noncontrolling_interest;
   std::optional<double> operating_income;
-  std::optional<double> other_income_expenses;
+  std::optional<double> other_income_expense;
   std::optional<double> other_operating_expenses;
   std::optional<std::string> period_end;
+  std::optional<double> preferred_stock_dividends_declared;
   std::optional<double> research_development;
   std::optional<double> revenue;
   std::optional<double> selling_general_administrative;
   std::vector<std::string> tickers;
   std::optional<std::string> timeframe;
+  std::optional<double> total_operating_expenses;
+  std::optional<double> total_other_income_expense;
 };
 
 struct IncomeStatementsResponse {
@@ -211,6 +232,7 @@ struct FinancialRatiosData {
 
 struct FinancialRatiosResponse {
   std::optional<int> count;
+  std::optional<std::string> next_url;
   std::string request_id;
   std::vector<FinancialRatiosData> results;
   std::string status;
@@ -257,6 +279,101 @@ struct ShortInterestResponse {
   std::optional<std::string> next_url;
   std::string request_id;
   std::vector<ShortInterestData> results;
+  std::string status;
+};
+
+// IPO Listings
+struct IPOListingData {
+  std::optional<std::string> announced_date;
+  std::optional<std::string> currency_code;
+  std::optional<double> final_issue_price;
+  std::optional<double> highest_offer_price;
+  std::optional<std::string> ipo_status;
+  std::optional<std::string> isin;
+  std::optional<std::string> issuer_name;
+  std::optional<std::string> last_updated;
+  std::optional<std::string> listing_date;
+  std::optional<int> lot_size;
+  std::optional<double> lowest_offer_price;
+  std::optional<int> max_shares_offered;
+  std::optional<int> min_shares_offered;
+  std::optional<std::string> primary_exchange;
+  std::optional<std::string> security_description;
+  std::optional<std::string> security_type;
+  std::optional<int> shares_outstanding;
+  std::optional<std::string> ticker;
+  std::optional<double> total_offer_size;
+  std::optional<std::string> us_code;
+};
+
+struct IPOListingResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<IPOListingData> results;
+  std::string status;
+};
+
+// Treasury Yields (Fed/Economy API)
+struct TreasuryYieldData {
+  std::optional<std::string> date;
+  std::optional<double> yield_1_month;
+  std::optional<double> yield_3_month;
+  std::optional<double> yield_6_month;
+  std::optional<double> yield_1_year;
+  std::optional<double> yield_2_year;
+  std::optional<double> yield_3_year;
+  std::optional<double> yield_5_year;
+  std::optional<double> yield_7_year;
+  std::optional<double> yield_10_year;
+  std::optional<double> yield_20_year;
+  std::optional<double> yield_30_year;
+};
+
+struct TreasuryYieldsResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<TreasuryYieldData> results;
+  std::string status;
+};
+
+// Inflation Data (Fed/Economy API)
+struct InflationData {
+  std::optional<std::string> date;
+  std::optional<double> cpi;
+  std::optional<double> cpi_core;
+  std::optional<double> cpi_year_over_year;
+  std::optional<double> pce;
+  std::optional<double> pce_core;
+  std::optional<double> pce_spending;
+};
+
+struct InflationResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<InflationData> results;
+  std::string status;
+};
+
+// Inflation Expectations (Fed/Economy API)
+struct InflationExpectationData {
+  std::optional<std::string> date;
+  std::optional<double> market_5_year;
+  std::optional<double> market_10_year;
+  std::optional<double> forward_years_5_to_10;
+  std::optional<double> model_1_year;
+  std::optional<double> model_5_year;
+  std::optional<double> model_10_year;
+  std::optional<double> model_30_year;
+};
+
+struct InflationExpectationsResponse {
+  std::optional<int> count;
+  std::optional<std::string> next_url;
+  std::string request_id;
+  std::vector<InflationExpectationData> results;
   std::string status;
 };
 

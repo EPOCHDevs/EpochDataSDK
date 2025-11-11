@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include <epoch_data_sdk/common/async_batch.hpp>
-#include <epoch_data_sdk/polygon/aggs_client.hpp>
+#include "../src/polygon/aggs_client.hpp"
 
 using namespace data_sdk::polygon;
 using namespace data_sdk::common;

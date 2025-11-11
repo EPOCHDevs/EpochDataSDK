@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/sec/query_client.hpp>
-#include <epoch_data_sdk/sec/enums.hpp>
+#include "../src/sec/query_client.hpp"
+#include "../src/sec/enums.hpp"
 
 using namespace data_sdk::sec;
 

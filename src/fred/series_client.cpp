@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/fred/series_client.hpp"
+#include "fred/series_client.hpp"
 
 #include <glaze/glaze.hpp>
 
@@ -6,8 +6,8 @@
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
 
-#include "epoch_data_sdk/fred/base_client.hpp"
-#include "epoch_data_sdk/fred/models.hpp"
+#include "fred/base_client.hpp"
+#include "fred/models.hpp"
 
 namespace data_sdk::fred {
 

@@ -1,5 +1,5 @@
-#include "epoch_data_sdk/polygon/options.hpp"
-#include "epoch_data_sdk/polygon/websocket_client.hpp"
+#include "../src/polygon/options.hpp"
+#include "../src/polygon/websocket_client.hpp"
 #include <catch2/catch_all.hpp>
 
 using namespace data_sdk::polygon;

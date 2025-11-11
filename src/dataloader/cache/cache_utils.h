@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <optional>
 
-namespace data_sdk::dataloader::cache::cache {
+namespace data_sdk::dataloader::cache {
 
 struct TimeRange {
   std::int64_t start_ts{0};
@@ -53,4 +53,4 @@ void Write(const std::optional<std::filesystem::path> &cacheDir,
            const std::filesystem::path &cachePath, bool enableCache,
            const epoch_frame::DataFrame &df);
 
-} // namespace data_sdk::dataloader::cache::cache
+} // namespace data_sdk::dataloader::cache

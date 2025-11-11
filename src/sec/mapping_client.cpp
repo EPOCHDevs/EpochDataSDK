@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/sec/mapping_client.hpp"
+#include "sec/mapping_client.hpp"
 
 #include <spdlog/spdlog.h>
 #include <glaze/glaze.hpp>

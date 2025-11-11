@@ -1,5 +1,5 @@
-#include "epoch_data_sdk/sec/query_client.hpp"
-#include "epoch_data_sdk/sec/enums.hpp"
+#include "sec/query_client.hpp"
+#include "sec/enums.hpp"
 
 #include <spdlog/spdlog.h>
 #include <glaze/glaze.hpp>

@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/trading_economics/calendar_client.hpp"
+#include "trading_economics/calendar_client.hpp"
 
 #include "base_client.hpp"
 

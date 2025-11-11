@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/trading_economics/historical_indicators_client.hpp"
+#include "trading_economics/historical_indicators_client.hpp"
 
 #include "base_client.hpp"
 

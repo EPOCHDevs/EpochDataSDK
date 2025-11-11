@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/sec/render_client.hpp"
+#include "sec/render_client.hpp"
 
 #include <regex>
 #include <spdlog/spdlog.h>

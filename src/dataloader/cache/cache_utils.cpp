@@ -6,7 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
-namespace data_sdk::dataloader::cache::cache {
+namespace data_sdk::dataloader::cache {
 
 static bool Expired(const std::filesystem::path &p, std::uint64_t ttlSeconds) {
   // ttlSeconds == 0 means "do not expire"
@@ -272,4 +272,4 @@ void Write(const std::optional<std::filesystem::path> &cacheDir,
   }
 }
 
-} // namespace data_sdk::dataloader::cache::cache
+} // namespace data_sdk::dataloader::cache

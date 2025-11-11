@@ -1,4 +1,4 @@
-#include "epoch_data_sdk/polygon/base_client.hpp"
+#include "polygon/base_client.hpp"
 
 #include <chrono>
 #include <sstream>
