@@ -1,0 +1,9 @@
+target_sources(epoch_data_sdk
+    PRIVATE
+        asset.cpp
+        asset_specification.cpp
+        asset_database.cpp
+        contract_spec.cpp
+        index_constituents.cpp
+        asset_builder.cpp
+)

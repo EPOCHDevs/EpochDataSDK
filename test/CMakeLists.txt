@@ -7,6 +7,7 @@ target_link_libraries(epoch_data_sdk_test
         Catch2::Catch2
 )
 
+add_subdirectory(model)
 add_subdirectory(polygon)
 add_subdirectory(fred)
 add_subdirectory(sec)

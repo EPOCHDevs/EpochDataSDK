@@ -11,6 +11,7 @@
     "duckdb",
     "catch2",
     "icu",
+    "yaml-cpp",
     {
       "name": "arrow",
       "features": [

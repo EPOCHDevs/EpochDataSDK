@@ -32,8 +32,12 @@ endif ()
 
 
 find_package(Drogon CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+
+set(DEPENDENCY_DIR "/usr/local" CACHE STRING "Dependency directory")
 
 include(${PROJECT_SOURCE_DIR}/cmake/EpochFrame.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/MPDecimal.cmake)
 
 add_library(epoch_data_sdk STATIC)
 add_library(epoch::data_sdk ALIAS epoch_data_sdk)
@@ -49,6 +53,9 @@ target_link_libraries(epoch_data_sdk
     PUBLIC
         epoch::frame
         Drogon::Drogon
+        libmpdec++
+        libmpdec
+        yaml-cpp::yaml-cpp
 )
 
 add_subdirectory(src)
