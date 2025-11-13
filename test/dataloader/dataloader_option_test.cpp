@@ -3,9 +3,22 @@
 #include <epoch_data_sdk/common/enums.hpp>
 #include <epoch_frame/datetime.h>
 
-using namespace data_sdk::dataloader;
-using namespace data_sdk;
+// Don't import data_sdk namespace to avoid DataloaderOption conflict
+using data_sdk::DataCategory;
+using data_sdk::BenchmarkKind;
+using data_sdk::AuxiliaryCategoryConfig;
+using data_sdk::FinancialsConfig;
+using data_sdk::MacroEconomicsConfig;
+using data_sdk::AlternativeDataConfig;
+using data_sdk::TickDataConfig;
+using data_sdk::IsTimeSeriesCategory;
+using data_sdk::IsIntraday;
+using data_sdk::IsDaily;
+using data_sdk::IsAuxiliaryCategory;
 using namespace epoch_frame;
+
+// Use the internal dataloader namespace version
+using data_sdk::dataloader::DataloaderOption;
 
 class DataloaderOptionTestFixture {
 public:
@@ -332,5 +345,429 @@ TEST_CASE("DataCategory helper functions", "[dataloader_option]") {
       REQUIRE(IsAuxiliaryCategory(cat));
       REQUIRE_FALSE(IsTimeSeriesCategory(cat));
     }
+  }
+
+  SECTION("New auxiliary categories") {
+    REQUIRE(IsAuxiliaryCategory(DataCategory::MacroEconomics));
+    REQUIRE(IsAuxiliaryCategory(DataCategory::AlternativeData));
+    REQUIRE(IsAuxiliaryCategory(DataCategory::TickData));
+    REQUIRE_FALSE(IsTimeSeriesCategory(DataCategory::MacroEconomics));
+    REQUIRE_FALSE(IsTimeSeriesCategory(DataCategory::AlternativeData));
+    REQUIRE_FALSE(IsTimeSeriesCategory(DataCategory::TickData));
+  }
+}
+
+TEST_CASE("AuxiliaryCategoryConfig - Typed configurations", "[auxiliary_config]") {
+  using namespace data_sdk;
+
+  SECTION("FinancialsConfig - Balance Sheet") {
+    FinancialsConfig config{FinancialsConfig::StatementType::BalanceSheet};
+    AuxiliaryCategoryConfig aux(DataCategory::Financials, config);
+
+    REQUIRE(aux.category == DataCategory::Financials);
+    REQUIRE(aux.HasTypedConfig());
+
+    // Verify parameter conversion for fetcher compatibility
+    auto params = aux.ToParameters();
+    REQUIRE(params["statement_type"] == "balance_sheet");
+
+    // Verify the typed config is accessible
+    auto& financials_config = std::get<FinancialsConfig>(aux.config);
+    REQUIRE(financials_config.type == FinancialsConfig::StatementType::BalanceSheet);
+  }
+
+  SECTION("FinancialsConfig - Income Statement") {
+    FinancialsConfig config{FinancialsConfig::StatementType::IncomeStatement};
+    AuxiliaryCategoryConfig aux(DataCategory::Financials, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["statement_type"] == "income_statement");
+
+    auto& financials_config = std::get<FinancialsConfig>(aux.config);
+    REQUIRE(financials_config.type == FinancialsConfig::StatementType::IncomeStatement);
+  }
+
+  SECTION("FinancialsConfig - Cash Flow") {
+    FinancialsConfig config{FinancialsConfig::StatementType::CashFlow};
+    AuxiliaryCategoryConfig aux(DataCategory::Financials, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["statement_type"] == "cash_flow");
+
+    auto& financials_config = std::get<FinancialsConfig>(aux.config);
+    REQUIRE(financials_config.type == FinancialsConfig::StatementType::CashFlow);
+  }
+
+  SECTION("FinancialsConfig - Financial Ratios") {
+    FinancialsConfig config{FinancialsConfig::StatementType::FinancialRatios};
+    AuxiliaryCategoryConfig aux(DataCategory::Financials, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["statement_type"] == "financial_ratios");
+
+    auto& financials_config = std::get<FinancialsConfig>(aux.config);
+    REQUIRE(financials_config.type == FinancialsConfig::StatementType::FinancialRatios);
+  }
+
+  SECTION("MacroEconomicsConfig - CPI") {
+    MacroEconomicsConfig config{MacroEconomicsConfig::Indicator::CPI};
+    AuxiliaryCategoryConfig aux(DataCategory::MacroEconomics, config);
+
+    REQUIRE(aux.category == DataCategory::MacroEconomics);
+    REQUIRE(aux.HasTypedConfig());
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["indicator"] == "CPI");
+  }
+
+  SECTION("MacroEconomicsConfig - GDP") {
+    MacroEconomicsConfig config{MacroEconomicsConfig::Indicator::GDP};
+    AuxiliaryCategoryConfig aux(DataCategory::MacroEconomics, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["indicator"] == "GDP");
+  }
+
+  SECTION("MacroEconomicsConfig - Treasury 10Y") {
+    MacroEconomicsConfig config{MacroEconomicsConfig::Indicator::Treasury10Y};
+    AuxiliaryCategoryConfig aux(DataCategory::MacroEconomics, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["indicator"] == "Treasury10Y");
+  }
+
+  SECTION("AlternativeDataConfig - Form 13F") {
+    AlternativeDataConfig config{AlternativeDataConfig::Source::SEC_Form13F};
+    AuxiliaryCategoryConfig aux(DataCategory::AlternativeData, config);
+
+    REQUIRE(aux.category == DataCategory::AlternativeData);
+    REQUIRE(aux.HasTypedConfig());
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["source"] == "form13f");
+  }
+
+  SECTION("AlternativeDataConfig - Insider Trading") {
+    AlternativeDataConfig config{AlternativeDataConfig::Source::SEC_InsiderTrading};
+    AuxiliaryCategoryConfig aux(DataCategory::AlternativeData, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["source"] == "insider_trading");
+  }
+
+  SECTION("TickDataConfig - Quotes") {
+    TickDataConfig config{TickDataConfig::TickType::Quotes};
+    AuxiliaryCategoryConfig aux(DataCategory::TickData, config);
+
+    REQUIRE(aux.category == DataCategory::TickData);
+    REQUIRE(aux.HasTypedConfig());
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["tick_type"] == "quotes");
+  }
+
+  SECTION("TickDataConfig - Trades") {
+    TickDataConfig config{TickDataConfig::TickType::Trades};
+    AuxiliaryCategoryConfig aux(DataCategory::TickData, config);
+
+    auto params = aux.ToParameters();
+    REQUIRE(params["tick_type"] == "trades");
+  }
+
+  SECTION("Categories without typed config") {
+    AuxiliaryCategoryConfig news(DataCategory::News);
+    REQUIRE_FALSE(news.HasTypedConfig());
+    REQUIRE(news.ToParameters().empty());
+
+    AuxiliaryCategoryConfig dividends(DataCategory::Dividends);
+    REQUIRE_FALSE(dividends.HasTypedConfig());
+    REQUIRE(dividends.ToParameters().empty());
+  }
+
+  SECTION("Validation - correct category/config match") {
+    // These should not throw
+    REQUIRE_NOTHROW(AuxiliaryCategoryConfig(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet}));
+
+    REQUIRE_NOTHROW(AuxiliaryCategoryConfig(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI}));
+
+    REQUIRE_NOTHROW(AuxiliaryCategoryConfig(
+        DataCategory::AlternativeData,
+        AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F}));
+  }
+
+  SECTION("Validation - incorrect category/config match throws") {
+    // Wrong config type for category
+    REQUIRE_THROWS_AS(
+        AuxiliaryCategoryConfig(
+            DataCategory::Financials,
+            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI}),
+        std::invalid_argument);
+
+    REQUIRE_THROWS_AS(
+        AuxiliaryCategoryConfig(
+            DataCategory::MacroEconomics,
+            FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet}),
+        std::invalid_argument);
+
+    REQUIRE_THROWS_AS(
+        AuxiliaryCategoryConfig(
+            DataCategory::News,
+            FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet}),
+        std::invalid_argument);
+  }
+}
+
+// Integration tests for new auxiliary categories
+TEST_CASE("Integration - New auxiliary categories with fetcher",
+          "[auxiliary_config][integration]") {
+  SECTION("FinancialsConfig parameter conversion") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::IncomeStatement});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("statement_type") == 1);
+    REQUIRE(params.at("statement_type") == "income_statement");
+  }
+
+  SECTION("MacroEconomicsConfig parameter conversion") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::GDP});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("indicator") == 1);
+    REQUIRE(params.at("indicator") == "GDP");
+  }
+
+  SECTION("AlternativeDataConfig parameter conversion for Form13F") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::AlternativeData,
+        AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("source") == 1);
+    REQUIRE(params.at("source") == "sec_form13f");
+  }
+
+  SECTION("AlternativeDataConfig parameter conversion for InsiderTrading") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::AlternativeData,
+        AlternativeDataConfig{AlternativeDataConfig::Source::SEC_InsiderTrading});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("source") == 1);
+    REQUIRE(params.at("source") == "sec_insider_trading");
+  }
+
+  SECTION("TickDataConfig parameter conversion for Quotes") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::TickData,
+        TickDataConfig{TickDataConfig::TickType::Quotes});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("tick_type") == 1);
+    REQUIRE(params.at("tick_type") == "quotes");
+  }
+
+  SECTION("TickDataConfig parameter conversion for Trades") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::TickData,
+        TickDataConfig{TickDataConfig::TickType::Trades});
+
+    auto params = config.ToParameters();
+
+    REQUIRE(params.count("tick_type") == 1);
+    REQUIRE(params.at("tick_type") == "trades");
+  }
+}
+
+TEST_CASE("Integration - Multi-category with new categories",
+          "[auxiliary_config][integration]") {
+  SECTION("Can combine primary DailyBars with Financials auxiliary") {
+    DataloaderOption opt;
+    opt.SetPrimaryCategory(DataCategory::DailyBars);
+    std::vector<AuxiliaryCategoryConfig> aux_configs = {
+        AuxiliaryCategoryConfig(
+            DataCategory::Financials,
+            FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet})
+    };
+    opt.SetAuxiliaryCategories(aux_configs);
+
+    REQUIRE(opt.IsMultiCategory());
+    REQUIRE(opt.GetAllCategories().size() == 2);
+
+    auto categories = opt.GetAllCategories();
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::DailyBars)
+            != categories.end());
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::Financials)
+            != categories.end());
+  }
+
+  SECTION("Can combine primary DailyBars with MacroEconomics auxiliary") {
+    DataloaderOption opt;
+    opt.SetPrimaryCategory(DataCategory::DailyBars);
+    std::vector<AuxiliaryCategoryConfig> aux_configs = {
+        AuxiliaryCategoryConfig(
+            DataCategory::MacroEconomics,
+            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI})
+    };
+    opt.SetAuxiliaryCategories(aux_configs);
+
+    REQUIRE(opt.IsMultiCategory());
+    REQUIRE(opt.GetAllCategories().size() == 2);
+  }
+
+  SECTION("Can combine primary DailyBars with AlternativeData auxiliary") {
+    DataloaderOption opt;
+    opt.SetPrimaryCategory(DataCategory::DailyBars);
+    std::vector<AuxiliaryCategoryConfig> aux_configs = {
+        AuxiliaryCategoryConfig(
+            DataCategory::AlternativeData,
+            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F})
+    };
+    opt.SetAuxiliaryCategories(aux_configs);
+
+    REQUIRE(opt.IsMultiCategory());
+    REQUIRE(opt.GetAllCategories().size() == 2);
+  }
+
+  SECTION("Can combine primary DailyBars with TickData auxiliary") {
+    DataloaderOption opt;
+    opt.SetPrimaryCategory(DataCategory::DailyBars);
+    std::vector<AuxiliaryCategoryConfig> aux_configs = {
+        AuxiliaryCategoryConfig(
+            DataCategory::TickData,
+            TickDataConfig{TickDataConfig::TickType::Quotes})
+    };
+    opt.SetAuxiliaryCategories(aux_configs);
+
+    REQUIRE(opt.IsMultiCategory());
+    REQUIRE(opt.GetAllCategories().size() == 2);
+  }
+
+  SECTION("Can combine multiple new auxiliary categories") {
+    DataloaderOption opt;
+    opt.SetPrimaryCategory(DataCategory::DailyBars);
+    std::vector<AuxiliaryCategoryConfig> aux_configs = {
+        AuxiliaryCategoryConfig(
+            DataCategory::Financials,
+            FinancialsConfig{FinancialsConfig::StatementType::IncomeStatement}),
+        AuxiliaryCategoryConfig(
+            DataCategory::MacroEconomics,
+            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::GDP}),
+        AuxiliaryCategoryConfig(
+            DataCategory::AlternativeData,
+            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F})
+    };
+    opt.SetAuxiliaryCategories(aux_configs);
+
+    REQUIRE(opt.IsMultiCategory());
+    REQUIRE(opt.GetAllCategories().size() == 4);
+
+    auto categories = opt.GetAllCategories();
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::DailyBars)
+            != categories.end());
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::Financials)
+            != categories.end());
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::MacroEconomics)
+            != categories.end());
+    REQUIRE(std::find(categories.begin(), categories.end(), DataCategory::AlternativeData)
+            != categories.end());
+  }
+}
+
+TEST_CASE("Integration - All FinancialsConfig statement types",
+          "[auxiliary_config][integration]") {
+  SECTION("Balance Sheet") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("statement_type") == "balance_sheet");
+  }
+
+  SECTION("Income Statement") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::IncomeStatement});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("statement_type") == "income_statement");
+  }
+
+  SECTION("Cash Flow") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::CashFlow});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("statement_type") == "cash_flow");
+  }
+
+  SECTION("Financial Ratios") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::Financials,
+        FinancialsConfig{FinancialsConfig::StatementType::FinancialRatios});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("statement_type") == "financial_ratios");
+  }
+}
+
+TEST_CASE("Integration - All MacroEconomicsConfig indicators",
+          "[auxiliary_config][integration]") {
+  SECTION("GDP") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::GDP});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "GDP");
+  }
+
+  SECTION("CPI") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "CPI");
+  }
+
+  SECTION("Core CPI") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CoreCPI});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "CoreCPI");
+  }
+
+  SECTION("Fed Funds Rate") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::FedFunds});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "FedFunds");
+  }
+
+  SECTION("Treasury 10Y") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::Treasury10Y});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "Treasury10Y");
+  }
+
+  SECTION("Unemployment Rate") {
+    AuxiliaryCategoryConfig config(
+        DataCategory::MacroEconomics,
+        MacroEconomicsConfig{MacroEconomicsConfig::Indicator::Unemployment});
+    auto params = config.ToParameters();
+    REQUIRE(params.at("indicator") == "Unemployment");
   }
 }

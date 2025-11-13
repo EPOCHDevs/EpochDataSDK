@@ -230,8 +230,8 @@ epoch_frame::DataFrame ApiCacheDataloader::MergeAuxiliaryData(
     bool is_intraday) const {
 
   for (const auto& aux_config : m_option.auxiliaryCategories) {
-    // Load auxiliary data with parameters
-    auto aux_res = LoadAssetBars(asset, aux_config.category, aux_config.parameters);
+    // Load auxiliary data with typed config converted to parameters
+    auto aux_res = LoadAssetBars(asset, aux_config.category, aux_config.ToParameters());
     if (!aux_res) {
       SPDLOG_WARN("Failed to load auxiliary data {} for {}: {}",
                  DataCategoryWrapper::ToString(aux_config.category),

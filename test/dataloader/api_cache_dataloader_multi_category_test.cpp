@@ -1,0 +1,624 @@
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/trompeloeil.hpp>
+#include "dataloader/api_cache_dataloader.h"
+#include <epoch_data_sdk/dataloader/cache/provider.hpp>
+#include <epoch_data_sdk/dataloader/fetcher.hpp>
+#include <epoch_data_sdk/model/asset/asset_constants.hpp>
+#include <epoch_frame/dataframe.h>
+#include <epoch_frame/factory/dataframe_factory.h>
+#include <epoch_frame/factory/index_factory.h>
+#include <epoch_frame/series.h>
+#include <memory>
+
+using namespace data_sdk;
+using namespace data_sdk::dataloader;
+using namespace epoch_frame;
+using namespace trompeloeil;
+
+// Mock classes
+class MockCacheProvider : public ICacheProvider {
+public:
+  MAKE_MOCK5(
+      TryLoad,
+      std::optional<DataFrame>(const std::optional<std::filesystem::path> &,
+                               const asset::Asset &, DataCategory,
+                               std::uint64_t, std::filesystem::path &),
+      const);
+
+  MAKE_MOCK4(Write,
+             void(const std::optional<std::filesystem::path> &,
+                  const std::filesystem::path &, bool, const DataFrame &),
+             const);
+
+  MAKE_MOCK7(AppendWrite,
+             DataFrame(const std::optional<std::filesystem::path> &,
+                       const asset::Asset &, DataCategory, std::uint64_t, bool,
+                       const DataFrame &, std::filesystem::path *),
+             const);
+
+  std::expected<DataFrame, std::string>
+  LoadWithCache(const std::optional<std::filesystem::path> &cacheDir,
+                const asset::Asset &asset, DataCategory category,
+                std::uint64_t ttl, bool enableCache, const Date &fromDate,
+                const Date &toDate,
+                const std::function<std::expected<DataFrame, std::string>(
+                    const Date &, const Date &)> &fetchFn) const override {
+    if (!enableCache || !cacheDir) {
+      auto fetched = fetchFn(fromDate, toDate);
+      if (!fetched)
+        return std::unexpected(fetched.error());
+      return *fetched;
+    }
+    std::filesystem::path cachePath;
+    (void)TryLoad(cacheDir, asset, category, ttl, cachePath);
+    auto fetched = fetchFn(fromDate, toDate);
+    if (!fetched)
+      return std::unexpected(fetched.error());
+    std::filesystem::path outPath;
+    (void)AppendWrite(cacheDir, asset, category, ttl, enableCache, *fetched,
+                      &outPath);
+    return *fetched;
+  }
+
+  drogon::Task<std::expected<DataFrame, std::string>>
+  LoadWithCacheAsync(const std::optional<std::filesystem::path> &cacheDir,
+                     const asset::Asset &asset, DataCategory category,
+                     std::uint64_t ttl, bool enableCache, const Date &fromDate,
+                     const Date &toDate,
+                     const std::function<drogon::Task<std::expected<DataFrame, std::string>>(
+                         const Date &, const Date &)> &fetchAsyncFn) const override {
+    if (!enableCache || !cacheDir) {
+      auto fetched = co_await fetchAsyncFn(fromDate, toDate);
+      if (!fetched)
+        co_return std::unexpected(fetched.error());
+      co_return *fetched;
+    }
+    std::filesystem::path cachePath;
+    (void)TryLoad(cacheDir, asset, category, ttl, cachePath);
+    auto fetched = co_await fetchAsyncFn(fromDate, toDate);
+    if (!fetched)
+      co_return std::unexpected(fetched.error());
+    std::filesystem::path outPath;
+    (void)AppendWrite(cacheDir, asset, category, ttl, enableCache, *fetched,
+                      &outPath);
+    co_return *fetched;
+  }
+};
+
+class MockDataFetcher : public IDataFetcher {
+public:
+  MAKE_MOCK5(Fetch,
+             FetchResult(const asset::Asset &, DataCategory, const Date &,
+                         const Date &, const Parameters&),
+             const);
+
+  // Async version - wraps sync Fetch in coroutine
+  drogon::Task<FetchResult> FetchAsync(const asset::Asset &asset, DataCategory category,
+                                       const Date &fromDate, const Date &toDate,
+                                       Parameters parameters = {}) const override {
+    co_return Fetch(asset, category, fromDate, toDate, parameters);
+  }
+};
+
+class MockFetcherProvider : public IFetcherProvider {
+public:
+  MockFetcherProvider() = default;
+
+  MAKE_MOCK2(Get, IDataFetcher &(const asset::Asset &, DataCategory), const);
+};
+
+class MultiCategoryTestFixture {
+public:
+  MultiCategoryTestFixture() {
+    mockCache = std::make_shared<MockCacheProvider>();
+    mockFetcherProvider = std::make_shared<MockFetcherProvider>();
+    mockFetcher = std::make_unique<MockDataFetcher>();
+
+    // Setup default options
+    option.startDate = DateTime::from_date_str("2024-01-01").date();
+    option.endDate = DateTime::from_date_str("2024-01-31").date();
+    option.cacheDir = "/tmp/test_cache";
+    option.enableCache = true;
+    option.cacheTTLSeconds = 3600;
+  }
+
+  DataFrame createBarsDataFrame(int numRows = 10) {
+    std::vector<DateTime> dates;
+    std::vector<double> opens, highs, lows, closes, volumes;
+
+    auto start = DateTime::from_date_str("2024-01-01");
+    for (int i = 0; i < numRows; ++i) {
+      dates.push_back(start + chrono_days(i));
+      opens.push_back(100.0 + i);
+      highs.push_back(105.0 + i);
+      lows.push_back(95.0 + i);
+      closes.push_back(102.0 + i);
+      volumes.push_back(1000000.0 + i * 10000);
+    }
+
+    return epoch_frame::make_dataframe<double>(
+        epoch_frame::factory::index::make_datetime_index(dates),
+        {opens, highs, lows, closes, volumes}, {"O", "h", "l", "c", "v"});
+  }
+
+  DataFrame createNewsDataFrame(int numRows = 3) {
+    std::vector<DateTime> dates;
+    std::vector<std::string> headlines;
+
+    auto start = DateTime::from_date_str("2024-01-01");
+    for (int i = 0; i < numRows; ++i) {
+      dates.push_back(start + chrono_days(i * 3));
+      headlines.push_back("News " + std::to_string(i));
+    }
+
+    return epoch_frame::make_dataframe<std::string>(
+        epoch_frame::factory::index::make_datetime_index(dates),
+        {headlines}, {"headline"});
+  }
+
+  DataloaderOption option;
+  std::shared_ptr<MockCacheProvider> mockCache;
+  std::shared_ptr<MockFetcherProvider> mockFetcherProvider;
+  std::unique_ptr<MockDataFetcher> mockFetcher;
+};
+
+TEST_CASE("ApiCacheDataloader - LoadAssetBars with specific category",
+          "[api_cache_dataloader_multi]") {
+  MultiCategoryTestFixture fixture;
+  const auto &assets = data_sdk::asset::AssetConstants::instance();
+  auto asset = assets.AAPL;
+
+  SECTION("can load MinuteBars explicitly") {
+    fixture.option.primaryCategory = DataCategory::MinuteBars;
+    auto testDf = fixture.createBarsDataFrame();
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::MinuteBars, _, _, _))
+        .RETURN(testDf);
+
+    std::filesystem::path dummyPath = "/tmp/test.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(testDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::MinuteBars);
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 10);
+  }
+
+  SECTION("can load News category explicitly") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{AuxiliaryCategoryConfig(DataCategory::News)};
+    auto newsDf = fixture.createNewsDataFrame();
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+    REQUIRE_CALL(*fixture.mockFetcher, Fetch(asset, DataCategory::News, _, _, _))
+        .RETURN(newsDf);
+
+    std::filesystem::path dummyPath = "/tmp/news.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(newsDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::News);
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 3);
+  }
+}
+
+TEST_CASE("ApiCacheDataloader - Single category mode",
+          "[api_cache_dataloader_multi]") {
+  MultiCategoryTestFixture fixture;
+  const auto &assets = data_sdk::asset::AssetConstants::instance();
+  auto asset = assets.AAPL;
+
+  // NOTE: LoadSingleCategory is a private method and cannot be tested directly.
+  // It is indirectly tested through LoadAssetBars() in single-category mode.
+  // SECTION("LoadSingleCategory loads only primary") {
+  //   fixture.option.SetPrimaryCategory(DataCategory::DailyBars);
+  //   auto testDf = fixture.createBarsDataFrame();
+  //   ... test code ...
+  // }
+}
+
+// NOTE: LoadMultiCategory is a private method and cannot be tested directly.
+// It is indirectly tested through LoadAssetBars() when using multi-category mode.
+// The tests below are commented out as they attempt to test private implementation details.
+//
+// TEST_CASE("ApiCacheDataloader - Multi category mode",
+//           "[api_cache_dataloader_multi]") {
+//   ... all sections test private LoadMultiCategory method ...
+// }
+
+TEST_CASE("ApiCacheDataloader - Validation", "[api_cache_dataloader_multi]") {
+  MultiCategoryTestFixture fixture;
+
+  SECTION("throws on invalid option - News as primary") {
+    fixture.option.primaryCategory = DataCategory::News;
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    REQUIRE_THROWS_AS(loader.LoadData(), std::runtime_error);
+  }
+
+  SECTION("throws on invalid option - MinuteBars in auxiliaries") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{AuxiliaryCategoryConfig(DataCategory::MinuteBars)};
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    REQUIRE_THROWS_AS(loader.LoadData(), std::runtime_error);
+  }
+}
+
+TEST_CASE("ApiCacheDataloader - buildCacheParams",
+          "[api_cache_dataloader_multi]") {
+  MultiCategoryTestFixture fixture;
+  const auto &assets = data_sdk::asset::AssetConstants::instance();
+  auto asset = assets.AAPL;
+
+  SECTION("builds params for different categories") {
+    fixture.option.primaryCategory = DataCategory::MinuteBars;
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto params =
+        loader.buildCacheParams(asset, DataCategory::MinuteBars, false);
+
+    REQUIRE(params.asset == asset);
+    REQUIRE(params.category == DataCategory::MinuteBars);
+    REQUIRE(params.fromDate == fixture.option.GetStartDate());
+    REQUIRE(params.toDate == fixture.option.GetEndDate());
+    REQUIRE(params.ttlSeconds == 3600);
+    REQUIRE(params.enableCache == true);
+    REQUIRE(params.forceRefreshToday == false);
+  }
+
+  SECTION("respects forceRefreshToday flag") {
+    fixture.option.primaryCategory = DataCategory::MinuteBars;
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto params =
+        loader.buildCacheParams(asset, DataCategory::MinuteBars, true);
+
+    REQUIRE(params.forceRefreshToday == true);
+  }
+}
+
+TEST_CASE("DataloaderOption - Integration with ApiCacheDataloader",
+          "[api_cache_dataloader_multi]") {
+
+  SECTION("IsMultiCategory correctly routes to LoadMultiCategory") {
+    MultiCategoryTestFixture fixture;
+    const auto &assets = data_sdk::asset::AssetConstants::instance();
+
+    // Setup multi-category option
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{AuxiliaryCategoryConfig(DataCategory::News)};
+    fixture.option.dataloaderAssets = asset::AssetHashSet{assets.AAPL};
+
+    REQUIRE(fixture.option.IsMultiCategory());
+
+    auto barsDf = fixture.createBarsDataFrame();
+    auto newsDf = fixture.createNewsDataFrame();
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    // Should fetch both categories
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(_, DataCategory::DailyBars, _, _, _))
+        .RETURN(barsDf);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(_, DataCategory::News, _, _, _))
+        .RETURN(newsDf);
+
+    std::filesystem::path dummyPath = "/tmp/test.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(barsDf);
+
+    // Note: LoadData uses thread pool which makes testing complex
+    // We verify the option configuration is correct
+    REQUIRE(fixture.option.GetAllCategories().size() == 2);
+  }
+
+  SECTION("Single category routes to LoadSingleCategory") {
+    MultiCategoryTestFixture fixture;
+    const auto &assets = data_sdk::asset::AssetConstants::instance();
+
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.dataloaderAssets = asset::AssetHashSet{assets.AAPL};
+
+    REQUIRE_FALSE(fixture.option.IsMultiCategory());
+    REQUIRE(fixture.option.GetAllCategories().size() == 1);
+  }
+}
+
+// End-to-end integration tests for new auxiliary categories
+TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
+          "[api_cache_dataloader_multi][integration]") {
+  MultiCategoryTestFixture fixture;
+  const auto &assets = data_sdk::asset::AssetConstants::instance();
+  auto asset = assets.AAPL;
+
+  SECTION("can load Financials category with BalanceSheet config") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::Financials,
+            FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet})
+    };
+
+    auto financialsDf = fixture.createBarsDataFrame(5);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    // Verify the parameters include statement_type
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::Financials, _, _, _))
+        .WITH(_5.count("statement_type") == 1 && _5.at("statement_type") == "balance_sheet")
+        .RETURN(financialsDf);
+
+    std::filesystem::path dummyPath = "/tmp/financials.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(financialsDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::Financials,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 5);
+  }
+
+  SECTION("can load Financials category with IncomeStatement config") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::Financials,
+            FinancialsConfig{FinancialsConfig::StatementType::IncomeStatement})
+    };
+
+    auto financialsDf = fixture.createBarsDataFrame(8);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::Financials, _, _, _))
+        .WITH(_5.count("statement_type") == 1 && _5.at("statement_type") == "income_statement")
+        .RETURN(financialsDf);
+
+    std::filesystem::path dummyPath = "/tmp/financials.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(financialsDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::Financials,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 8);
+  }
+
+  SECTION("can load MacroEconomics category with GDP indicator") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::MacroEconomics,
+            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::GDP})
+    };
+
+    auto macroDf = fixture.createBarsDataFrame(12);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::MacroEconomics, _, _, _))
+        .WITH(_5.count("indicator") == 1 && _5.at("indicator") == "GDP")
+        .RETURN(macroDf);
+
+    std::filesystem::path dummyPath = "/tmp/macro.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(macroDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::MacroEconomics,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 12);
+  }
+
+  SECTION("can load MacroEconomics category with CPI indicator") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::MacroEconomics,
+            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI})
+    };
+
+    auto macroDf = fixture.createBarsDataFrame(15);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::MacroEconomics, _, _, _))
+        .WITH(_5.count("indicator") == 1 && _5.at("indicator") == "CPI")
+        .RETURN(macroDf);
+
+    std::filesystem::path dummyPath = "/tmp/macro.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(macroDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::MacroEconomics,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 15);
+  }
+
+  SECTION("can load AlternativeData category with SEC Form13F") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::AlternativeData,
+            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F})
+    };
+
+    auto altDf = fixture.createBarsDataFrame(7);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::AlternativeData, _, _, _))
+        .WITH(_5.count("source") == 1 && _5.at("source") == "sec_form13f")
+        .RETURN(altDf);
+
+    std::filesystem::path dummyPath = "/tmp/alt.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(altDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::AlternativeData,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 7);
+  }
+
+  SECTION("can load AlternativeData category with SEC InsiderTrading") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::AlternativeData,
+            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_InsiderTrading})
+    };
+
+    auto altDf = fixture.createBarsDataFrame(9);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::AlternativeData, _, _, _))
+        .WITH(_5.count("source") == 1 && _5.at("source") == "sec_insider_trading")
+        .RETURN(altDf);
+
+    std::filesystem::path dummyPath = "/tmp/alt.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(altDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::AlternativeData,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 9);
+  }
+
+  SECTION("can load TickData category with Quotes") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::TickData,
+            TickDataConfig{TickDataConfig::TickType::Quotes})
+    };
+
+    auto tickDf = fixture.createBarsDataFrame(20);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::TickData, _, _, _))
+        .WITH(_5.count("tick_type") == 1 && _5.at("tick_type") == "quotes")
+        .RETURN(tickDf);
+
+    std::filesystem::path dummyPath = "/tmp/tick.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(tickDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::TickData,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 20);
+  }
+
+  SECTION("can load TickData category with Trades") {
+    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
+        AuxiliaryCategoryConfig(
+            DataCategory::TickData,
+            TickDataConfig{TickDataConfig::TickType::Trades})
+    };
+
+    auto tickDf = fixture.createBarsDataFrame(18);
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    REQUIRE_CALL(*fixture.mockFetcher,
+                 Fetch(asset, DataCategory::TickData, _, _, _))
+        .WITH(_5.count("tick_type") == 1 && _5.at("tick_type") == "trades")
+        .RETURN(tickDf);
+
+    std::filesystem::path dummyPath = "/tmp/tick.arrow";
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, _, _, _, _, _, _))
+        .LR_SIDE_EFFECT(*_7 = dummyPath)
+        .RETURN(tickDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+    auto result = loader.LoadAssetBars(asset, DataCategory::TickData,
+                                       fixture.option.auxiliaryCategories[0].ToParameters());
+
+    REQUIRE(result.has_value());
+    REQUIRE(result->num_rows() == 18);
+  }
+}

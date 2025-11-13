@@ -1,5 +1,6 @@
 #pragma once
 #include <epoch_data_sdk/common/enums.hpp>
+#include <epoch_data_sdk/dataloader/options.hpp>
 #include <epoch_data_sdk/model/asset/asset.hpp>
 #include <epoch_core/macros.h>
 #include <epoch_frame/datetime.h>
@@ -12,6 +13,7 @@ namespace data_sdk::dataloader {
 
 using data_sdk::DataCategory;
 using data_sdk::BenchmarkKind;
+using data_sdk::AuxiliaryCategoryConfig;  // Use the public definition
 
 inline bool GetDefaultCacheEnabled() {
   if (const char* env = std::getenv("ENABLE_CACHE")) {
@@ -27,29 +29,6 @@ inline std::optional<std::filesystem::path> GetDefaultCacheDir() {
   }
   return std::nullopt;
 }
-
-/**
- * Configuration for an auxiliary data category with optional parameters
- * Parameters allow passing filter/config options to data fetchers
- *
- * Example use cases:
- * - Financials: parameters["type"] = "balance_sheet" | "income_statement" | "cash_flow"
- * - SEC data: parameters["transaction_code"] = "P", parameters["min_value"] = "100000"
- */
-struct AuxiliaryCategoryConfig {
-  DataCategory category = DataCategory::MinuteBars;  // Default value
-  std::unordered_map<std::string, std::string> parameters;
-
-  // Default constructor (needed for std::unordered_map::operator[])
-  AuxiliaryCategoryConfig() = default;
-
-  // Constructor for convenience
-  explicit AuxiliaryCategoryConfig(DataCategory cat) : category(cat) {}
-
-  AuxiliaryCategoryConfig(DataCategory cat,
-                         std::unordered_map<std::string, std::string> params)
-      : category(cat), parameters(std::move(params)) {}
-};
 
 struct DataloaderOption {
   ADD_ACCESSORS_AND_MUTATORS(StartDate, startDate)

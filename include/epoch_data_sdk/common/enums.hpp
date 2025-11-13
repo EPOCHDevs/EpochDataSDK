@@ -5,7 +5,7 @@
 
 // CREATE_ENUM places enums in epoch_core namespace
 CREATE_ENUM(DataCategory, MinuteBars, DailyBars, News, Dividends, Splits,
-            Financials, ShortInterest, ShortVolume);
+            Financials, ShortInterest, ShortVolume,  MacroEconomics, AlternativeData, TickData);
 
 CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);
 

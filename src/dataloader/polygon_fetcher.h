@@ -94,29 +94,29 @@ public:
       }
 
       case DataCategory::Financials: {
-        // Dispatch based on transform type
-        auto it = parameters.find("_transform_id");
-        std::string transformType = (it != parameters.end()) ? it->second : "balance_sheet";
+        // Dispatch based on statement type from typed config
+        auto it = parameters.find("statement_type");
+        std::string statementType = (it != parameters.end()) ? it->second : "balance_sheet";
 
-        if (transformType == "balance_sheet") {
+        if (statementType == "balance_sheet") {
           auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
           if (!result) {
             return std::unexpected(result.error().message);
           }
           return *result;
-        } else if (transformType == "income_statement") {
+        } else if (statementType == "income_statement") {
           auto result = m_financials_client->getIncomeStatements(mapped, from_str, to_str);
           if (!result) {
             return std::unexpected(result.error().message);
           }
           return *result;
-        } else if (transformType == "cash_flow") {
+        } else if (statementType == "cash_flow") {
           auto result = m_financials_client->getCashFlowStatements(mapped, from_str, to_str);
           if (!result) {
             return std::unexpected(result.error().message);
           }
           return *result;
-        } else if (transformType == "financial_ratios") {
+        } else if (statementType == "financial_ratios") {
           // Note: Financial ratios might use a different method - check SDK
           auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
           if (!result) {
@@ -125,7 +125,7 @@ public:
           return *result;
         } else {
           return std::unexpected(
-              "Unknown Financials transform type: " + transformType);
+              "Unknown Financials statement type: " + statementType);
         }
       }
 
@@ -211,29 +211,29 @@ public:
       }
 
       case DataCategory::Financials: {
-        // Dispatch based on transform type
-        auto it = parameters.find("_transform_id");
-        std::string transformType = (it != parameters.end()) ? it->second : "balance_sheet";
+        // Dispatch based on statement type from typed config
+        auto it = parameters.find("statement_type");
+        std::string statementType = (it != parameters.end()) ? it->second : "balance_sheet";
 
-        if (transformType == "balance_sheet") {
+        if (statementType == "balance_sheet") {
           auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
           if (!result) {
             co_return std::unexpected(result.error().message);
           }
           co_return *result;
-        } else if (transformType == "income_statement") {
+        } else if (statementType == "income_statement") {
           auto result = m_financials_client->getIncomeStatements(mapped, from_str, to_str);
           if (!result) {
             co_return std::unexpected(result.error().message);
           }
           co_return *result;
-        } else if (transformType == "cash_flow") {
+        } else if (statementType == "cash_flow") {
           auto result = m_financials_client->getCashFlowStatements(mapped, from_str, to_str);
           if (!result) {
             co_return std::unexpected(result.error().message);
           }
           co_return *result;
-        } else if (transformType == "financial_ratios") {
+        } else if (statementType == "financial_ratios") {
           // Note: Financial ratios might use a different method - check SDK
           auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
           if (!result) {
@@ -242,7 +242,7 @@ public:
           co_return *result;
         } else {
           co_return std::unexpected(
-              "Unknown Financials transform type: " + transformType);
+              "Unknown Financials statement type: " + statementType);
         }
       }
 
