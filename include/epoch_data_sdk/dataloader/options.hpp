@@ -9,8 +9,35 @@
 #include <chrono>
 #include <variant>
 #include <stdexcept>
+#include <algorithm>
+#include <cctype>
+
+// CREATE_ENUM declarations for auxiliary category configuration
+// These go in epoch_core namespace and are brought into data_sdk via using declarations
+CREATE_ENUM(FinancialsStatementType, BalanceSheet, IncomeStatement, CashFlow, FinancialRatios);
+
+CREATE_ENUM(MacroEconomicsIndicator,
+            CPI, CoreCPI, PCE, CorePCE,
+            FedFunds, Treasury3M, Treasury2Y, Treasury5Y, Treasury10Y, Treasury30Y,
+            Unemployment, NonfarmPayrolls, InitialClaims,
+            GDP, IndustrialProduction, RetailSales, HousingStarts,
+            ConsumerSentiment, M2);
+
+CREATE_ENUM(AlternativeDataSource, SEC_Form13F, SEC_InsiderTrading);
+
+CREATE_ENUM(TickDataType, Quotes, Trades);
 
 namespace data_sdk {
+
+// Bring CREATE_ENUM types into data_sdk namespace
+using epoch_core::FinancialsStatementType;
+using epoch_core::FinancialsStatementTypeWrapper;
+using epoch_core::MacroEconomicsIndicator;
+using epoch_core::MacroEconomicsIndicatorWrapper;
+using epoch_core::AlternativeDataSource;
+using epoch_core::AlternativeDataSourceWrapper;
+using epoch_core::TickDataType;
+using epoch_core::TickDataTypeWrapper;
 
 /**
  * Category-specific configuration structs
@@ -19,81 +46,34 @@ namespace data_sdk {
 
 // Financials configuration
 struct FinancialsConfig {
-  enum class StatementType {
-    BalanceSheet,
-    IncomeStatement,
-    CashFlow,
-    FinancialRatios
-  };
-  StatementType type = StatementType::BalanceSheet;
+  FinancialsStatementType type = FinancialsStatementType::BalanceSheet;
 
   FinancialsConfig() = default;
-  explicit FinancialsConfig(StatementType t) : type(t) {}
+  explicit FinancialsConfig(FinancialsStatementType t) : type(t) {}
 };
 
 // Macroeconomic indicators configuration
 struct MacroEconomicsConfig {
-  enum class Indicator {
-    // Inflation indicators
-    CPI,          // Consumer Price Index
-    CoreCPI,      // Core CPI (excludes food & energy)
-    PCE,          // Personal Consumption Expenditures
-    CorePCE,      // Core PCE
-
-    // Interest rates
-    FedFunds,     // Federal Funds Rate
-    Treasury3M,   // 3-Month Treasury
-    Treasury2Y,   // 2-Year Treasury
-    Treasury5Y,   // 5-Year Treasury
-    Treasury10Y,  // 10-Year Treasury
-    Treasury30Y,  // 30-Year Treasury
-
-    // Employment
-    Unemployment,      // Unemployment Rate
-    NonfarmPayrolls,   // Nonfarm Payrolls
-    InitialClaims,     // Initial Jobless Claims
-
-    // Growth indicators
-    GDP,                  // Gross Domestic Product
-    IndustrialProduction, // Industrial Production Index
-    RetailSales,          // Retail Sales
-    HousingStarts,        // Housing Starts
-
-    // Sentiment & Money Supply
-    ConsumerSentiment,    // Consumer Sentiment Index
-    M2                    // M2 Money Supply
-  };
-
-  Indicator indicator = Indicator::GDP;
+  MacroEconomicsIndicator indicator = MacroEconomicsIndicator::GDP;
 
   MacroEconomicsConfig() = default;
-  explicit MacroEconomicsConfig(Indicator ind) : indicator(ind) {}
+  explicit MacroEconomicsConfig(MacroEconomicsIndicator ind) : indicator(ind) {}
 };
 
 // Alternative data configuration (SEC filings, etc.)
 struct AlternativeDataConfig {
-  enum class Source {
-    SEC_Form13F,         // Institutional holdings (13F filings)
-    SEC_InsiderTrading   // Insider trading transactions
-  };
-
-  Source source = Source::SEC_Form13F;
+  AlternativeDataSource source = AlternativeDataSource::SEC_Form13F;
 
   AlternativeDataConfig() = default;
-  explicit AlternativeDataConfig(Source src) : source(src) {}
+  explicit AlternativeDataConfig(AlternativeDataSource src) : source(src) {}
 };
 
 // Tick data configuration (high-frequency data)
 struct TickDataConfig {
-  enum class TickType {
-    Quotes,  // Bid/ask quotes
-    Trades   // Trade ticks
-  };
-
-  TickType type = TickType::Quotes;
+  TickDataType type = TickDataType::Quotes;
 
   TickDataConfig() = default;
-  explicit TickDataConfig(TickType t) : type(t) {}
+  explicit TickDataConfig(TickDataType t) : type(t) {}
 };
 
 /**
@@ -192,37 +172,18 @@ struct AuxiliaryCategoryConfig {
         // No parameters needed
       } else if constexpr (std::is_same_v<T, FinancialsConfig>) {
         // Convert FinancialsConfig to parameters for fetcher compatibility
-        // TODO: Refactor fetchers to accept AuxiliaryCategoryConfig directly
-        switch (config_val.type) {
-          case FinancialsConfig::StatementType::BalanceSheet:
-            params["statement_type"] = "balance_sheet";
-            break;
-          case FinancialsConfig::StatementType::IncomeStatement:
-            params["statement_type"] = "income_statement";
-            break;
-          case FinancialsConfig::StatementType::CashFlow:
-            params["statement_type"] = "cash_flow";
-            break;
-          case FinancialsConfig::StatementType::FinancialRatios:
-            params["statement_type"] = "financial_ratios";
-            break;
-        }
+        params["statement_type"] = ToSnakeCase(FinancialsStatementTypeWrapper::ToString(config_val.type));
       } else if constexpr (std::is_same_v<T, MacroEconomicsConfig>) {
-        // MacroEconomics params - indicator for future use
-        params["indicator"] = MacroIndicatorToString(config_val.indicator);
+        // MacroEconomics params - indicator remains PascalCase to match FRED convention
+        params["indicator"] = MacroEconomicsIndicatorWrapper::ToString(config_val.indicator);
       } else if constexpr (std::is_same_v<T, AlternativeDataConfig>) {
-        // Alternative data params
-        switch (config_val.source) {
-          case AlternativeDataConfig::Source::SEC_Form13F:
-            params["source"] = "sec_form13f";
-            break;
-          case AlternativeDataConfig::Source::SEC_InsiderTrading:
-            params["source"] = "sec_insider_trading";
-            break;
-        }
+        // Alternative data params - convert to snake_case
+        params["source"] = ToSnakeCase(AlternativeDataSourceWrapper::ToString(config_val.source));
       } else if constexpr (std::is_same_v<T, TickDataConfig>) {
-        // Tick data params
-        params["tick_type"] = (config_val.type == TickDataConfig::TickType::Quotes) ? "quotes" : "trades";
+        // Tick data params - convert to lowercase
+        auto type_str = TickDataTypeWrapper::ToString(config_val.type);
+        std::transform(type_str.begin(), type_str.end(), type_str.begin(), ::tolower);
+        params["tick_type"] = type_str;
       }
     }, config);
 
@@ -230,30 +191,27 @@ struct AuxiliaryCategoryConfig {
   }
 
 private:
-  // Helper: Convert MacroEconomics indicator to string
-  static std::string MacroIndicatorToString(MacroEconomicsConfig::Indicator ind) {
-    switch (ind) {
-      case MacroEconomicsConfig::Indicator::CPI: return "CPI";
-      case MacroEconomicsConfig::Indicator::CoreCPI: return "CoreCPI";
-      case MacroEconomicsConfig::Indicator::PCE: return "PCE";
-      case MacroEconomicsConfig::Indicator::CorePCE: return "CorePCE";
-      case MacroEconomicsConfig::Indicator::FedFunds: return "FedFunds";
-      case MacroEconomicsConfig::Indicator::Treasury3M: return "Treasury3M";
-      case MacroEconomicsConfig::Indicator::Treasury2Y: return "Treasury2Y";
-      case MacroEconomicsConfig::Indicator::Treasury5Y: return "Treasury5Y";
-      case MacroEconomicsConfig::Indicator::Treasury10Y: return "Treasury10Y";
-      case MacroEconomicsConfig::Indicator::Treasury30Y: return "Treasury30Y";
-      case MacroEconomicsConfig::Indicator::Unemployment: return "Unemployment";
-      case MacroEconomicsConfig::Indicator::NonfarmPayrolls: return "NonfarmPayrolls";
-      case MacroEconomicsConfig::Indicator::InitialClaims: return "InitialClaims";
-      case MacroEconomicsConfig::Indicator::GDP: return "GDP";
-      case MacroEconomicsConfig::Indicator::IndustrialProduction: return "IndustrialProduction";
-      case MacroEconomicsConfig::Indicator::RetailSales: return "RetailSales";
-      case MacroEconomicsConfig::Indicator::HousingStarts: return "HousingStarts";
-      case MacroEconomicsConfig::Indicator::ConsumerSentiment: return "ConsumerSentiment";
-      case MacroEconomicsConfig::Indicator::M2: return "M2";
-      default: return "Unknown";
+  // Helper: Convert PascalCase to snake_case
+  static std::string ToSnakeCase(const std::string& str) {
+    std::string result;
+    result.reserve(str.size() + 5); // Reserve extra space for underscores
+
+    for (size_t i = 0; i < str.size(); ++i) {
+      char c = str[i];
+
+      // Insert underscore before uppercase letters (except at start)
+      if (i > 0 && std::isupper(c)) {
+        // Check if previous char is lowercase or if next char is lowercase (for acronyms like "SEC")
+        if (std::islower(str[i-1]) ||
+            (i + 1 < str.size() && std::islower(str[i+1]))) {
+          result += '_';
+        }
+      }
+
+      result += std::tolower(c);
     }
+
+    return result;
   }
 };
 

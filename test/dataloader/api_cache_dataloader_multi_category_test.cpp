@@ -362,7 +362,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::Financials,
-            FinancialsConfig{FinancialsConfig::StatementType::BalanceSheet})
+            FinancialsConfig{FinancialsStatementType::BalanceSheet})
     };
 
     auto financialsDf = fixture.createBarsDataFrame(5);
@@ -396,7 +396,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::Financials,
-            FinancialsConfig{FinancialsConfig::StatementType::IncomeStatement})
+            FinancialsConfig{FinancialsStatementType::IncomeStatement})
     };
 
     auto financialsDf = fixture.createBarsDataFrame(8);
@@ -429,7 +429,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::MacroEconomics,
-            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::GDP})
+            MacroEconomicsConfig{MacroEconomicsIndicator::GDP})
     };
 
     auto macroDf = fixture.createBarsDataFrame(12);
@@ -462,7 +462,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::MacroEconomics,
-            MacroEconomicsConfig{MacroEconomicsConfig::Indicator::CPI})
+            MacroEconomicsConfig{MacroEconomicsIndicator::CPI})
     };
 
     auto macroDf = fixture.createBarsDataFrame(15);
@@ -495,7 +495,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::AlternativeData,
-            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_Form13F})
+            AlternativeDataConfig{AlternativeDataSource::SEC_Form13F})
     };
 
     auto altDf = fixture.createBarsDataFrame(7);
@@ -528,7 +528,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::AlternativeData,
-            AlternativeDataConfig{AlternativeDataConfig::Source::SEC_InsiderTrading})
+            AlternativeDataConfig{AlternativeDataSource::SEC_InsiderTrading})
     };
 
     auto altDf = fixture.createBarsDataFrame(9);
@@ -561,7 +561,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::TickData,
-            TickDataConfig{TickDataConfig::TickType::Quotes})
+            TickDataConfig{TickDataType::Quotes})
     };
 
     auto tickDf = fixture.createBarsDataFrame(20);
@@ -594,7 +594,7 @@ TEST_CASE("ApiCacheDataloader - New auxiliary categories end-to-end",
     fixture.option.auxiliaryCategories = std::vector<AuxiliaryCategoryConfig>{
         AuxiliaryCategoryConfig(
             DataCategory::TickData,
-            TickDataConfig{TickDataConfig::TickType::Trades})
+            TickDataConfig{TickDataType::Trades})
     };
 
     auto tickDf = fixture.createBarsDataFrame(18);
