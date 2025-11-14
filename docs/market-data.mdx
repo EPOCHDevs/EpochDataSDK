@@ -9,7 +9,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card';
 
 # Market Data
 
-Price and volume data foundation for quantitative research - OHLCV bars, tick trades, and quotes across stocks, indices, crypto, and forex.
+Price and volume data foundation for quantitative research - OHLCV bars across stocks, indices, crypto, and forex.
 
 <Callout type="info" title="Data Access Only">
 Epoch provides access to historical and real-time market data for research and analysis purposes. This is not investment advice.
@@ -26,20 +26,6 @@ Epoch provides access to historical and real-time market data for research and a
     **Coverage**: 2004-present
     **Frequencies**: 1min, 5min, 1hr, daily
   </Card>
-
-  <Card title="Tick Trades" href="#tick-trades">
-    Individual trade executions. Most granular market data available.
-
-    **Coverage**: Multi-year
-    **Frequencies**: Real-time, microsecond precision
-  </Card>
-
-  <Card title="Quotes" href="#quotes">
-    National Best Bid/Offer (NBBO). Spread and liquidity analysis.
-
-    **Coverage**: Multi-year
-    **Frequencies**: Real-time quote updates
-  </Card>
 </Cards>
 
 ---
@@ -49,8 +35,6 @@ Epoch provides access to historical and real-time market data for research and a
 | Dataset | Frequency | Assets | Primary Use |
 |---------|-----------|--------|-------------|
 | **OHLCV Aggregates** | Daily, Minute | Stocks, Indices, Crypto, Forex | Backtesting, charting |
-| **Tick Trades** | Real-time | Stocks, Crypto | Execution analysis, microstructure |
-| **Quotes** | Real-time | Stocks, Forex | Spread analysis, liquidity |
 
 **Coverage**: All U.S. listed equities, major indices (S&P 500, Nasdaq, Dow Jones), cryptocurrencies, and forex pairs
 
@@ -129,86 +113,6 @@ Always use split/dividend-adjusted prices for backtesting to avoid false signals
 
 ---
 
-## Tick Trades
-
-**What It Is**: Individual trade executions showing every transaction that occurred on an exchange.
-
-### Key Fields
-
-| Field | Description |
-|-------|-------------|
-| **timestamp** | Exact time of trade execution |
-| **price** | Price at which trade executed |
-| **size** | Number of shares/units traded |
-| **exchange** | Exchange where trade occurred |
-
-### Data Characteristics
-
-**Update Schedule**: Real-time during market hours with minimal latency
-
-**Granularity**: Most granular level of market data available
-
-**History Depth**: Extensive tick history available for analysis
-
-**Data Volume**: Very large datasets - use date filtering for specific analysis periods
-
-<Callout type="warning" title="Tick Data Volume">
-Tick data is extremely large. Query small date ranges (hours or days, not months). Consider aggregating to minute bars for most backtesting use cases.
-</Callout>
-
-### Use Cases
-
-- **Execution Analysis**: Analyze fills vs. market trades, study slippage, benchmark against VWAP
-- **Market Microstructure**: Research price formation, trade size distributions, inter-trade timing
-- **High-Frequency Development**: Simulate tick-by-tick execution, backtest ultra-short strategies, analyze order flow
-- **Volume Profile**: Build price-volume histograms, identify high-volume nodes
-
----
-
-## Quotes
-
-**What It Is**: National Best Bid and Offer (NBBO) showing the best available buy and sell prices across all exchanges.
-
-### Key Fields
-
-| Field | Description |
-|-------|-------------|
-| **timestamp** | Time of quote update |
-| **bid_price** | Best available buy price |
-| **ask_price** | Best available sell price |
-| **bid_size** | Quantity available at bid |
-| **ask_size** | Quantity available at ask |
-| **bid_exchange** | Exchange with best bid |
-| **ask_exchange** | Exchange with best ask |
-
-### Data Characteristics
-
-**Update Schedule**: Real-time quote updates as market conditions change
-
-**Quote Type**: National Best Bid Offer (NBBO) for stocks
-
-**History Depth**: Historical quote data available for analysis
-
-### Calculated Metrics
-
-**Spread**: `ask_price - bid_price`
-- Measures transaction cost
-- Indicator of liquidity
-
-**Mid Price**: `(bid_price + ask_price) / 2`
-- Fair value estimate
-- Used in theoretical pricing
-
-### Use Cases
-
-- **Spread Analysis**: Measure liquidity across stocks, identify best/worst spread times, estimate transaction costs
-- **Liquidity Research**: Study bid/ask depth, compare across securities, identify liquid vs. illiquid periods
-- **Market Making**: Analyze bid-ask dynamics, quote update frequency, inventory risk modeling
-- **Fair Value**: Use mid-price for mark-to-market, calculate theoretical prices between trades
-- **Order Optimization**: Determine limit vs. market orders, estimate execution probability, optimize placement
-
----
-
 ## Data Quality
 
 All market data undergoes quality checks:
@@ -222,7 +126,7 @@ All market data undergoes quality checks:
 
 ## Practical Considerations
 
-**Data Volume**: Daily aggregates (small, multi-year queries), minute aggregates (moderate, days/weeks), tick data (very large, hours/days)
+**Data Volume**: Daily aggregates (small, multi-year queries), minute aggregates (moderate, days/weeks)
 
 **Asset Class Differences**: Stocks (9:30 AM-4 PM ET, corporate actions, NBBO), Crypto (24/7, high volatility, no corporate actions), Forex (24/5, no central exchange)
 
@@ -238,9 +142,8 @@ Market data becomes more powerful when combined with other datasets:
 - Align prices with earnings dates
 
 **+ Alternative Data**:
-- Overlay insider buying with price moves
-- Compare institutional holdings to price trends
-- Study price reaction to 13F filing dates
+- Compare short interest to price trends
+- Study price reaction to news
 
 **+ Economic Data**:
 - Analyze market behavior during economic releases
