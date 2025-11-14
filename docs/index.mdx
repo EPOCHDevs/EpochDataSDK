@@ -6,11 +6,11 @@ icon: Database
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { Database, Building, TrendingUp, Users } from 'lucide-react';
+import { Database, Building, TrendingUp } from 'lucide-react';
 
 # Dataset Reference
 
-Comprehensive coverage of market, corporate, economic, and alternative data for quantitative research and analysis.
+Comprehensive coverage of market, corporate, and economic data for quantitative research and analysis.
 
 <Callout type="info" title="Data Access Platform">
 Epoch provides institutional-grade financial data for research and analysis purposes. This is not investment advice.
@@ -39,12 +39,6 @@ Epoch provides institutional-grade financial data for research and analysis purp
     href="/docs/economic-data"
     icon={<Database />}
   />
-  <Card
-    title="Alternative Data"
-    description="Institutional holdings (13F), insider trading, short interest, news. Smart money signals."
-    href="/docs/alternative-data"
-    icon={<Users />}
-  />
 </Cards>
 
 ---
@@ -56,7 +50,6 @@ Epoch provides institutional-grade financial data for research and analysis purp
 | **Market Data** | OHLCV, Trades, Quotes | Stocks, Indices, Futures, Crypto, Forex | 1min to daily | Multi-year depth |
 | **Corporate Data** | Financials, Dividends, Splits, IPOs | U.S. Public Companies | Quarterly, event-driven | 10+ years |
 | **Economic Data** | Inflation, Rates, GDP, Employment | U.S. Economic Indicators | Daily to quarterly | Up to 100+ years |
-| **Alternative Data** | 13F, Insider, Short Interest, News | U.S. Securities | Real-time to quarterly | 10-20+ years |
 
 ---
 
@@ -79,12 +72,6 @@ Epoch provides institutional-grade financial data for research and analysis purp
 - Labor market: unemployment, jobless claims, payrolls
 - Market indicators: S&P 500, VIX with up to 100+ years history
 
-**Alternative Data**
-- Institutional holdings (13F) from $100M+ managers filed quarterly
-- Insider trading transactions with 2-day filing disclosure
-- Short interest data (daily volume + bi-weekly settlements)
-- Real-time financial news and press releases
-
 ---
 
 ## Asset Coverage
@@ -100,7 +87,7 @@ Epoch provides institutional-grade financial data for research and analysis purp
 ## Data Quality & Timing
 
 - **Exchange-grade** market data with precise timestamps
-- **SEC filings** for corporate and alternative data
+- **SEC filings** for corporate data
 - **Official government statistics** from FRED for economic indicators
 - **Point-in-time accuracy** - all data indexed by public availability dates (not event dates) to prevent lookahead bias
 - **Transparent adjustments** for corporate actions (splits, dividends)

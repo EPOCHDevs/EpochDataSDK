@@ -4,7 +4,6 @@
     "index",
     "market-data",
     "corporate-data",
-    "economic-data",
-    "alternative-data"
+    "economic-data"
   ]
 }
