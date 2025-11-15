@@ -20,6 +20,7 @@ public:
    * @throws std::invalid_argument if category is not supported
    */
   static DataFrameMetadata GetMetadataForCategory(DataCategory category);
+  static DataFrameMetadata GetAlfredMetadata();
 };
 
 } // namespace data_sdk::dataloader

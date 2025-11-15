@@ -11,11 +11,9 @@
 #include "../polygon/ratios_client.hpp"
 #include "../polygon/short_interest_client.hpp"
 #include "../polygon/short_volume_client.hpp"
-#include "../polygon/quotes_client.hpp"
-#include "../polygon/trades_client.hpp"
 
 // FRED clients
-#include "../fred/series_client.hpp"
+#include "../fred/alfred_client.hpp"
 
 #include <stdexcept>
 #include <unordered_map>
@@ -65,5 +63,10 @@ DataFrameMetadata MetadataRegistry::GetMetadataForCategory(DataCategory category
 
   return it->second;
 }
+
+  DataFrameMetadata MetadataRegistry::GetAlfredMetadata() {
+    return fred::AlfredClient::getMetadata();
+  }
+
 
 } // namespace data_sdk::dataloader
