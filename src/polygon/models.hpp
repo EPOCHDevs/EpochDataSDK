@@ -94,6 +94,8 @@ struct BalanceSheetData {
   std::optional<std::string> filing_date;
   std::optional<std::int64_t> fiscal_quarter;
   std::optional<std::int64_t> fiscal_year;
+  std::optional<double> goodwill;
+  std::optional<double> intangible_assets_net;
   std::optional<double> inventories;
   std::optional<double> long_term_debt_and_capital_lease_obligations;
   std::optional<double> other_assets;
@@ -279,38 +281,6 @@ struct ShortInterestResponse {
   std::optional<std::string> next_url;
   std::string request_id;
   std::vector<ShortInterestData> results;
-  std::string status;
-};
-
-// IPO Listings
-struct IPOListingData {
-  std::optional<std::string> announced_date;
-  std::optional<std::string> currency_code;
-  std::optional<double> final_issue_price;
-  std::optional<double> highest_offer_price;
-  std::optional<std::string> ipo_status;
-  std::optional<std::string> isin;
-  std::optional<std::string> issuer_name;
-  std::optional<std::string> last_updated;
-  std::optional<std::string> listing_date;
-  std::optional<int> lot_size;
-  std::optional<double> lowest_offer_price;
-  std::optional<int> max_shares_offered;
-  std::optional<int> min_shares_offered;
-  std::optional<std::string> primary_exchange;
-  std::optional<std::string> security_description;
-  std::optional<std::string> security_type;
-  std::optional<int> shares_outstanding;
-  std::optional<std::string> ticker;
-  std::optional<double> total_offer_size;
-  std::optional<std::string> us_code;
-};
-
-struct IPOListingResponse {
-  std::optional<int> count;
-  std::optional<std::string> next_url;
-  std::string request_id;
-  std::vector<IPOListingData> results;
   std::string status;
 };
 

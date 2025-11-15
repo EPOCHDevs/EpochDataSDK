@@ -12,7 +12,6 @@ target_sources(epoch_data_sdk
         ratios_client.cpp
         short_volume_client.cpp
         short_interest_client.cpp
-        ipo_client.cpp
         splits_client.cpp
         dividends_client.cpp
         ticker_events_client.cpp

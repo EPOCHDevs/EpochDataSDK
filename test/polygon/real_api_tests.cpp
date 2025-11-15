@@ -7,7 +7,6 @@
 #include "../common/test_utils.hpp"
 #include "../src/polygon/aggs_client.hpp"
 #include "../src/polygon/news_client.hpp"
-#include "../src/polygon/ipo_client.hpp"
 #include "../src/polygon/splits_client.hpp"
 #include "../src/polygon/dividends_client.hpp"
 #include "../src/polygon/ticker_events_client.hpp"
@@ -26,7 +25,7 @@ using namespace data_sdk::test;
 // Tagged with [!hide] so they only run when explicitly requested
 // Run with: ./test/epoch_data_sdk_test "[real_api][long_range]"
 
-TEST_CASE("Real API: Batch AAPL, MSFT, NVDA 2010-2020 daily data",
+TEST_CASE("Real API: Batch AAPL, MSFT, NVDA 2004-2024 daily data",
           "[polygon][real_api][long_range]") {
 
   // Read API key from environment
@@ -37,23 +36,23 @@ TEST_CASE("Real API: Batch AAPL, MSFT, NVDA 2010-2020 daily data",
 
   Options opt;
   opt.api_key = api_key;
-  opt.request_timeout_sec = 10.0;  // Increase timeout for long requests
+  opt.request_timeout_sec = 30.0;  // Increase timeout for long requests
 
   AggsClient cli(opt);
 
-  INFO("Creating 3 concurrent tasks for 10 years of daily data...");
+  INFO("Creating 3 concurrent tasks for 20 years of daily data (2004-2024)...");
 
-  // Create 3 concurrent tasks for 10 years of DAILY data (2010-2020)
+  // Create 3 concurrent tasks for 20 years of DAILY data (2004-2024)
   // Using daily instead of minute to avoid rate limiting and reduce data volume
   // This will test:
   // - Concurrent execution of multiple requests
-  // - Pagination handling for moderate datasets
+  // - Pagination handling for large datasets
   // - Coroutine parameter lifetime correctness
   // - Order preservation in results
   std::vector<drogon::Task<Expected<epoch_frame::DataFrame>>> tasks;
-  tasks.push_back(cli.getAggregatesAsync("AAPL", "2010-01-01", "2020-12-31", true));  // true = daily
-  tasks.push_back(cli.getAggregatesAsync("MSFT", "2010-01-01", "2020-12-31", true));
-  tasks.push_back(cli.getAggregatesAsync("NVDA", "2010-01-01", "2020-12-31", true));
+  tasks.push_back(cli.getAggregatesAsync("AAPL", "2004-01-01", "2024-12-31", true));  // true = daily
+  tasks.push_back(cli.getAggregatesAsync("MSFT", "2004-01-01", "2024-12-31", true));
+  tasks.push_back(cli.getAggregatesAsync("NVDA", "2004-01-01", "2024-12-31", true));
 
   INFO("Executing all 3 tasks concurrently with syncJoinAll()...");
 
@@ -99,12 +98,12 @@ TEST_CASE("Real API: Batch AAPL, MSFT, NVDA 2010-2020 daily data",
   std::cout << "MSFT rows: " << msft_rows << "\n";
   std::cout << "NVDA rows: " << nvda_rows << "\n";
 
-  // Sanity check - 10 years of daily data should have ~2500 trading days
-  // (252 trading days/year * 10 years = ~2520 days)
-  // With market holidays, expecting at least 2000 rows
-  REQUIRE(aapl_rows > 2000);
-  REQUIRE(msft_rows > 2000);
-  REQUIRE(nvda_rows > 2000);
+  // Sanity check - 20 years of daily data should have ~5000 trading days
+  // (252 trading days/year * 20 years = ~5040 days)
+  // With market holidays, expecting at least 4000 rows
+  REQUIRE(aapl_rows > 4000);
+  REQUIRE(msft_rows > 4000);
+  REQUIRE(nvda_rows > 4000);
 
   // Verify DataFrames have expected columns for daily aggregates
   REQUIRE(results[0]->contains("o"));  // open
@@ -148,8 +147,8 @@ TEST_CASE("Real API: News metadata verification", "[polygon][real_api][metadata]
 
   NewsClient client(opt);
 
-  // Get news data
-  auto result = client.getNews("AAPL", "2024-01-01", "2024-01-31", 10);
+  // Get news data for extended range
+  auto result = client.getNews("AAPL", "2004-01-01", "2024-12-31", 100);
   REQUIRE(result.has_value());
 
   std::cout << "News: Got " << result->num_rows() << " rows\n";
@@ -163,30 +162,6 @@ TEST_CASE("Real API: News metadata verification", "[polygon][real_api][metadata]
   std::cout << "News metadata verification passed!\n";
 }
 
-TEST_CASE("Real API: IPO metadata verification", "[polygon][real_api][metadata]") {
-  const char* api_key = std::getenv("POLYGON_API_KEY");
-  REQUIRE(api_key != nullptr);
-
-  Options opt;
-  opt.api_key = api_key;
-
-  IPOClient client(opt);
-
-  // Get IPO data
-  auto result = client.getIPOs("2024-01-01", "2024-12-31", std::nullopt, 100);
-  REQUIRE(result.has_value());
-
-  std::cout << "IPOs: Got " << result->num_rows() << " rows\n";
-
-  // Get metadata
-  auto metadata = client.getMetadata();
-
-  // Verify DataFrame matches metadata
-  validateDataFrameAgainstMetadata(*result, metadata, "AggsClient(AAPL)");
-
-  std::cout << "IPO metadata verification passed!\n";
-}
-
 TEST_CASE("Real API: Splits metadata verification", "[polygon][real_api][metadata]") {
   const char* api_key = std::getenv("POLYGON_API_KEY");
   REQUIRE(api_key != nullptr);
@@ -196,8 +171,8 @@ TEST_CASE("Real API: Splits metadata verification", "[polygon][real_api][metadat
 
   SplitsClient client(opt);
 
-  // Get splits data for AAPL
-  auto result = client.getSplits("AAPL", std::nullopt, "2020-01-01", "2024-12-31", std::nullopt, 100);
+  // Get splits data for AAPL (2004-2024)
+  auto result = client.getSplits("AAPL", std::nullopt, "2004-01-01", "2024-12-31", std::nullopt, 100);
   REQUIRE(result.has_value());
 
   std::cout << "Splits: Got " << result->num_rows() << " rows\n";
@@ -220,8 +195,8 @@ TEST_CASE("Real API: Dividends metadata verification", "[polygon][real_api][meta
 
   DividendsClient client(opt);
 
-  // Get dividends data for AAPL
-  auto result = client.getDividends("AAPL", std::nullopt, "2023-01-01", "2024-12-31", std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, 100);
+  // Get dividends data for AAPL (2004-2024)
+  auto result = client.getDividends("AAPL", std::nullopt, "2004-01-01", "2024-12-31", std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, 100);
   if (!result.has_value()) {
     std::cout << "Dividends API error: " << result.error().message << " (HTTP " << result.error().http_status << ")\n";
   }
@@ -343,8 +318,8 @@ TEST_CASE("Real API: Short Volume metadata verification", "[polygon][real_api][m
 
   ShortVolumeClient client(opt);
 
-  // Get AAPL short volume data
-  auto result = client.getShortVolume("AAPL", "2024-01-01", "2024-01-31");
+  // Get AAPL short volume data (2004-2024)
+  auto result = client.getShortVolume("AAPL", "2004-01-01", "2024-12-31");
   REQUIRE(result.has_value());
 
   std::cout << "Short Volume: Got " << result->num_rows() << " rows\n";
@@ -367,8 +342,8 @@ TEST_CASE("Real API: Short Interest metadata verification", "[polygon][real_api]
 
   ShortInterestClient client(opt);
 
-  // Get AAPL short interest data
-  auto result = client.getShortInterest("AAPL", "2024-01-01", "2024-01-31");
+  // Get AAPL short interest data (2004-2024)
+  auto result = client.getShortInterest("AAPL", "2004-01-01", "2024-12-31");
   REQUIRE(result.has_value());
 
   std::cout << "Short Interest: Got " << result->num_rows() << " rows\n";

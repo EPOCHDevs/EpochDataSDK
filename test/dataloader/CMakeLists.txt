@@ -10,6 +10,7 @@ target_sources(epoch_data_sdk_test
         cache_manifest_test.cpp
         es_futures_integration_test.cpp
         merge_strategy_test.cpp
+        multi_norm_integration_test.cpp
         polygon_fetcher_live_test.cpp
         polygon_fetcher_test.cpp
         polygon_timestamp_test.cpp

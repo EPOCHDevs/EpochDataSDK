@@ -8,7 +8,7 @@ CREATE_ENUM(DataCategory,
             // Time series data
             MinuteBars, DailyBars,
             // Corporate actions
-            News, Dividends, Splits, IPOs, TickerEvents,
+            News, Dividends, Splits, TickerEvents,
             // Fundamentals
             BalanceSheets, CashFlowStatements, IncomeStatements, Ratios,
             ShortInterest, ShortVolume

@@ -26,10 +26,6 @@ std::unique_ptr<ShortInterestClient> ClientFactory::createShortInterestClient(co
   return std::make_unique<ShortInterestClient>(options);
 }
 
-std::unique_ptr<IPOClient> ClientFactory::createIPOClient(const Options& options) {
-  return std::make_unique<IPOClient>(options);
-}
-
 std::unique_ptr<SplitsClient> ClientFactory::createSplitsClient(const Options& options) {
   return std::make_unique<SplitsClient>(options);
 }

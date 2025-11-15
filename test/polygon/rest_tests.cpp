@@ -8,7 +8,6 @@
 #include "../src/polygon/short_volume_client.hpp"
 #include "../src/polygon/short_interest_client.hpp"
 #include "../src/polygon/ratios_client.hpp"
-#include "../src/polygon/ipo_client.hpp"
 #include "../src/polygon/economy_client.hpp"
 #include "../src/polygon/news_client.hpp"
 #include "epoch_data_sdk/common/async_batch.hpp"
@@ -421,19 +420,20 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
     FinancialsClient financials_cli(opt);
 
     SECTION("Balance Sheets") {
-        auto df = financials_cli.getBalanceSheets("AAPL", "2020-01-01", "2023-12-31", 10);
+        auto df = financials_cli.getBalanceSheets("AAPL", "2004-01-01", "2024-12-31", 200);
         if (!df.has_value()) {
             FAIL(df.error().message);
         }
         INFO(df->head().repr());
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
-        // Check required columns
+        std::cout << "Balance Sheets: Got " << df->num_rows() << " rows (2004-2024)\n";
+        // Check required columns including newly added fields
         std::vector<std::string> expected_cols = {
             "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
             "accounts_payable", "accrued_liabilities", "aoci", "cash",
-            "debt_current", "deferred_revenue", "inventories", "lt_debt",
-            "ppe_net", "receivables", "retained_earnings"
+            "debt_current", "deferred_revenue", "goodwill", "intangible_assets_net",
+            "inventories", "lt_debt", "ppe_net", "receivables", "retained_earnings"
         };
         for (const auto& col : expected_cols) {
             REQUIRE(df->contains(col));
@@ -441,13 +441,14 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
     }
 
     SECTION("Cash Flow Statements") {
-        auto df = financials_cli.getCashFlowStatements("AAPL", "2020-01-01", "2023-12-31", 10);
+        auto df = financials_cli.getCashFlowStatements("AAPL", "2004-01-01", "2024-12-31", 200);
         if (!df.has_value()) {
             FAIL(df.error().message);
         }
         INFO(df->head().repr());
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
+        std::cout << "Cash Flow Statements: Got " << df->num_rows() << " rows (2004-2024)\n";
         // Check required columns
         std::vector<std::string> expected_cols = {
             "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
@@ -461,13 +462,14 @@ TEST_CASE("integration: financials API calls", "[polygon][rest][integration]") {
     }
 
     SECTION("Income Statements") {
-        auto df = financials_cli.getIncomeStatements("AAPL", "2020-01-01", "2023-12-31", 10);
+        auto df = financials_cli.getIncomeStatements("AAPL", "2004-01-01", "2024-12-31", 200);
         if (!df.has_value()) {
             FAIL(df.error().message);
         }
         INFO(df->head().repr());
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
+        std::cout << "Income Statements: Got " << df->num_rows() << " rows (2004-2024)\n";
         // Check required columns
         std::vector<std::string> expected_cols = {
             "ticker", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
@@ -588,60 +590,6 @@ TEST_CASE("integration: Ratios API call", "[polygon][rest][integration]") {
         };
         for (const auto& col : expected_cols) {
             REQUIRE(df->contains(col));
-        }
-    }
-}
-
-TEST_CASE("integration: IPO API call", "[polygon][rest][integration]") {
-    auto api_key = getenv_or("POLYGON_API_KEY");
-    if (api_key.empty()) {
-        SKIP("POLYGON_API_KEY not set; skipping integration test");
-    }
-
-    Options opt;
-    opt.api_key = api_key;
-    opt.request_timeout_sec = 5.0;
-
-    IPOClient ipo_cli(opt);
-
-    SECTION("Get all IPOs in date range") {
-        // Get all IPOs from 2024 (no ticker filter)
-        auto df = ipo_cli.getIPOs("2024-01-01", "2024-12-31", std::nullopt, 10);
-        if (!df.has_value()) {
-            FAIL(df.error().message);
-        }
-        INFO(df->head().repr());
-        REQUIRE(df.has_value());
-        REQUIRE(df->num_rows() > 0);
-        // Check required columns
-        std::vector<std::string> expected_cols = {
-            "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
-            "exchange", "us_code", "isin", "final_price", "highest_price",
-            "lowest_price", "total_offer_size", "shares_outstanding",
-            "min_shares_offered", "max_shares_offered"
-        };
-        for (const auto& col : expected_cols) {
-            REQUIRE(df->contains(col));
-        }
-    }
-
-    SECTION("Filter by ticker") {
-        // Example: Get specific ticker's IPO (if any)
-        // Note: This might return 0 rows if ticker didn't IPO in this range
-        auto df = ipo_cli.getIPOs("2020-01-01", "2024-12-31", "SNOW", 10);
-        if (df.has_value()) {
-            INFO(df->head().repr());
-            if (df->num_rows() > 0) {
-                std::vector<std::string> expected_cols = {
-                    "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
-                    "exchange", "us_code", "isin", "final_price", "highest_price",
-                    "lowest_price", "total_offer_size", "shares_outstanding",
-                    "min_shares_offered", "max_shares_offered"
-                };
-                for (const auto& col : expected_cols) {
-                    REQUIRE(df->contains(col));
-                }
-            }
         }
     }
 }

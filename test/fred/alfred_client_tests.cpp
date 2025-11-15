@@ -202,13 +202,13 @@ TEST_CASE("AlfredClient - Long range with pagination", "[fred][alfred_client][lo
 
   AlfredClient client(opt);
 
-  SECTION("10 years of data with automatic pagination") {
-    std::cout << "\n=== Testing ALFRED 10-year data fetch ===\n";
+  SECTION("20 years of data with automatic pagination (2004-2024)") {
+    std::cout << "\n=== Testing ALFRED 20-year data fetch (2004-2024) ===\n";
     std::cout << "This will test automatic pagination for large revision datasets\n";
 
     std::vector<drogon::Task<Expected<epoch_frame::DataFrame>>> tasks;
-    tasks.push_back(client.getCPIAsync("2010-01-01", "2020-12-31"));
-    tasks.push_back(client.getUnemploymentAsync("2010-01-01", "2020-12-31"));
+    tasks.push_back(client.getCPIAsync("2004-01-01", "2024-12-31"));
+    tasks.push_back(client.getUnemploymentAsync("2004-01-01", "2024-12-31"));
 
     auto start = std::chrono::steady_clock::now();
     auto results = syncJoinAll(std::move(tasks));
@@ -235,8 +235,8 @@ TEST_CASE("AlfredClient - Long range with pagination", "[fred][alfred_client][lo
     std::cout << "CPI rows (with revisions): " << cpi_rows << "\n";
     std::cout << "Unemployment rows (with revisions): " << unemployment_rows << "\n";
 
-    // With 10 years of data and multiple revisions, should have many rows
-    REQUIRE(cpi_rows > 100);
+    // With 20 years of data and multiple revisions, should have many rows
+    REQUIRE(cpi_rows > 200);
     REQUIRE(unemployment_rows > 100);
 
     std::cout << "(Use SPDLOG_LEVEL=debug to see pagination details)\n";

@@ -5,7 +5,6 @@
 #include "../polygon/news_client.hpp"
 #include "../polygon/dividends_client.hpp"
 #include "../polygon/splits_client.hpp"
-#include "../polygon/ipo_client.hpp"
 #include "../polygon/ticker_events_client.hpp"
 #include "../polygon/financials_client.hpp"
 #include "../polygon/ratios_client.hpp"
@@ -35,7 +34,6 @@ static const std::unordered_map<DataCategory, DataFrameMetadata>& GetRegistry() 
       {DataCategory::News, polygon::NewsClient::getMetadata()},
       {DataCategory::Dividends, polygon::DividendsClient::getMetadata()},
       {DataCategory::Splits, polygon::SplitsClient::getMetadata()},
-      {DataCategory::IPOs, polygon::IPOClient::getMetadata()},
       {DataCategory::TickerEvents, polygon::TickerEventsClient::getMetadata()},
 
       // Fundamentals

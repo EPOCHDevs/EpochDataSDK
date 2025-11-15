@@ -8,7 +8,6 @@
 #include "polygon/dividends_client.hpp"
 #include "polygon/splits_client.hpp"
 #include "polygon/financials_client.hpp"
-#include "polygon/ipo_client.hpp"
 #include "polygon/ticker_events_client.hpp"
 #include "polygon/ratios_client.hpp"
 #include "polygon/short_interest_client.hpp"
@@ -114,15 +113,6 @@ public:
         co_return *result;
       }
 
-      case DataCategory::IPOs: {
-        auto result = m_ipo_client->getIPOs(
-            mapped, from_str, to_str);
-        if (!result) {
-          co_return std::unexpected(result.error().message);
-        }
-        co_return *result;
-      }
-
       case DataCategory::TickerEvents: {
         // TickerEventsClient::getTickerEvents only takes ticker and optional types parameter
         // No date range parameters - returns all events for the ticker
@@ -203,7 +193,6 @@ private:
     m_news_client = ClientFactory::createNewsClient(m_options);
     m_dividends_client = ClientFactory::createDividendsClient(m_options);
     m_splits_client = ClientFactory::createSplitsClient(m_options);
-    m_ipo_client = ClientFactory::createIPOClient(m_options);
     m_ticker_events_client = ClientFactory::createTickerEventsClient(m_options);
     m_financials_client = ClientFactory::createFinancialsClient(m_options);
     m_ratios_client = ClientFactory::createRatiosClient(m_options);
@@ -216,7 +205,6 @@ private:
   std::unique_ptr<data_sdk::polygon::NewsClient> m_news_client;
   std::unique_ptr<data_sdk::polygon::DividendsClient> m_dividends_client;
   std::unique_ptr<data_sdk::polygon::SplitsClient> m_splits_client;
-  std::unique_ptr<data_sdk::polygon::IPOClient> m_ipo_client;
   std::unique_ptr<data_sdk::polygon::TickerEventsClient> m_ticker_events_client;
   std::unique_ptr<data_sdk::polygon::FinancialsClient> m_financials_client;
   std::unique_ptr<data_sdk::polygon::RatiosClient> m_ratios_client;

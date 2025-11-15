@@ -93,7 +93,7 @@ public:
     std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
-        deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
+        deferred_rev, goodwill, intangible_assets, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
       date_strings.push_back(r.filing_date.value_or(""));
@@ -109,6 +109,8 @@ public:
       cash.push_back(r.cash_and_equivalents.value_or(0.0));
       debt_current.push_back(r.debt_current.value_or(0.0));
       deferred_rev.push_back(r.deferred_revenue_current.value_or(0.0));
+      goodwill.push_back(r.goodwill.value_or(0.0));
+      intangible_assets.push_back(r.intangible_assets_net.value_or(0.0));
       inventories.push_back(r.inventories.value_or(0.0));
       lt_debt.push_back(r.long_term_debt_and_capital_lease_obligations.value_or(0.0));
       ppe_net.push_back(r.property_plant_equipment_net.value_or(0.0));
@@ -175,8 +177,8 @@ public:
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
-                                        "debt_current", "deferred_revenue", "inventories", "lt_debt",
-                                        "ppe_net", "receivables", "retained_earnings"};
+                                        "debt_current", "deferred_revenue", "goodwill", "intangible_assets_net",
+                                        "inventories", "lt_debt", "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
         epoch_frame::factory::array::make_array(filing_dates),
@@ -190,6 +192,8 @@ public:
         epoch_frame::factory::array::make_array(cash),
         epoch_frame::factory::array::make_array(debt_current),
         epoch_frame::factory::array::make_array(deferred_rev),
+        epoch_frame::factory::array::make_array(goodwill),
+        epoch_frame::factory::array::make_array(intangible_assets),
         epoch_frame::factory::array::make_array(inventories),
         epoch_frame::factory::array::make_array(lt_debt),
         epoch_frame::factory::array::make_array(ppe_net),
@@ -498,7 +502,7 @@ public:
     std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
-        deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
+        deferred_rev, goodwill, intangible_assets, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
       date_strings.push_back(r.filing_date.value_or(""));
@@ -514,6 +518,8 @@ public:
       cash.push_back(r.cash_and_equivalents.value_or(0.0));
       debt_current.push_back(r.debt_current.value_or(0.0));
       deferred_rev.push_back(r.deferred_revenue_current.value_or(0.0));
+      goodwill.push_back(r.goodwill.value_or(0.0));
+      intangible_assets.push_back(r.intangible_assets_net.value_or(0.0));
       inventories.push_back(r.inventories.value_or(0.0));
       lt_debt.push_back(r.long_term_debt_and_capital_lease_obligations.value_or(0.0));
       ppe_net.push_back(r.property_plant_equipment_net.value_or(0.0));
@@ -580,8 +586,8 @@ public:
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
-                                        "debt_current", "deferred_revenue", "inventories", "lt_debt",
-                                        "ppe_net", "receivables", "retained_earnings"};
+                                        "debt_current", "deferred_revenue", "goodwill", "intangible_assets_net",
+                                        "inventories", "lt_debt", "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
         epoch_frame::factory::array::make_array(filing_dates),
@@ -595,6 +601,8 @@ public:
         epoch_frame::factory::array::make_array(cash),
         epoch_frame::factory::array::make_array(debt_current),
         epoch_frame::factory::array::make_array(deferred_rev),
+        epoch_frame::factory::array::make_array(goodwill),
+        epoch_frame::factory::array::make_array(intangible_assets),
         epoch_frame::factory::array::make_array(inventories),
         epoch_frame::factory::array::make_array(lt_debt),
         epoch_frame::factory::array::make_array(ppe_net),
@@ -990,6 +998,16 @@ DataFrameMetadata FinancialsClient::getBalanceSheetsMetadata() {
           {.id = "deferred_revenue",
            .name = "Deferred Revenue",
            .description = "Payments received in advance for goods or services not yet delivered, representing current liabilities",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "goodwill",
+           .name = "Goodwill",
+           .description = "Excess of purchase price over fair value of net assets acquired in business combinations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "intangible_assets_net",
+           .name = "Intangible Assets (Net)",
+           .description = "Net value of non-physical assets such as patents, trademarks, and copyrights after amortization",
            .type = ArrowType::FLOAT64,
            .nullable = true},
           {.id = "inventories",

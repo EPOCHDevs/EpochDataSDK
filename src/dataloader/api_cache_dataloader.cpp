@@ -11,6 +11,7 @@
 #include <common/epoch_thread_pool.h>
 #include <epoch_data_sdk/common/env_loader.hpp>
 #include <epoch_frame/datetime.h>
+#include <epoch_frame/factory/index_factory.h>
 #include <epoch_data_sdk/common/async_batch.hpp>
 #include <spdlog/spdlog.h>
 
@@ -19,6 +20,92 @@ namespace data_sdk::dataloader {
 // Bring cache namespace functions into scope
 using cache::normalizeForIntradayMerge;
 using cache::normalizeForDailyMerge;
+
+// Helper function to convert ArrowType enum to actual Arrow type
+static std::shared_ptr<arrow::DataType> arrowTypeToArrowDataType(ArrowType type) {
+  switch (type) {
+    case ArrowType::STRING:
+      return arrow::utf8();
+    case ArrowType::INT32:
+      return arrow::int32();
+    case ArrowType::INT64:
+      return arrow::int64();
+    case ArrowType::FLOAT32:
+      return arrow::float32();
+    case ArrowType::FLOAT64:
+      return arrow::float64();
+    case ArrowType::TIMESTAMP_NS_UTC:
+      return arrow::timestamp(arrow::TimeUnit::NANO, "UTC");
+    case ArrowType::BOOLEAN:
+      return arrow::boolean();
+    default:
+      throw std::runtime_error("Unknown ArrowType");
+  }
+}
+
+// Helper function to create an empty DataFrame with proper schema from metadata
+static epoch_frame::DataFrame createEmptyDataFrame(DataCategory category) {
+  using namespace epoch_frame;
+  using namespace epoch_frame::factory::index;
+
+  // Get metadata for this category
+  auto metadata = MetadataRegistry::GetMetadataForCategory(category);
+
+  SPDLOG_DEBUG("Creating empty DataFrame for {} with {} columns and prefix '{}'",
+               DataCategoryWrapper::ToString(category),
+               metadata.columns.size(),
+               metadata.category_prefix);
+
+  // Create empty index (truly empty - 0 rows)
+  std::vector<DateTime> empty_dates;
+  auto empty_index = make_datetime_index(empty_dates);
+
+  // Create empty arrays for each column with correct type
+  std::vector<arrow::ChunkedArrayPtr> column_arrays;
+  std::vector<std::string> column_names;
+
+  for (const auto& col_meta : metadata.columns) {
+    // Apply category prefix to column name
+    std::string col_name = metadata.category_prefix + col_meta.id;
+    column_names.push_back(col_name);
+
+    // Create empty array with correct type
+    auto arrow_type = arrowTypeToArrowDataType(col_meta.type);
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    auto status = arrow::MakeBuilder(arrow::default_memory_pool(), arrow_type, &builder);
+    if (!status.ok()) {
+      throw std::runtime_error("Failed to create Arrow builder: " + status.ToString());
+    }
+
+    // Build empty array
+    arrow::ArrayPtr empty_array;
+    status = builder->Finish(&empty_array);
+    if (!status.ok()) {
+      throw std::runtime_error("Failed to build empty array: " + status.ToString());
+    }
+
+    // Wrap in ChunkedArray
+    auto chunked = std::make_shared<arrow::ChunkedArray>(empty_array);
+    column_arrays.push_back(chunked);
+  }
+
+  // Create Arrow table from empty arrays
+  auto schema = arrow::schema(
+    [&]() {
+      std::vector<std::shared_ptr<arrow::Field>> fields;
+      for (size_t i = 0; i < column_names.size(); ++i) {
+        auto arrow_type = arrowTypeToArrowDataType(metadata.columns[i].type);
+        fields.push_back(arrow::field(column_names[i], arrow_type, metadata.columns[i].nullable));
+      }
+      return fields;
+    }()
+  );
+
+  auto table = arrow::Table::Make(schema, column_arrays);
+
+  // Return DataFrame with empty index and columns
+  return DataFrame(empty_index, table);
+}
 
 ApiCacheDataloader::ApiCacheDataloader(
     DataloaderOption option, std::shared_ptr<ICacheProvider> cache,
@@ -49,59 +136,9 @@ ApiCacheDataloader::ApiCacheDataloader(
 std::expected<epoch_frame::DataFrame, std::string>
 ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset,
                                    DataCategory cat,
-                                   const std::unordered_map<std::string, std::string>& /* parameters */) const {
-  SPDLOG_DEBUG("LoadAssetBars: Starting for asset {} category {}",
-               asset.GetSymbolStr(), DataCategoryWrapper::ToString(cat));
-  using namespace epoch_frame;
-
-  const auto start_time = std::chrono::high_resolution_clock::now();
-  const auto fromDate = m_option.GetStartDate();
-  const auto toDate = m_option.GetEndDate();
-  SPDLOG_DEBUG("LoadAssetBars: Loading {} {} for dates [{} - {}]",
-               asset.GetSymbolStr(), DataCategoryWrapper::ToString(cat),
-               fromDate.repr(), toDate.repr());
-
-  // Use cleaner parameter struct approach
-  // Check environment for intraday freshness requirement
-  bool forceRefreshToday = false;
-  if (cat == DataCategory::MinuteBars) {
-    auto intradayFresh = ENV("INTRADAY_ALWAYS_FRESH");
-    forceRefreshToday = (intradayFresh == "true" || intradayFresh == "1");
-  }
-  auto params = buildCacheParams(asset, cat, forceRefreshToday);
-
-  auto &fetcher = m_fetcherProvider->Get(asset, cat);
-  auto res = m_cacheProvider->LoadWithCache(
-      params.cacheDir, asset, cat, params.ttlSeconds,
-      params.enableCache, fromDate, toDate,
-      [&](const epoch_frame::Date &f, const epoch_frame::Date &t) {
-        const auto fetch_start = std::chrono::high_resolution_clock::now();
-        auto result = fetcher.Fetch(asset, cat, f, t);
-        const auto fetch_end = std::chrono::high_resolution_clock::now();
-        const auto fetch_duration =
-            std::chrono::duration_cast<std::chrono::milliseconds>(fetch_end -
-                                                                  fetch_start);
-        SPDLOG_INFO("Fetch timing cat={} asset={} duration={}ms",
-                    DataCategoryWrapper::ToString(cat), asset.GetID(),
-                    fetch_duration.count());
-        return result;
-      });
-
-  // Validate that returned data is within the requested date range
-  if (res.has_value() && !res->empty()) {
-    if (!validateDataRange(*res, fromDate, toDate, asset)) {
-      return std::unexpected("Data is outside requested backtest date range");
-    }
-  }
-
-  const auto end_time = std::chrono::high_resolution_clock::now();
-  const auto total_duration =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end_time -
-                                                            start_time);
-  SPDLOG_INFO("LoadAssetBars timing cat={} asset={} total_duration={}ms",
-              DataCategoryWrapper::ToString(cat), asset.GetID(),
-              total_duration.count());
-  return res;
+                                   const std::unordered_map<std::string, std::string>& parameters) const {
+  // Simply delegate to async version and wait for result
+  return drogon::sync_wait(LoadAssetBarsAsync(asset, cat, parameters));
 }
 
 // Async version of LoadAssetBars
@@ -192,27 +229,41 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
   // Step 2: Build category_data map from results with column prefixing
   std::unordered_map<DataCategory, epoch_frame::DataFrame> category_data;
+  std::vector<std::pair<DataCategory, epoch_frame::DataFrame>> empty_categories;
+
   for (std::size_t i = 0; i < results.size(); ++i) {
     const auto& result = results[i];
     const auto& cat = category_list[i];
 
     if (!result.has_value()) {
-      SPDLOG_WARN("Failed to load {} for {}: {}",
+      SPDLOG_WARN("Failed to load {} for {}: {} - creating empty DataFrame with schema",
                   DataCategoryWrapper::ToString(cat),
                   asset.GetSymbolStr(),
                   result.error());
-      continue;
-    }
-
-    if (result->empty()) {
-      SPDLOG_DEBUG("No {} data for {} in date range",
-                   DataCategoryWrapper::ToString(cat),
-                   asset.GetSymbolStr());
+      // Create empty DataFrame even for failed categories to ensure schema consistency
+      auto empty_df = createEmptyDataFrame(cat);
+      empty_categories.emplace_back(cat, empty_df);
       continue;
     }
 
     // Apply column prefixing if needed
     auto df = *result;
+
+    // If empty, create empty DataFrame with proper schema and save for later
+    if (df.empty()) {
+      SPDLOG_INFO("No {} data for {} in date range - creating empty DataFrame with schema",
+                   DataCategoryWrapper::ToString(cat),
+                   asset.GetSymbolStr());
+      df = createEmptyDataFrame(cat);
+      SPDLOG_INFO("Created empty {} DataFrame with {} columns",
+                   DataCategoryWrapper::ToString(cat),
+                   df.num_cols());
+      // Note: prefix already applied in createEmptyDataFrame
+      // Store for later reindexing after we know the final index
+      empty_categories.emplace_back(cat, df);
+      continue;
+    }
+
     const auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
     if (!metadata.category_prefix.empty()) {
       SPDLOG_DEBUG("Applying prefix '{}' to {} columns for {}",
@@ -225,21 +276,67 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
     category_data[cat] = df;
   }
 
+  // First merge non-empty categories to get the final index
+  epoch_frame::DataFrame merged_df;
+  if (!category_data.empty()) {
+    auto merge_result = m_merger->Merge(category_data);
+    if (!merge_result) {
+      co_return std::unexpected("Merge failed: " + merge_result.error());
+    }
+    merged_df = *merge_result;
+  }
+
+  // Now reindex empty categories to match the merged index and add them as columns
+  if (!empty_categories.empty()) {
+    if (category_data.empty()) {
+      // All categories were empty - this is an error
+      co_return std::unexpected("No data available for any category");
+    }
+
+    SPDLOG_INFO("Reindexing {} empty categories to match merged index of {} rows",
+                empty_categories.size(), merged_df.num_rows());
+
+    for (const auto& [cat, empty_df] : empty_categories) {
+      SPDLOG_INFO("Adding {} empty columns to merged index of {} rows",
+                  DataCategoryWrapper::ToString(cat),
+                  merged_df.num_rows());
+
+      // Add each column from empty DataFrame as null column with merged_df's index
+      for (const auto& col_name : empty_df.column_names()) {
+        // Create null array matching merged_df's row count
+        auto null_builder = std::make_shared<arrow::NullBuilder>();
+        for (size_t i = 0; i < merged_df.num_rows(); ++i) {
+          auto status = null_builder->AppendNull();
+          if (!status.ok()) {
+            throw std::runtime_error("Failed to append null: " + status.ToString());
+          }
+        }
+
+        arrow::ArrayPtr null_array;
+        auto status = null_builder->Finish(&null_array);
+        if (!status.ok()) {
+          throw std::runtime_error("Failed to finish null array: " + status.ToString());
+        }
+
+        // Create Series with the same index as merged_df
+        auto null_series = epoch_frame::Series(merged_df.index(), std::make_shared<arrow::ChunkedArray>(null_array), col_name);
+
+        // Add to merged DataFrame
+        merged_df = merged_df.assign(col_name, null_series);
+      }
+
+      SPDLOG_INFO("Added {} columns from {} (all null)",
+                  empty_df.num_cols(),
+                  DataCategoryWrapper::ToString(cat));
+    }
+  }
+
   // Check if we have any data
-  if (category_data.empty()) {
+  if (category_data.empty() && empty_categories.empty()) {
     co_return std::unexpected("No data available for any category");
   }
 
-  // Step 3: Merge using pluggable merger
-  SPDLOG_DEBUG("LoadAssetDataAsync: Merging {} categories for {}",
-               category_data.size(), asset.GetSymbolStr());
-
-  auto merge_result = m_merger->Merge(category_data);
-  if (!merge_result) {
-    co_return std::unexpected("Merge failed: " + merge_result.error());
-  }
-
-  co_return *merge_result;
+  co_return merged_df;
 }
 
 void ApiCacheDataloader::LoadData() {

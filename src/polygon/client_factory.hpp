@@ -9,7 +9,6 @@
 #include "financials_client.hpp"
 #include "short_volume_client.hpp"
 #include "short_interest_client.hpp"
-#include "ipo_client.hpp"
 #include "splits_client.hpp"
 #include "dividends_client.hpp"
 #include "ticker_events_client.hpp"
@@ -45,11 +44,6 @@ public:
   // Create a new ShortInterestClient for short interest data
   // Supports: stocks only
   static std::unique_ptr<ShortInterestClient> createShortInterestClient(const Options& options);
-
-  // Create a new IPOClient for IPO listing data
-  // Useful for: tracking new listings, IPO pricing analysis
-  // Supports: stocks only
-  static std::unique_ptr<IPOClient> createIPOClient(const Options& options);
 
   // Create a new SplitsClient for stock split data
   // CRITICAL for backtesting: adjusts historical prices for splits

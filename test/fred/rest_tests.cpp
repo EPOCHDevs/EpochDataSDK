@@ -442,7 +442,7 @@ TEST_CASE("Real API: FRED Series metadata verification", "[fred][real_api][metad
   }
 }
 
-TEST_CASE("Real API: FRED Batch historical series 2010-2020",
+TEST_CASE("Real API: FRED Batch historical series 2004-2024",
           "[fred][real_api][long_range]") {
   if (!hasApiKey()) {
     SKIP("FRED_API_KEY not set");
@@ -450,15 +450,15 @@ TEST_CASE("Real API: FRED Batch historical series 2010-2020",
 
   Options opt;
   opt.api_key = getApiKey();
-  opt.request_timeout_sec = 30.0;  // Increase timeout for long requests with pagination
+  opt.request_timeout_sec = 60.0;  // Increase timeout for long requests with pagination
 
   SeriesClient client(opt);
 
-  INFO("Creating 3 concurrent tasks for 10 years of economic data...");
+  INFO("Creating 3 concurrent tasks for 20 years of economic data (2004-2024)...");
 
-  // Create 3 concurrent tasks for 10 years of economic data (2010-2020)
+  // Create 3 concurrent tasks for 20 years of economic data (2004-2024)
   // Note: FRED uses offset/limit pagination (max 100,000 per page)
-  // Daily series like Fed Funds can have >100k observations over 10 years
+  // Daily series like Fed Funds can have >200k observations over 20 years
   // The client now automatically handles pagination to fetch all data
   // This will test:
   // - Concurrent execution of multiple requests
@@ -467,9 +467,9 @@ TEST_CASE("Real API: FRED Batch historical series 2010-2020",
   // - Coroutine parameter lifetime correctness
   // - Order preservation in results
   std::vector<drogon::Task<Expected<epoch_frame::DataFrame>>> tasks;
-  tasks.push_back(client.getCPIAsync("2010-01-01", "2020-12-31", true));      // CPI with ALFRED
-  tasks.push_back(client.getFedFundsAsync("2010-01-01", "2020-12-31", true)); // Fed Funds with ALFRED
-  tasks.push_back(client.getUnemploymentAsync("2010-01-01", "2020-12-31", true)); // Unemployment with ALFRED
+  tasks.push_back(client.getCPIAsync("2004-01-01", "2024-12-31", true));      // CPI with ALFRED
+  tasks.push_back(client.getFedFundsAsync("2004-01-01", "2024-12-31", true)); // Fed Funds with ALFRED
+  tasks.push_back(client.getUnemploymentAsync("2004-01-01", "2024-12-31", true)); // Unemployment with ALFRED
 
   INFO("Executing all 3 tasks concurrently with syncJoinAll()...");
 
@@ -482,7 +482,7 @@ TEST_CASE("Real API: FRED Batch historical series 2010-2020",
   auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
     std::chrono::steady_clock::now() - start).count();
 
-  std::cout << "\n=== Real API Test Results (FRED 10-year data) ===\n";
+  std::cout << "\n=== Real API Test Results (FRED 20-year data 2004-2024) ===\n";
   std::cout << "Completed in " << elapsed << " seconds\n";
 
   // Validate all succeeded
