@@ -6,6 +6,7 @@
 
 #include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
+#include <epoch_data_sdk/common/metadata.hpp>
 
 #include "error.hpp"
 #include "options.hpp"
@@ -307,6 +308,13 @@ public:
     return getSeriesAsync(std::move(opts.series_id), std::move(opts.from),
                           std::move(opts.to), opts.use_alfred);
   }
+
+  /**
+   * Get metadata about the Series endpoint including endpoint description,
+   * query parameters, and output fields with their descriptions.
+   * @return DataFrameMetadata struct with column types and descriptions
+   */
+  static data_sdk::DataFrameMetadata getMetadata();
 
 private:
   class Impl;

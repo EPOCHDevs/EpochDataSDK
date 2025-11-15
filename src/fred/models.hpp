@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include <glaze/glaze.hpp>
+
 namespace data_sdk::fred {
 
 // FRED series observation

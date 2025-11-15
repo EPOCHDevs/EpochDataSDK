@@ -6,6 +6,7 @@
 #include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -116,6 +117,15 @@ public:
     return getIncomeStatementsAsync(std::move(opts.ticker), std::move(opts.from_date),
                                     std::move(opts.to_date), opts.limit);
   }
+
+  // Get metadata describing the DataFrame structure returned by getBalanceSheets()
+  static DataFrameMetadata getBalanceSheetsMetadata();
+
+  // Get metadata describing the DataFrame structure returned by getCashFlowStatements()
+  static DataFrameMetadata getCashFlowStatementsMetadata();
+
+  // Get metadata describing the DataFrame structure returned by getIncomeStatements()
+  static DataFrameMetadata getIncomeStatementsMetadata();
 
 private:
   class Impl;

@@ -8,6 +8,9 @@
 #include "polygon/dividends_client.hpp"
 #include "polygon/splits_client.hpp"
 #include "polygon/financials_client.hpp"
+#include "polygon/ipo_client.hpp"
+#include "polygon/ticker_events_client.hpp"
+#include "polygon/ratios_client.hpp"
 #include "polygon/short_interest_client.hpp"
 #include "polygon/short_volume_client.hpp"
 #include <epoch_frame/common.h>
@@ -33,133 +36,16 @@ public:
   std::expected<epoch_frame::DataFrame, std::string>
   Fetch(const asset::Asset &asset, DataCategory category,
         const epoch_frame::Date &fromDate,
-        const epoch_frame::Date &toDate,
-        const Parameters& parameters = {}) const override {
-
-    const auto mapped = asset.GetSpec().GetVendorSymbolForPolygon().value_or(
-        asset.GetSymbolStr());
-
-    const std::string from_str = fromDate.repr();
-    const std::string to_str = toDate.repr();
-
-    switch (category) {
-      case DataCategory::MinuteBars: {
-        auto result = m_aggs_client->getAggregates(mapped, from_str, to_str, false);
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::DailyBars: {
-        auto result = m_aggs_client->getAggregates(mapped, from_str, to_str, true);
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::News: {
-        auto result = m_news_client->getNews(mapped, from_str, to_str);
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::Dividends: {
-        auto result = m_dividends_client->getDividends(
-            mapped,  // ticker
-            std::nullopt,  // ex_dividend_date
-            from_str,  // ex_dividend_date_gte
-            to_str     // ex_dividend_date_lte
-        );
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::Splits: {
-        auto result = m_splits_client->getSplits(
-            mapped,  // ticker
-            std::nullopt,  // execution_date
-            from_str,  // execution_date_gte
-            to_str     // execution_date_lte
-        );
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::Financials: {
-        // Dispatch based on statement type from typed config
-        auto it = parameters.find("statement_type");
-        std::string statementType = (it != parameters.end()) ? it->second : "balance_sheet";
-
-        if (statementType == "balance_sheet") {
-          auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
-          if (!result) {
-            return std::unexpected(result.error().message);
-          }
-          return *result;
-        } else if (statementType == "income_statement") {
-          auto result = m_financials_client->getIncomeStatements(mapped, from_str, to_str);
-          if (!result) {
-            return std::unexpected(result.error().message);
-          }
-          return *result;
-        } else if (statementType == "cash_flow") {
-          auto result = m_financials_client->getCashFlowStatements(mapped, from_str, to_str);
-          if (!result) {
-            return std::unexpected(result.error().message);
-          }
-          return *result;
-        } else if (statementType == "financial_ratios") {
-          // Note: Financial ratios might use a different method - check SDK
-          auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
-          if (!result) {
-            return std::unexpected(result.error().message);
-          }
-          return *result;
-        } else {
-          return std::unexpected(
-              "Unknown Financials statement type: " + statementType);
-        }
-      }
-
-      case DataCategory::ShortInterest: {
-        auto result = m_short_interest_client->getShortInterest(
-            mapped, from_str, to_str);
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      case DataCategory::ShortVolume: {
-        auto result = m_short_volume_client->getShortVolume(
-            mapped, from_str, to_str);
-        if (!result) {
-          return std::unexpected(result.error().message);
-        }
-        return *result;
-      }
-
-      default:
-        return std::unexpected(
-            "Unsupported DataCategory: " +
-            std::string(epoch_core::DataCategoryWrapper::ToString(category)));
-    }
+        const epoch_frame::Date &toDate) const override {
+    // Sync version calls async and waits - eliminates code duplication
+    return drogon::sync_wait(FetchAsync(asset, category, fromDate, toDate));
   }
 
   // Async fetch for concurrent operations
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
   FetchAsync(const asset::Asset &asset, DataCategory category,
              const epoch_frame::Date &fromDate,
-             const epoch_frame::Date &toDate,
-             Parameters parameters = {}) const override {
+             const epoch_frame::Date &toDate) const override {
 
     const auto mapped = asset.GetSpec().GetVendorSymbolForPolygon().value_or(
         asset.GetSymbolStr());
@@ -210,42 +96,6 @@ public:
         co_return *result;
       }
 
-      case DataCategory::Financials: {
-        // Dispatch based on statement type from typed config
-        auto it = parameters.find("statement_type");
-        std::string statementType = (it != parameters.end()) ? it->second : "balance_sheet";
-
-        if (statementType == "balance_sheet") {
-          auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
-          if (!result) {
-            co_return std::unexpected(result.error().message);
-          }
-          co_return *result;
-        } else if (statementType == "income_statement") {
-          auto result = m_financials_client->getIncomeStatements(mapped, from_str, to_str);
-          if (!result) {
-            co_return std::unexpected(result.error().message);
-          }
-          co_return *result;
-        } else if (statementType == "cash_flow") {
-          auto result = m_financials_client->getCashFlowStatements(mapped, from_str, to_str);
-          if (!result) {
-            co_return std::unexpected(result.error().message);
-          }
-          co_return *result;
-        } else if (statementType == "financial_ratios") {
-          // Note: Financial ratios might use a different method - check SDK
-          auto result = m_financials_client->getBalanceSheets(mapped, from_str, to_str);
-          if (!result) {
-            co_return std::unexpected(result.error().message);
-          }
-          co_return *result;
-        } else {
-          co_return std::unexpected(
-              "Unknown Financials statement type: " + statementType);
-        }
-      }
-
       case DataCategory::ShortInterest: {
         auto result = m_short_interest_client->getShortInterest(
             mapped, from_str, to_str);
@@ -258,6 +108,62 @@ public:
       case DataCategory::ShortVolume: {
         auto result = m_short_volume_client->getShortVolume(
             mapped, from_str, to_str);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::IPOs: {
+        auto result = m_ipo_client->getIPOs(
+            mapped, from_str, to_str);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::TickerEvents: {
+        // TickerEventsClient::getTickerEvents only takes ticker and optional types parameter
+        // No date range parameters - returns all events for the ticker
+        auto result = co_await m_ticker_events_client->getTickerEventsAsync(mapped);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::BalanceSheets: {
+        auto result = m_financials_client->getBalanceSheets(
+            mapped, from_str, to_str);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::CashFlowStatements: {
+        auto result = m_financials_client->getCashFlowStatements(
+            mapped, from_str, to_str);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::IncomeStatements: {
+        auto result = m_financials_client->getIncomeStatements(
+            mapped, from_str, to_str);
+        if (!result) {
+          co_return std::unexpected(result.error().message);
+        }
+        co_return *result;
+      }
+
+      case DataCategory::Ratios: {
+        // RatiosClient::getRatios only takes ticker, limit, and sort parameters
+        // No date range parameters - returns latest ratios for the ticker
+        auto result = co_await m_ratios_client->getRatiosAsync(mapped);
         if (!result) {
           co_return std::unexpected(result.error().message);
         }
@@ -297,7 +203,10 @@ private:
     m_news_client = ClientFactory::createNewsClient(m_options);
     m_dividends_client = ClientFactory::createDividendsClient(m_options);
     m_splits_client = ClientFactory::createSplitsClient(m_options);
+    m_ipo_client = ClientFactory::createIPOClient(m_options);
+    m_ticker_events_client = ClientFactory::createTickerEventsClient(m_options);
     m_financials_client = ClientFactory::createFinancialsClient(m_options);
+    m_ratios_client = ClientFactory::createRatiosClient(m_options);
     m_short_interest_client = ClientFactory::createShortInterestClient(m_options);
     m_short_volume_client = ClientFactory::createShortVolumeClient(m_options);
   }
@@ -307,7 +216,10 @@ private:
   std::unique_ptr<data_sdk::polygon::NewsClient> m_news_client;
   std::unique_ptr<data_sdk::polygon::DividendsClient> m_dividends_client;
   std::unique_ptr<data_sdk::polygon::SplitsClient> m_splits_client;
+  std::unique_ptr<data_sdk::polygon::IPOClient> m_ipo_client;
+  std::unique_ptr<data_sdk::polygon::TickerEventsClient> m_ticker_events_client;
   std::unique_ptr<data_sdk::polygon::FinancialsClient> m_financials_client;
+  std::unique_ptr<data_sdk::polygon::RatiosClient> m_ratios_client;
   std::unique_ptr<data_sdk::polygon::ShortInterestClient> m_short_interest_client;
   std::unique_ptr<data_sdk::polygon::ShortVolumeClient> m_short_volume_client;
 };

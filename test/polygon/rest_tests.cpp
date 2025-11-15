@@ -7,18 +7,22 @@
 #include "../src/polygon/splits_client.hpp"
 #include "../src/polygon/short_volume_client.hpp"
 #include "../src/polygon/short_interest_client.hpp"
+#include "../src/polygon/ratios_client.hpp"
 #include "../src/polygon/ipo_client.hpp"
 #include "../src/polygon/economy_client.hpp"
 #include "../src/polygon/news_client.hpp"
 #include "epoch_data_sdk/common/async_batch.hpp"
+#include "../common/test_utils.hpp"
 #include <catch2/catch_all.hpp>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/series.h>
 #include <drogon/utils/coroutine.h>
+#include <arrow/type.h>
 
 
 using namespace data_sdk::polygon;
+using namespace data_sdk::test;
 
 static std::string getenv_or(const char *key,
                              const std::string &fallback = {}) {
@@ -83,6 +87,157 @@ TEST_CASE("getTrades builds query with timestamp filters", "[polygon][rest]") {
   REQUIRE(has("order", "asc"));  // Now always enforced
   REQUIRE(has("sort", "timestamp"));  // Now always enforced
   REQUIRE(has("limit", "5"));
+}
+
+TEST_CASE("integration: Metadata validation for all asset classes",
+          "[polygon][rest][integration][metadata]") {
+    auto api_key = getenv_or("POLYGON_API_KEY");
+    if (api_key.empty()) {
+        SKIP("POLYGON_API_KEY not set; skipping integration test");
+    }
+
+    Options opt;
+    opt.api_key = api_key;
+    opt.request_timeout_sec = 10.0;
+
+    AggsClient aggs_cli(opt);
+    QuotesClient quotes_cli(opt);
+    TradesClient trades_cli(opt);
+
+    SECTION("AggsClient: Stocks EOD - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("AAPL", "2021-04-26", "2021-04-27", true);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Stocks,EOD)");
+    }
+
+    SECTION("AggsClient: Stocks Intraday - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("AAPL", "2021-04-26", "2021-04-26", false);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Stocks,Minute)");
+    }
+
+    SECTION("AggsClient: Forex EOD - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("C:EURUSD", "2021-04-26", "2021-04-27", true);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        // Forex might not have all columns (vw, n are optional)
+        // But what it does have must match metadata
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Forex,EOD)");
+    }
+
+    SECTION("AggsClient: Forex Intraday - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("C:EURUSD", "2021-04-26", "2021-04-26", false);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Forex,Minute)");
+    }
+
+    SECTION("AggsClient: Crypto EOD - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("X:BTCUSD", "2021-04-26", "2021-04-27", true);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Crypto,EOD)");
+    }
+
+    SECTION("AggsClient: Crypto Intraday - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("X:BTCUSD", "2021-04-26", "2021-04-26", false);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Crypto,Minute)");
+    }
+
+    SECTION("AggsClient: Indices EOD - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        // SPY is an ETF tracking S&P 500 index
+        auto df = aggs_cli.getAggregates("SPY", "2021-04-26", "2021-04-27", true);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Index/ETF,EOD)");
+    }
+
+    SECTION("AggsClient: Indices Intraday - Metadata validation") {
+        auto metadata = AggsClient::getMetadata();
+        auto df = aggs_cli.getAggregates("SPY", "2021-04-26", "2021-04-26", false);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "AggsClient(Index/ETF,Minute)");
+    }
+
+    SECTION("TradesClient: Stocks - Metadata validation") {
+        auto metadata = TradesClient::getMetadata();
+        auto df = trades_cli.getTrades("AAPL", "2021-04-26", "2021-04-26", 100);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "TradesClient(Stocks)");
+    }
+
+    SECTION("TradesClient: Crypto - Metadata validation") {
+        auto metadata = TradesClient::getMetadata();
+        auto df = trades_cli.getTrades("X:BTCUSD", "2021-04-26", "2021-04-26", 100);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "TradesClient(Crypto)");
+    }
+
+    SECTION("QuotesClient: Stocks - Metadata validation") {
+        auto metadata = QuotesClient::getMetadata();
+        auto df = quotes_cli.getQuotes("AAPL", "2021-04-26", "2021-04-26", 100);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "QuotesClient(Stocks)");
+    }
+
+    SECTION("QuotesClient: Forex - Metadata validation") {
+        auto metadata = QuotesClient::getMetadata();
+        auto df = quotes_cli.getQuotes("C:EURUSD", "2021-04-26", "2021-04-26", 100);
+
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        INFO(df->head().repr());
+
+        validateDataFrameAgainstMetadata(*df, metadata, "QuotesClient(Forex)");
+    }
 }
 
 TEST_CASE("integration: real API call when POLYGON_API_KEY is set",
@@ -402,6 +557,41 @@ TEST_CASE("integration: short interest API call", "[polygon][rest][integration]"
     }
 }
 
+TEST_CASE("integration: Ratios API call", "[polygon][rest][integration]") {
+    auto api_key = getenv_or("POLYGON_API_KEY");
+    if (api_key.empty()) {
+        SKIP("POLYGON_API_KEY not set; skipping integration test");
+    }
+
+    Options opt;
+    opt.api_key = api_key;
+    opt.request_timeout_sec = 5.0;
+
+    RatiosClient ratios_cli(opt);
+
+    SECTION("Get ratios for specific ticker") {
+        auto df = ratios_cli.getRatios("AAPL", 10, "ticker.asc");
+        if (!df.has_value()) {
+            FAIL(df.error().message);
+        }
+        INFO(df->head().repr());
+        REQUIRE(df.has_value());
+        REQUIRE(df->num_rows() > 0);
+        // Check required columns
+        std::vector<std::string> expected_cols = {
+            "ticker", "average_volume", "cash", "current", "debt_to_equity",
+            "dividend_yield", "earnings_per_share", "enterprise_value",
+            "ev_to_ebitda", "ev_to_sales", "free_cash_flow", "market_cap",
+            "price", "price_to_book", "price_to_cash_flow", "price_to_earnings",
+            "price_to_free_cash_flow", "price_to_sales", "quick",
+            "return_on_assets", "return_on_equity"
+        };
+        for (const auto& col : expected_cols) {
+            REQUIRE(df->contains(col));
+        }
+    }
+}
+
 TEST_CASE("integration: IPO API call", "[polygon][rest][integration]") {
     auto api_key = getenv_or("POLYGON_API_KEY");
     if (api_key.empty()) {
@@ -661,14 +851,36 @@ TEST_CASE("NewsClient: getNews integration test", "[polygon][rest][news][integra
         REQUIRE(df.has_value());
         REQUIRE(df->num_rows() > 0);
 
-        // Exhaustive column check
+        // Exhaustive column check - matches NewsClient implementation
         std::vector<std::string> expected_cols = {
-            "id", "tickers", "title", "author", "publisher",
-            "article_url", "description"
+            "id", "title", "author", "description",
+            "article_url", "amp_url", "image_url",
+            "tickers", "keywords", "insights",
+            "publisher_name", "publisher_homepage", "publisher_logo", "publisher_favicon"
         };
+        REQUIRE(df->num_cols() == expected_cols.size());
         for (const auto& col : expected_cols) {
             REQUIRE(df->contains(col));
         }
+    }
+
+    SECTION("Metadata validation - verify DataFrame schema matches getMetadata()") {
+        auto metadata = NewsClient::getMetadata();
+        auto df = news_cli.getNews("AAPL", "2024-01-01", "2024-01-31", 10);
+
+        REQUIRE(df.has_value());
+        INFO(df->head().repr());
+
+        // 1. Validate metadata structure
+        REQUIRE(metadata.data_type == "news");
+        REQUIRE(!metadata.description.empty());
+
+        // 2. Column count must match
+        REQUIRE(metadata.columns.size() == 14);
+        REQUIRE(df->num_cols() == 14);
+
+        // 3. Use helper to validate all columns
+        validateDataFrameAgainstMetadata(*df, metadata, "NewsClient");
     }
 }
 

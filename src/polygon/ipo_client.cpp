@@ -67,9 +67,10 @@ public:
     // Build DataFrame
     std::vector<std::int64_t> dates;
     std::vector<std::string> tickers_col, issuer_names, listing_dates, announced_dates,
-                              ipo_statuses, exchanges, us_codes, isins;
+                              ipo_statuses, exchanges, us_codes, isins,
+                              currency_codes, last_updated_dates, security_descriptions, security_types;
     std::vector<double> final_prices, highest_prices, lowest_prices, total_offer_sizes;
-    std::vector<int> shares_outstanding, min_shares, max_shares;
+    std::vector<int> shares_outstanding, min_shares, max_shares, lot_sizes;
 
     const auto sz = parsed.results.size();
     dates.reserve(sz);
@@ -81,6 +82,10 @@ public:
     exchanges.reserve(sz);
     us_codes.reserve(sz);
     isins.reserve(sz);
+    currency_codes.reserve(sz);
+    last_updated_dates.reserve(sz);
+    security_descriptions.reserve(sz);
+    security_types.reserve(sz);
     final_prices.reserve(sz);
     highest_prices.reserve(sz);
     lowest_prices.reserve(sz);
@@ -88,6 +93,7 @@ public:
     shares_outstanding.reserve(sz);
     min_shares.reserve(sz);
     max_shares.reserve(sz);
+    lot_sizes.reserve(sz);
 
     for (const auto &r : parsed.results) {
       const auto date_ns = parseDateToNs(r.listing_date.value_or(""));
@@ -100,6 +106,10 @@ public:
       exchanges.push_back(r.primary_exchange.value_or(""));
       us_codes.push_back(r.us_code.value_or(""));
       isins.push_back(r.isin.value_or(""));
+      currency_codes.push_back(r.currency_code.value_or(""));
+      last_updated_dates.push_back(r.last_updated.value_or(""));
+      security_descriptions.push_back(r.security_description.value_or(""));
+      security_types.push_back(r.security_type.value_or(""));
       final_prices.push_back(r.final_issue_price.value_or(0.0));
       highest_prices.push_back(r.highest_offer_price.value_or(0.0));
       lowest_prices.push_back(r.lowest_offer_price.value_or(0.0));
@@ -107,6 +117,7 @@ public:
       shares_outstanding.push_back(r.shares_outstanding.value_or(0));
       min_shares.push_back(r.min_shares_offered.value_or(0));
       max_shares.push_back(r.max_shares_offered.value_or(0));
+      lot_sizes.push_back(r.lot_size.value_or(0));
     }
 
     // Follow pagination if present
@@ -144,6 +155,10 @@ public:
         exchanges.push_back(r.primary_exchange.value_or(""));
         us_codes.push_back(r.us_code.value_or(""));
         isins.push_back(r.isin.value_or(""));
+        currency_codes.push_back(r.currency_code.value_or(""));
+        last_updated_dates.push_back(r.last_updated.value_or(""));
+        security_descriptions.push_back(r.security_description.value_or(""));
+        security_types.push_back(r.security_type.value_or(""));
         final_prices.push_back(r.final_issue_price.value_or(0.0));
         highest_prices.push_back(r.highest_offer_price.value_or(0.0));
         lowest_prices.push_back(r.lowest_offer_price.value_or(0.0));
@@ -151,6 +166,7 @@ public:
         shares_outstanding.push_back(r.shares_outstanding.value_or(0));
         min_shares.push_back(r.min_shares_offered.value_or(0));
         max_shares.push_back(r.max_shares_offered.value_or(0));
+        lot_sizes.push_back(r.lot_size.value_or(0));
       }
 
       next = page.next_url.value_or("");
@@ -165,25 +181,31 @@ public:
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {
         "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
-        "exchange", "us_code", "isin", "final_price", "highest_price",
+        "exchange", "us_code", "isin", "currency_code", "last_updated",
+        "security_description", "security_type", "final_price", "highest_price",
         "lowest_price", "total_offer_size", "shares_outstanding",
-        "min_shares_offered", "max_shares_offered"};
+        "min_shares_offered", "max_shares_offered", "lot_size"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
         epoch_frame::factory::array::make_array(issuer_names),
-        epoch_frame::factory::array::make_array(listing_dates),
-        epoch_frame::factory::array::make_array(announced_dates),
+        makeDateTimestampArray(listing_dates),
+        makeDateTimestampArray(announced_dates),
         epoch_frame::factory::array::make_array(ipo_statuses),
         epoch_frame::factory::array::make_array(exchanges),
         epoch_frame::factory::array::make_array(us_codes),
         epoch_frame::factory::array::make_array(isins),
+        epoch_frame::factory::array::make_array(currency_codes),
+        makeDateTimestampArray(last_updated_dates),
+        epoch_frame::factory::array::make_array(security_descriptions),
+        epoch_frame::factory::array::make_array(security_types),
         epoch_frame::factory::array::make_array(final_prices),
         epoch_frame::factory::array::make_array(highest_prices),
         epoch_frame::factory::array::make_array(lowest_prices),
         epoch_frame::factory::array::make_array(total_offer_sizes),
         epoch_frame::factory::array::make_array(shares_outstanding),
         epoch_frame::factory::array::make_array(min_shares),
-        epoch_frame::factory::array::make_array(max_shares)};
+        epoch_frame::factory::array::make_array(max_shares),
+        epoch_frame::factory::array::make_array(lot_sizes)};
 
     return epoch_frame::make_dataframe(index, data, columns);
   }
@@ -222,9 +244,10 @@ public:
     // Build DataFrame
     std::vector<std::int64_t> dates;
     std::vector<std::string> tickers_col, issuer_names, listing_dates, announced_dates,
-                              ipo_statuses, exchanges, us_codes, isins;
+                              ipo_statuses, exchanges, us_codes, isins,
+                              currency_codes, last_updated_dates, security_descriptions, security_types;
     std::vector<double> final_prices, highest_prices, lowest_prices, total_offer_sizes;
-    std::vector<int> shares_outstanding, min_shares, max_shares;
+    std::vector<int> shares_outstanding, min_shares, max_shares, lot_sizes;
 
     const auto sz = parsed.results.size();
     dates.reserve(sz);
@@ -236,6 +259,10 @@ public:
     exchanges.reserve(sz);
     us_codes.reserve(sz);
     isins.reserve(sz);
+    currency_codes.reserve(sz);
+    last_updated_dates.reserve(sz);
+    security_descriptions.reserve(sz);
+    security_types.reserve(sz);
     final_prices.reserve(sz);
     highest_prices.reserve(sz);
     lowest_prices.reserve(sz);
@@ -243,6 +270,7 @@ public:
     shares_outstanding.reserve(sz);
     min_shares.reserve(sz);
     max_shares.reserve(sz);
+    lot_sizes.reserve(sz);
 
     for (const auto &r : parsed.results) {
       const auto date_ns = parseDateToNs(r.listing_date.value_or(""));
@@ -255,6 +283,10 @@ public:
       exchanges.push_back(r.primary_exchange.value_or(""));
       us_codes.push_back(r.us_code.value_or(""));
       isins.push_back(r.isin.value_or(""));
+      currency_codes.push_back(r.currency_code.value_or(""));
+      last_updated_dates.push_back(r.last_updated.value_or(""));
+      security_descriptions.push_back(r.security_description.value_or(""));
+      security_types.push_back(r.security_type.value_or(""));
       final_prices.push_back(r.final_issue_price.value_or(0.0));
       highest_prices.push_back(r.highest_offer_price.value_or(0.0));
       lowest_prices.push_back(r.lowest_offer_price.value_or(0.0));
@@ -262,6 +294,7 @@ public:
       shares_outstanding.push_back(r.shares_outstanding.value_or(0));
       min_shares.push_back(r.min_shares_offered.value_or(0));
       max_shares.push_back(r.max_shares_offered.value_or(0));
+      lot_sizes.push_back(r.lot_size.value_or(0));
     }
 
     // Follow pagination if present
@@ -299,6 +332,10 @@ public:
         exchanges.push_back(r.primary_exchange.value_or(""));
         us_codes.push_back(r.us_code.value_or(""));
         isins.push_back(r.isin.value_or(""));
+        currency_codes.push_back(r.currency_code.value_or(""));
+        last_updated_dates.push_back(r.last_updated.value_or(""));
+        security_descriptions.push_back(r.security_description.value_or(""));
+        security_types.push_back(r.security_type.value_or(""));
         final_prices.push_back(r.final_issue_price.value_or(0.0));
         highest_prices.push_back(r.highest_offer_price.value_or(0.0));
         lowest_prices.push_back(r.lowest_offer_price.value_or(0.0));
@@ -306,6 +343,7 @@ public:
         shares_outstanding.push_back(r.shares_outstanding.value_or(0));
         min_shares.push_back(r.min_shares_offered.value_or(0));
         max_shares.push_back(r.max_shares_offered.value_or(0));
+        lot_sizes.push_back(r.lot_size.value_or(0));
       }
 
       next = page.next_url.value_or("");
@@ -320,25 +358,31 @@ public:
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {
         "ticker", "issuer_name", "listing_date", "announced_date", "ipo_status",
-        "exchange", "us_code", "isin", "final_price", "highest_price",
+        "exchange", "us_code", "isin", "currency_code", "last_updated",
+        "security_description", "security_type", "final_price", "highest_price",
         "lowest_price", "total_offer_size", "shares_outstanding",
-        "min_shares_offered", "max_shares_offered"};
+        "min_shares_offered", "max_shares_offered", "lot_size"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
         epoch_frame::factory::array::make_array(issuer_names),
-        epoch_frame::factory::array::make_array(listing_dates),
-        epoch_frame::factory::array::make_array(announced_dates),
+        makeDateTimestampArray(listing_dates),
+        makeDateTimestampArray(announced_dates),
         epoch_frame::factory::array::make_array(ipo_statuses),
         epoch_frame::factory::array::make_array(exchanges),
         epoch_frame::factory::array::make_array(us_codes),
         epoch_frame::factory::array::make_array(isins),
+        epoch_frame::factory::array::make_array(currency_codes),
+        makeDateTimestampArray(last_updated_dates),
+        epoch_frame::factory::array::make_array(security_descriptions),
+        epoch_frame::factory::array::make_array(security_types),
         epoch_frame::factory::array::make_array(final_prices),
         epoch_frame::factory::array::make_array(highest_prices),
         epoch_frame::factory::array::make_array(lowest_prices),
         epoch_frame::factory::array::make_array(total_offer_sizes),
         epoch_frame::factory::array::make_array(shares_outstanding),
         epoch_frame::factory::array::make_array(min_shares),
-        epoch_frame::factory::array::make_array(max_shares)};
+        epoch_frame::factory::array::make_array(max_shares),
+        epoch_frame::factory::array::make_array(lot_sizes)};
 
     co_return epoch_frame::make_dataframe(index, data, columns);
   }
@@ -363,6 +407,118 @@ IPOClient::getIPOsAsync(std::string from_date, std::string to_date,
                         std::optional<std::string> ticker,
                         std::optional<int> limit) const {
   return impl_->getIPOsAsync(std::move(from_date), std::move(to_date), ticker, limit);
+}
+
+data_sdk::DataFrameMetadata IPOClient::getMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "ipos",
+      .description = "Retrieve comprehensive information on Initial Public Offerings (IPOs), including upcoming and historical events, starting from the year 2008. The endpoint provides key IPO details such as issuer name, ticker symbol, security type, IPO date, share quantities, price ranges, final pricing, and offering sizes. Users can filter by IPO status to support investment research, market analysis, and screening activities.",
+      .asset_class = AssetClass::Stocks,
+      .index_normalized = true,
+      .category_prefix = "I:",
+      .columns = {
+          {.id = "ticker",
+           .name = "Ticker",
+           .description = "Stock symbol identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "issuer_name",
+           .name = "Issuer Name",
+           .description = "Company name conducting the offering",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "listing_date",
+           .name = "Listing Date",
+           .description = "Initial exchange trading commencement date",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "announced_date",
+           .name = "Announced Date",
+           .description = "Publication date of the IPO announcement",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "ipo_status",
+           .name = "IPO Status",
+           .description = "Event classification (direct_listing_process, history, new, pending, postponed, rumor, or withdrawn)",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "exchange",
+           .name = "Exchange",
+           .description = "Market Identifier Code (MIC) of listing exchange per ISO 10383",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "us_code",
+           .name = "US Code",
+           .description = "Nine-character North American security identifier facilitating trade clearing and settlement",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "isin",
+           .name = "ISIN",
+           .description = "Twelve-digit international security identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "currency_code",
+           .name = "Currency Code",
+           .description = "Underlying security currency denomination",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "last_updated",
+           .name = "Last Updated",
+           .description = "Most recent modification timestamp",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "security_description",
+           .name = "Security Description",
+           .description = "Security classification details",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "security_type",
+           .name = "Security Type",
+           .description = "Classification designation (e.g., \"CS\" for Common Stock)",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "final_price",
+           .name = "Final Issue Price",
+           .description = "Underwriter-determined share pricing preceding market listing",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "highest_price",
+           .name = "Highest Offer Price",
+           .description = "Maximum IPO price range boundary",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "lowest_price",
+           .name = "Lowest Offer Price",
+           .description = "Minimum IPO price range boundary",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "total_offer_size",
+           .name = "Total Offer Size",
+           .description = "Aggregate capital raised by offering",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "shares_outstanding",
+           .name = "Shares Outstanding",
+           .description = "Total issued shares currently held by investors",
+           .type = ArrowType::INT32,
+           .nullable = false},
+          {.id = "min_shares_offered",
+           .name = "Min Shares Offered",
+           .description = "Lower share quantity threshold",
+           .type = ArrowType::INT32,
+           .nullable = false},
+          {.id = "max_shares_offered",
+           .name = "Max Shares Offered",
+           .description = "Upper share quantity limit",
+           .type = ArrowType::INT32,
+           .nullable = false},
+          {.id = "lot_size",
+           .name = "Lot Size",
+           .description = "Minimum transaction share quantity",
+           .type = ArrowType::INT32,
+           .nullable = false},
+      }};
 }
 
 } // namespace data_sdk::polygon

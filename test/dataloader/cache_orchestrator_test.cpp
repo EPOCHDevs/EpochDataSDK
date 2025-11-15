@@ -45,17 +45,16 @@ namespace epoch_frame {
 // Mock implementation of IDataFetcher for testing
 class MockDataFetcher : public IDataFetcher {
 public:
-  MAKE_MOCK5(Fetch,
+  MAKE_MOCK4(Fetch,
              FetchResult(const asset::Asset &, DataCategory, const epoch_frame::Date &,
-                         const epoch_frame::Date &, const Parameters&),
+                         const epoch_frame::Date &),
              const);
 
   // Async version - wraps sync Fetch in coroutine
   drogon::Task<FetchResult> FetchAsync(const asset::Asset &asset, DataCategory category,
                                        const epoch_frame::Date &fromDate,
-                                       const epoch_frame::Date &toDate,
-                                       Parameters parameters = {}) const override {
-    co_return Fetch(asset, category, fromDate, toDate, parameters);
+                                       const epoch_frame::Date &toDate) const override {
+    co_return Fetch(asset, category, fromDate, toDate);
   }
 
   MockDataFetcher() : shouldFail(false),
@@ -249,7 +248,7 @@ TEST_CASE("CacheOrchestrator: executeFetch", "[cache_orchestrator]") {
     // Set up mock expectation
     using trompeloeil::_;
     auto testData = MockDataFetcher::createTestData(*strategy.fetchFrom, *strategy.fetchTo);
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category && _3 == *strategy.fetchFrom && _4 == *strategy.fetchTo)
         .TIMES(1)
         .LR_RETURN(testData);
@@ -272,7 +271,7 @@ TEST_CASE("CacheOrchestrator: executeFetch", "[cache_orchestrator]") {
     // Set up mock expectation to return error
     using trompeloeil::_;
     auto errorResult = FetchResult(std::unexpected<std::string>("API error"));
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category && _3 == *strategy.fetchFrom && _4 == *strategy.fetchTo)
         .TIMES(1)
         .LR_RETURN(errorResult);
@@ -496,7 +495,7 @@ TEST_CASE("CacheOrchestrator: full load workflow integration", "[cache_orchestra
     // Note: Fetch will be called with buffered dates (±7 days for MinuteBars)
     using trompeloeil::_;
     auto testData = MockDataFetcher::createTestData(params.fromDate, params.toDate);
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category)
         // Don't check exact dates - buffering changes them
         .TIMES(1)
@@ -546,7 +545,7 @@ TEST_CASE("CacheOrchestrator: full load workflow integration", "[cache_orchestra
     // With APPEND_ONLY strategy, cache has 2024-01-01 to 2024-01-02
     // Fetch starts at 2024-01-03 (day after cache end, no backward buffer)
     // End: 2024-01-05 + 7 days buffer = 2024-01-12
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category &&
               _3 == DateTime::from_date_str("2024-01-03").date() &&
               _4 == DateTime::from_date_str("2024-01-12").date())
@@ -581,7 +580,7 @@ TEST_CASE("CacheOrchestrator: full load workflow integration", "[cache_orchestra
 
     using trompeloeil::_;
     auto errorResult = FetchResult(std::unexpected<std::string>("Network error"));
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .TIMES(1)
         .LR_RETURN(errorResult);
 
@@ -697,14 +696,14 @@ TEST_CASE("CacheOrchestrator: full load workflow integration", "[cache_orchestra
     using trompeloeil::_;
 
     // Expect two fetch calls: prepend and append
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category &&
               _3 == DateTime::from_date_str("2023-12-25").date() &&
               _4 == DateTime::from_date_str("2024-01-04").date())
         .TIMES(1)
         .LR_RETURN(prependData);
 
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .WITH(_1 == params.asset && _2 == params.category &&
               _3 == DateTime::from_date_str("2024-01-11").date() &&
               _4 == DateTime::from_date_str("2024-01-27").date())
@@ -742,7 +741,7 @@ TEST_CASE("CacheOrchestrator: full load workflow integration", "[cache_orchestra
 
     // Prepend fetch fails (e.g., data doesn't exist before 2024-01-05)
     auto errorResult = FetchResult(std::unexpected<std::string>("No data available for requested range"));
-    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _, _))
+    REQUIRE_CALL(*fixture.fetcher, Fetch(_, _, _, _))
         .TIMES(1)
         .LR_RETURN(errorResult);
 

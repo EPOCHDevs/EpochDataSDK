@@ -7,6 +7,7 @@
 #include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -68,6 +69,13 @@ public:
     return getIPOsAsync(std::move(opts.from_date), std::move(opts.to_date),
                         std::move(opts.ticker), opts.limit);
   }
+
+  /**
+   * Get metadata about the IPOs endpoint including endpoint description,
+   * query parameters, and output fields with their descriptions.
+   * @return DataFrameMetadata struct with column types and descriptions
+   */
+  static data_sdk::DataFrameMetadata getMetadata();
 
 private:
   class Impl;

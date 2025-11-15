@@ -8,6 +8,7 @@
 #include <epoch_frame/dataframe.h>
 
 #include "../common/event_loop_helper.hpp"
+#include "fred/models.hpp"
 
 namespace data_sdk::fred {
 
@@ -167,5 +168,6 @@ Expected<T> BaseClient::makeError(int status, std::string_view message,
 // Explicit template instantiations for commonly used types
 template Expected<std::string> BaseClient::makeError(int, std::string_view, const drogon::HttpResponsePtr &);
 template Expected<epoch_frame::DataFrame> BaseClient::makeError(int, std::string_view, const drogon::HttpResponsePtr &);
+template Expected<SeriesObservationsResponse> BaseClient::makeError(int, std::string_view, const drogon::HttpResponsePtr &);
 
 } // namespace data_sdk::fred

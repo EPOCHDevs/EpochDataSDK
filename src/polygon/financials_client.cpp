@@ -3,6 +3,7 @@
 #include <glaze/glaze.hpp>
 #include <spdlog/spdlog.h>
 
+#include <arrow/compute/api.h>
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
@@ -13,18 +14,45 @@
 namespace data_sdk::polygon {
 
 namespace {
-// Helper to parse date string (YYYY-MM-DD) to nanoseconds since epoch
-std::int64_t parseDateToNs(const std::string &date_str) {
-  if (date_str.size() < 10) return 0;
+// Helper to parse date strings (YYYY-MM-DD) to nanoseconds since epoch using Arrow
+std::vector<std::int64_t> parseDatesToNs(const std::vector<std::string> &date_strings) {
+  if (date_strings.empty()) return {};
 
-  int y_val = std::atoi(date_str.substr(0, 4).c_str());
-  int m_val = std::atoi(date_str.substr(5, 2).c_str());
-  int d_val = std::atoi(date_str.substr(8, 2).c_str());
+  // Build Arrow StringArray from input strings
+  arrow::StringBuilder builder;
+  auto status = builder.AppendValues(date_strings);
+  if (!status.ok()) {
+    SPDLOG_ERROR("Failed to build StringArray for date parsing: {}", status.message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
 
-  using namespace std::chrono;
-  auto ymd = year_month_day{year{y_val}, month{static_cast<unsigned>(m_val)}, day{static_cast<unsigned>(d_val)}};
-  auto dp = sys_days{ymd};
-  return duration_cast<nanoseconds>(dp.time_since_epoch()).count();
+  auto maybe_array = builder.Finish();
+  if (!maybe_array.ok()) {
+    SPDLOG_ERROR("Failed to finish StringArray: {}", maybe_array.status().message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
+
+  // Parse strings to timestamps using Arrow compute strptime
+  arrow::compute::StrptimeOptions options("%Y-%m-%d", arrow::TimeUnit::NANO, false);
+  auto maybe_result = arrow::compute::CallFunction("strptime", {maybe_array.ValueOrDie()}, &options);
+  if (!maybe_result.ok()) {
+    SPDLOG_ERROR("Failed to parse dates with strptime: {}", maybe_result.status().message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
+
+  // Extract nanosecond values from TimestampArray
+  auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(maybe_result.ValueOrDie().make_array());
+  std::vector<std::int64_t> result;
+  result.reserve(timestamp_array->length());
+  for (int64_t i = 0; i < timestamp_array->length(); ++i) {
+    if (timestamp_array->IsNull(i)) {
+      result.push_back(0);
+    } else {
+      result.push_back(timestamp_array->Value(i));
+    }
+  }
+
+  return result;
 }
 } // namespace
 
@@ -61,15 +89,14 @@ public:
           200, "Failed to parse balance sheets JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
         deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -114,8 +141,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -141,9 +167,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getBalanceSheets: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
@@ -198,15 +226,14 @@ public:
           200, "Failed to parse cash flow statements JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> cfo, change_cash, change_assets, dda, dividends,
         lt_debt_iss, ncf_fin, ncf_inv, ncf_oper, net_income, capex;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -251,8 +278,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -278,9 +304,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getCashFlowStatements: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
@@ -335,15 +363,14 @@ public:
           200, "Failed to parse income statements JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> basic_eps, diluted_eps, revenue, cogs, gross_profit,
         operating_income, net_income, rd, sga;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -386,8 +413,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -411,9 +437,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getIncomeStatements: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
@@ -466,15 +494,14 @@ public:
           200, "Failed to parse balance sheets JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> tickers_col, filing_dates, period_ends, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> accounts_payable, accrued_liab, aoci, cash, debt_current,
         deferred_rev, inventories, lt_debt, ppe_net, receivables, retained_earn;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -519,8 +546,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -546,9 +572,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getBalanceSheetsAsync: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
@@ -603,15 +631,14 @@ public:
           200, "Failed to parse cash flow statements JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> cfo, change_cash, change_assets, dda, dividends,
         lt_debt_iss, ncf_fin, ncf_inv, ncf_oper, net_income, capex;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -656,8 +683,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -683,9 +709,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getCashFlowStatementsAsync: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
@@ -740,15 +768,14 @@ public:
           200, "Failed to parse income statements JSON response", nullptr);
     }
 
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> filing_dates, period_ends, tickers_col, timeframes;
     std::vector<std::int64_t> fiscal_years, fiscal_quarters;
     std::vector<double> basic_eps, diluted_eps, revenue, cogs, gross_profit,
         operating_income, net_income, rd, sga;
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.filing_date.value_or(""));
       filing_dates.push_back(r.filing_date.value_or(""));
       period_ends.push_back(r.period_end.value_or(""));
       tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -791,8 +818,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.filing_date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.filing_date.value_or(""));
         filing_dates.push_back(r.filing_date.value_or(""));
         period_ends.push_back(r.period_end.value_or(""));
         tickers_col.push_back(r.tickers.empty() ? "" : r.tickers[0]);
@@ -816,9 +842,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon getIncomeStatementsAsync: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
@@ -893,6 +921,287 @@ FinancialsClient::getIncomeStatementsAsync(std::string ticker, std::string from_
                                            std::string to_date, std::optional<int> limit) const {
   return impl_->getIncomeStatementsAsync(std::move(ticker), std::move(from_date),
                                          std::move(to_date), limit);
+}
+
+DataFrameMetadata FinancialsClient::getBalanceSheetsMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "balance_sheets",
+      .description = "Retrieve comprehensive balance sheet data for public companies, providing quarterly and annual snapshots of financial positions. This endpoint replaces the legacy Financials endpoint and offers detailed asset, liability, and equity information representing point-in-time financial positions. Use cases include financial analysis and company valuation, asset assessment and evaluation, debt structure analysis, and equity research.",
+      .asset_class = AssetClass::Stocks,
+      .index_normalized = true,
+      .category_prefix = "BS:",
+      .columns = {
+          {.id = "ticker",
+           .name = "Ticker",
+           .description = "Stock symbol identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "filing_date",
+           .name = "Filing Date",
+           .description = "SEC filing date in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "period_end",
+           .name = "Period End",
+           .description = "Last date of the reporting period in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "fiscal_year",
+           .name = "Fiscal Year",
+           .description = "Fiscal year of the reporting period",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "fiscal_quarter",
+           .name = "Fiscal Quarter",
+           .description = "Fiscal quarter number (1-4)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "timeframe",
+           .name = "Timeframe",
+           .description = "Reporting period type: quarterly, annual, or trailing_twelve_months",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "accounts_payable",
+           .name = "Accounts Payable",
+           .description = "Amounts owed to suppliers for goods and services purchased on credit",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "accrued_liabilities",
+           .name = "Accrued Liabilities",
+           .description = "Expenses incurred but not yet paid, representing short-term obligations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "aoci",
+           .name = "Accumulated Other Comprehensive Income",
+           .description = "Cumulative gains and losses not included in net income, such as foreign currency translation adjustments",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "cash",
+           .name = "Cash and Equivalents",
+           .description = "Highly liquid assets including currency and short-term investments readily convertible to cash",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "debt_current",
+           .name = "Current Debt",
+           .description = "Short-term debt obligations due within one year or current operating cycle",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "deferred_revenue",
+           .name = "Deferred Revenue",
+           .description = "Payments received in advance for goods or services not yet delivered, representing current liabilities",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "inventories",
+           .name = "Inventories",
+           .description = "Value of raw materials, work-in-process, and finished goods held for sale",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "lt_debt",
+           .name = "Long-term Debt",
+           .description = "Debt obligations and capital lease obligations due beyond one year",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "ppe_net",
+           .name = "Property, Plant & Equipment (Net)",
+           .description = "Net value of tangible long-term assets after depreciation used in operations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "receivables",
+           .name = "Accounts Receivable",
+           .description = "Amounts owed by customers for goods and services sold on credit",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "retained_earnings",
+           .name = "Retained Earnings",
+           .description = "Cumulative net income retained in the business after dividends, may be negative (deficit)",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+      }};
+}
+
+DataFrameMetadata FinancialsClient::getCashFlowStatementsMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "cash_flow_statements",
+      .description = "Retrieve comprehensive cash flow statement data for public companies, including quarterly, annual, and trailing twelve-month periods. This endpoint replaces the legacy Financials endpoint and provides detailed cash flow information across operating, investing, and financing activities. Use cases include cash flow analysis across different reporting periods, liquidity assessment evaluations, operational efficiency evaluation, and investment activity tracking.",
+      .asset_class = AssetClass::Stocks,
+      .index_normalized = true,
+      .category_prefix = "CF:",
+      .columns = {
+          {.id = "ticker",
+           .name = "Ticker",
+           .description = "Stock symbol identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "filing_date",
+           .name = "Filing Date",
+           .description = "SEC filing date in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "period_end",
+           .name = "Period End",
+           .description = "Last date of the reporting period in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "fiscal_year",
+           .name = "Fiscal Year",
+           .description = "Fiscal year of the reporting period",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "fiscal_quarter",
+           .name = "Fiscal Quarter",
+           .description = "Fiscal quarter number (1-4)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "timeframe",
+           .name = "Timeframe",
+           .description = "Reporting period type: quarterly, annual, or trailing_twelve_months",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "cfo",
+           .name = "Cash from Operating Activities",
+           .description = "Net cash generated from core business operations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "change_cash",
+           .name = "Change in Cash and Equivalents",
+           .description = "Net change in cash and cash equivalents during the period",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "change_assets",
+           .name = "Change in Assets",
+           .description = "Net change in asset accounts affecting cash flow",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "dda",
+           .name = "Depreciation, Depletion & Amortization",
+           .description = "Non-cash charges reducing net income but not affecting cash flow",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "dividends",
+           .name = "Dividends Paid",
+           .description = "Cash payments to shareholders as dividends, typically negative values",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "lt_debt_issuances",
+           .name = "Long-term Debt Issuances/Repayments",
+           .description = "Net cash from issuing or repaying long-term debt obligations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "ncf_financing",
+           .name = "Net Cash from Financing Activities",
+           .description = "Net cash generated or used in financing activities including debt and equity transactions",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "ncf_investing",
+           .name = "Net Cash from Investing Activities",
+           .description = "Net cash used in or generated from investment activities including capital expenditures",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "ncf_operating",
+           .name = "Net Cash from Operating Activities",
+           .description = "Total net cash generated from operating activities including discontinued operations",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "net_income",
+           .name = "Net Income",
+           .description = "Starting point for operating cash flow calculation using indirect method",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "capex",
+           .name = "Capital Expenditures",
+           .description = "Cash spent on purchasing property, plant, and equipment, typically negative",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+      }};
+}
+
+DataFrameMetadata FinancialsClient::getIncomeStatementsMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "income_statements",
+      .description = "Retrieve comprehensive income statement data for public companies, including key metrics such as revenue, expenses, and net income for various reporting periods. This endpoint replaces the legacy Financials endpoint and provides detailed financial performance data across quarterly, annual, and trailing twelve-month periods. Use cases include profitability analysis, revenue trend analysis, expense management evaluation, and earnings assessment.",
+      .asset_class = AssetClass::Stocks,
+      .index_normalized = true,
+      .category_prefix = "IS:",
+      .columns = {
+          {.id = "ticker",
+           .name = "Ticker",
+           .description = "Stock symbol identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "filing_date",
+           .name = "Filing Date",
+           .description = "SEC filing date in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "period_end",
+           .name = "Period End",
+           .description = "Last date of the reporting period in YYYY-MM-DD format",
+           .type = ArrowType::TIMESTAMP_NS_UTC,
+           .nullable = true},
+          {.id = "fiscal_year",
+           .name = "Fiscal Year",
+           .description = "Fiscal year of the reporting period",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "fiscal_quarter",
+           .name = "Fiscal Quarter",
+           .description = "Fiscal quarter number (1-4)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "timeframe",
+           .name = "Timeframe",
+           .description = "Reporting period type: quarterly, annual, or trailing_twelve_months",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "basic_eps",
+           .name = "Basic Earnings Per Share",
+           .description = "Net income available to common shareholders divided by basic shares outstanding",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "diluted_eps",
+           .name = "Diluted Earnings Per Share",
+           .description = "Net income divided by diluted shares outstanding including potentially dilutive securities",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "revenue",
+           .name = "Revenue",
+           .description = "Total revenues from primary business operations during the period",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "cogs",
+           .name = "Cost of Goods Sold",
+           .description = "Direct costs attributable to producing goods sold by the company",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "gross_profit",
+           .name = "Gross Profit",
+           .description = "Revenue minus cost of goods sold, representing profit before operating expenses",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "operating_income",
+           .name = "Operating Income",
+           .description = "Profit from core business operations before interest and taxes",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "net_income",
+           .name = "Net Income",
+           .description = "Consolidated net income or loss after all expenses, taxes, and adjustments",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "rd",
+           .name = "Research & Development",
+           .description = "Expenses incurred for developing new products, services, or processes",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "sga",
+           .name = "Selling, General & Administrative",
+           .description = "Operating expenses related to selling products and managing the business",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+      }};
 }
 
 } // namespace data_sdk::polygon

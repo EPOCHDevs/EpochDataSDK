@@ -6,6 +6,7 @@
 #include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -61,6 +62,9 @@ public:
     return getShortInterestAsync(std::move(opts.ticker), std::move(opts.date_from),
                                  std::move(opts.date_to), opts.limit);
   }
+
+  // Get metadata describing the DataFrame structure returned by getShortInterest()
+  static data_sdk::DataFrameMetadata getMetadata();
 
 private:
   class Impl;

@@ -330,4 +330,61 @@ QuotesClient::getQuotesAsync(std::string ticker, std::string from_date,
                                  std::nullopt, std::move(to_date), std::nullopt);
 }
 
+data_sdk::DataFrameMetadata QuotesClient::getMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "quotes",
+      .description = "Retrieve historical tick-level NBBO (National Best Bid and Offer) quote data for stocks and forex with nanosecond precision timestamps. Each record captures the best bid and ask prices with their corresponding sizes and exchange identifiers. Data is returned in ascending chronological order by participant timestamp. Use Cases: Spread analysis, liquidity studies, order book reconstruction, market microstructure research, and high-frequency trading strategy development.",
+      .asset_class = std::nullopt,  // Multiple asset classes supported (Stocks, FX)
+      .index_normalized = false,  // Tick-level data with precise nanosecond timestamps
+      .category_prefix = "",  // Empty prefix for timeseries data
+      .columns = {
+          {.id = "ap",
+           .name = "Ask Price",
+           .description = "Best ask (offer) price available",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "bp",
+           .name = "Bid Price",
+           .description = "Best bid price available",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "asz",
+           .name = "Ask Size",
+           .description = "Size (shares/units) available at the ask price",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "bsz",
+           .name = "Bid Size",
+           .description = "Size (shares/units) available at the bid price",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "ax",
+           .name = "Ask Exchange",
+           .description = "Exchange code for the ask quote",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "bx",
+           .name = "Bid Exchange",
+           .description = "Exchange code for the bid quote",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "seq",
+           .name = "Sequence Number",
+           .description = "Sequence number for quote ordering within the same timestamp",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "sip",
+           .name = "SIP Timestamp",
+           .description = "SIP (Securities Information Processor) timestamp in nanoseconds UTC",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "tape",
+           .name = "Tape",
+           .description = "Tape identifier (1=A, 2=B, 3=C for stocks)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+      }};
+}
+
 } // namespace data_sdk::polygon

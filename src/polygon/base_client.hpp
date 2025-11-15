@@ -7,11 +7,13 @@
 #include <utility>
 #include <vector>
 
+#include <arrow/api.h>
 #include <drogon/drogon.h>
 #include <drogon/RateLimiter.h>
 #include <expected>
 #include <trantor/net/EventLoopThread.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -44,6 +46,50 @@ inline std::vector<std::int64_t> parseDateStringsToMidnightUTC(
   }
 
   return timestamps;
+}
+
+// Convert date strings to Arrow timestamp ChunkedArray for DataFrame columns
+// Returns arrow::Timestamp[nano, UTC] typed array
+inline std::shared_ptr<arrow::ChunkedArray> makeDateTimestampArray(
+    const std::vector<std::string>& date_strings) {
+
+  auto timestamps = parseDateStringsToMidnightUTC(date_strings);
+
+  // Create timestamp array with nanosecond precision and UTC timezone
+  auto timestamp_type = arrow::timestamp(arrow::TimeUnit::NANO, "UTC");
+  arrow::TimestampBuilder builder(timestamp_type, arrow::default_memory_pool());
+
+  auto status = builder.Reserve(timestamps.size());
+  if (!status.ok()) {
+    throw std::runtime_error("Failed to reserve timestamp builder: " + status.ToString());
+  }
+
+  for (const auto& ts : timestamps) {
+    // Treat 0 as null (invalid dates)
+    if (ts == 0) {
+      auto append_status = builder.AppendNull();
+      if (!append_status.ok()) {
+        throw std::runtime_error("Failed to append null: " + append_status.ToString());
+      }
+    } else {
+      auto append_status = builder.Append(ts);
+      if (!append_status.ok()) {
+        throw std::runtime_error("Failed to append timestamp: " + append_status.ToString());
+      }
+    }
+  }
+
+  auto result = builder.Finish();
+  if (!result.ok()) {
+    throw std::runtime_error("Failed to finish timestamp array: " + result.status().ToString());
+  }
+
+  auto chunked = arrow::ChunkedArray::Make({*result});
+  if (!chunked.ok()) {
+    throw std::runtime_error("Failed to create chunked array: " + chunked.status().ToString());
+  }
+
+  return *chunked;
 }
 
 // Parse RFC3339 "YYYY-MM-DDTHH:MM:SSZ" timestamp strings to nanoseconds since epoch

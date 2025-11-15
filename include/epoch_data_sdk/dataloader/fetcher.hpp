@@ -12,25 +12,20 @@ namespace data_sdk::dataloader {
 // Interface for data fetching from various providers
 struct IDataFetcher {
   using FetchResult = std::expected<epoch_frame::DataFrame, std::string>;
-  using Parameters = std::unordered_map<std::string, std::string>;
 
   virtual ~IDataFetcher() = default;
 
   // Synchronous fetch
-  // parameters: Optional key-value pairs for filtering/configuration
-  //   Examples: {"type": "balance_sheet"}, {"transaction_code": "P", "min_value": "100000"}
   virtual FetchResult Fetch(const asset::Asset &asset,
                             DataCategory category,
                             const epoch_frame::Date &fromDate,
-                            const epoch_frame::Date &toDate,
-                            const Parameters& parameters = {}) const = 0;
+                            const epoch_frame::Date &toDate) const = 0;
 
   // Async fetch for concurrent operations
   virtual drogon::Task<FetchResult> FetchAsync(const asset::Asset &asset,
                                                DataCategory category,
                                                const epoch_frame::Date &fromDate,
-                                               const epoch_frame::Date &toDate,
-                                               Parameters parameters = {}) const = 0;
+                                               const epoch_frame::Date &toDate) const = 0;
 };
 
 // Provider interface for routing fetchers based on asset/category

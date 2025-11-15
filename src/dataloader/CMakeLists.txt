@@ -3,6 +3,8 @@ target_sources(epoch_data_sdk
         # Core dataloader
         api_cache_dataloader.cpp
         factory.cpp
+        metadata_registry.cpp
+        simple_merger.cpp
 
         # Cache infrastructure
         cache/cache_manifest.cpp

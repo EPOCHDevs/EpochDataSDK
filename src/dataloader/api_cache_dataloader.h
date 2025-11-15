@@ -6,6 +6,7 @@
 #include <epoch_data_sdk/dataloader/cache/provider.hpp>
 #include <epoch_data_sdk/dataloader/dataloader.hpp>
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
+#include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
 
@@ -18,7 +19,8 @@ class ApiCacheDataloader : public IDataLoader {
 public:
   explicit ApiCacheDataloader(DataloaderOption option,
                               std::shared_ptr<ICacheProvider> cache,
-                              std::shared_ptr<IFetcherProvider> fetchers);
+                              std::shared_ptr<IFetcherProvider> fetchers,
+                              std::unique_ptr<IDataMerger> merger = nullptr);
 
   void LoadData() final;
 
@@ -39,13 +41,15 @@ public:
 
   // Load bars for a specific asset and category (synchronous)
   std::expected<epoch_frame::DataFrame, std::string>
-  LoadAssetBars(const asset::Asset &asset, DataCategory category,
-                const IDataFetcher::Parameters& parameters = {}) const;
+  LoadAssetBars(const asset::Asset &asset,
+                DataCategory category,
+                const std::unordered_map<std::string, std::string>& parameters = {}) const final;
 
   // Async version - load bars for a specific asset and category
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadAssetBarsAsync(const asset::Asset &asset, DataCategory category,
-                     IDataFetcher::Parameters parameters = {}) const;
+  LoadAssetBarsAsync(const asset::Asset &asset,
+                     DataCategory category,
+                     std::unordered_map<std::string, std::string> parameters = {}) const final;
 
   // Build cache load parameters from options
   cache::CacheLoadParams buildCacheParams(const asset::Asset& asset,
@@ -59,6 +63,7 @@ private:
   DataloaderOption m_option;
   std::shared_ptr<ICacheProvider> m_cacheProvider;
   std::shared_ptr<IFetcherProvider> m_fetcherProvider;
+  std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;
 
@@ -68,36 +73,9 @@ private:
                         const epoch_frame::Date& toDate,
                         const asset::Asset& asset) const;
 
-  // Single-category loading (no merging) - sync
-  std::expected<epoch_frame::DataFrame, std::string>
-  LoadSingleCategory(const asset::Asset& asset) const;
-
-  // Single-category loading (no merging) - async
+  // Load all categories for a single asset in parallel, then merge
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadSingleCategoryAsync(const asset::Asset& asset) const;
-
-  // Multi-category loading with merging - sync
-  std::expected<epoch_frame::DataFrame, std::string>
-  LoadMultiCategory(const asset::Asset& asset) const;
-
-  // Multi-category loading with merging - async
-  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadMultiCategoryAsync(const asset::Asset& asset) const;
-
-  // Add timestamp preservation column to DataFrame
-  epoch_frame::DataFrame AddTimestampColumn(
-      const epoch_frame::DataFrame& df,
-      const std::string& column_name) const;
-
-  // Normalize DataFrame index to dates (midnight UTC)
-  epoch_frame::DataFrame NormalizeToDates(
-      const epoch_frame::DataFrame& df) const;
-
-  // Merge auxiliary data into primary DataFrame
-  epoch_frame::DataFrame MergeAuxiliaryData(
-      epoch_frame::DataFrame primary,
-      const asset::Asset& asset,
-      bool is_intraday) const;
+  LoadAssetDataAsync(const asset::Asset& asset) const;
 };
 
 } // namespace data_sdk::dataloader

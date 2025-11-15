@@ -118,7 +118,7 @@ public:
 
   DataloaderOption createOption(DataCategory category, bool enableCache = true) {
     DataloaderOption option;
-    option.primaryCategory = category;
+    option.categories = {category};
     option.startDate = DateTime::from_date_str("2024-01-01").date();
     option.endDate = DateTime::from_date_str("2024-01-10").date();
     option.enableCache = enableCache;

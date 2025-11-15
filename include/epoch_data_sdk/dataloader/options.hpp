@@ -6,16 +6,15 @@
 #include <optional>
 #include <vector>
 #include <unordered_map>
+#include <set>
 #include <chrono>
 #include <variant>
 #include <stdexcept>
 #include <algorithm>
 #include <cctype>
 
-// CREATE_ENUM declarations for auxiliary category configuration
+// CREATE_ENUM declarations for future auxiliary category configuration
 // These go in epoch_core namespace and are brought into data_sdk via using declarations
-CREATE_ENUM(FinancialsStatementType, BalanceSheet, IncomeStatement, CashFlow, FinancialRatios);
-
 CREATE_ENUM(MacroEconomicsIndicator,
             CPI, CoreCPI, PCE, CorePCE,
             FedFunds, Treasury3M, Treasury2Y, Treasury5Y, Treasury10Y, Treasury30Y,
@@ -30,8 +29,6 @@ CREATE_ENUM(TickDataType, Quotes, Trades);
 namespace data_sdk {
 
 // Bring CREATE_ENUM types into data_sdk namespace
-using epoch_core::FinancialsStatementType;
-using epoch_core::FinancialsStatementTypeWrapper;
 using epoch_core::MacroEconomicsIndicator;
 using epoch_core::MacroEconomicsIndicatorWrapper;
 using epoch_core::AlternativeDataSource;
@@ -40,67 +37,24 @@ using epoch_core::TickDataType;
 using epoch_core::TickDataTypeWrapper;
 
 /**
- * Category-specific configuration structs
- * Each auxiliary data category can have typed configuration options
- */
-
-// Financials configuration
-struct FinancialsConfig {
-  FinancialsStatementType type = FinancialsStatementType::BalanceSheet;
-
-  FinancialsConfig() = default;
-  explicit FinancialsConfig(FinancialsStatementType t) : type(t) {}
-};
-
-// Macroeconomic indicators configuration
-struct MacroEconomicsConfig {
-  MacroEconomicsIndicator indicator = MacroEconomicsIndicator::GDP;
-
-  MacroEconomicsConfig() = default;
-  explicit MacroEconomicsConfig(MacroEconomicsIndicator ind) : indicator(ind) {}
-};
-
-// Alternative data configuration (SEC filings, etc.)
-struct AlternativeDataConfig {
-  AlternativeDataSource source = AlternativeDataSource::SEC_Form13F;
-
-  AlternativeDataConfig() = default;
-  explicit AlternativeDataConfig(AlternativeDataSource src) : source(src) {}
-};
-
-// Tick data configuration (high-frequency data)
-struct TickDataConfig {
-  TickDataType type = TickDataType::Quotes;
-
-  TickDataConfig() = default;
-  explicit TickDataConfig(TickDataType t) : type(t) {}
-};
-
-/**
  * Universal configuration variant for all auxiliary categories
- * - std::monostate: For categories without specific config (News, Dividends, Splits, etc.)
- * - Typed configs: For categories requiring specific parameters
+ * Currently all categories use std::monostate (no specific configuration)
+ * Future typed configs can be added here when needed
  */
 using CategoryConfigVariant = std::variant<
-  std::monostate,           // No specific configuration needed
-  FinancialsConfig,
-  MacroEconomicsConfig,
-  AlternativeDataConfig,
-  TickDataConfig
+  std::monostate           // No specific configuration needed
 >;
 
 /**
- * Configuration for an auxiliary data category with type-safe parameters
+ * Configuration for an auxiliary data category
  *
- * Each category can have a specific typed configuration that determines
- * what data to fetch from the provider.
+ * Currently all categories use std::monostate (no configuration).
+ * Future typed configurations can be added to CategoryConfigVariant when needed.
  *
  * Example usage:
- * - Financials: AuxiliaryCategoryConfig(DataCategory::Financials,
- *                                       FinancialsConfig{StatementType::BalanceSheet})
- * - MacroEconomics: AuxiliaryCategoryConfig(DataCategory::MacroEconomics,
- *                                           MacroEconomicsConfig{Indicator::CPI})
- * - Simple categories: AuxiliaryCategoryConfig(DataCategory::News)
+ * - AuxiliaryCategoryConfig(DataCategory::News)
+ * - AuxiliaryCategoryConfig(DataCategory::Dividends)
+ * - AuxiliaryCategoryConfig(DataCategory::BalanceSheets)
  */
 struct AuxiliaryCategoryConfig {
   DataCategory category = DataCategory::MinuteBars;
@@ -132,16 +86,14 @@ struct AuxiliaryCategoryConfig {
         valid = (category == DataCategory::News ||
                  category == DataCategory::Dividends ||
                  category == DataCategory::Splits ||
+                 category == DataCategory::IPOs ||
+                 category == DataCategory::TickerEvents ||
+                 category == DataCategory::BalanceSheets ||
+                 category == DataCategory::CashFlowStatements ||
+                 category == DataCategory::IncomeStatements ||
+                 category == DataCategory::Ratios ||
                  category == DataCategory::ShortInterest ||
                  category == DataCategory::ShortVolume);
-      } else if constexpr (std::is_same_v<T, FinancialsConfig>) {
-        valid = (category == DataCategory::Financials);
-      } else if constexpr (std::is_same_v<T, MacroEconomicsConfig>) {
-        valid = (category == DataCategory::MacroEconomics);
-      } else if constexpr (std::is_same_v<T, AlternativeDataConfig>) {
-        valid = (category == DataCategory::AlternativeData);
-      } else if constexpr (std::is_same_v<T, TickDataConfig>) {
-        valid = (category == DataCategory::TickData);
       }
     }, config);
 
@@ -153,65 +105,9 @@ struct AuxiliaryCategoryConfig {
   }
 
   // Check if this category has specific typed configuration
+  // Currently always returns false since all categories use monostate
   bool HasTypedConfig() const {
     return !std::holds_alternative<std::monostate>(config);
-  }
-
-  // Convert typed config to string parameters for backward compatibility
-  // This is used to pass configuration to fetchers that still use string maps
-  // Note: The SDK doesn't actually need string parameters anymore since we have typed configs.
-  // This method exists only for backward compatibility during the transition.
-  // TODO: Refactor fetchers to use typed configs directly and remove this method.
-  std::unordered_map<std::string, std::string> ToParameters() const {
-    std::unordered_map<std::string, std::string> params;
-
-    std::visit([&params](auto&& config_val) {
-      using T = std::decay_t<decltype(config_val)>;
-
-      if constexpr (std::is_same_v<T, std::monostate>) {
-        // No parameters needed
-      } else if constexpr (std::is_same_v<T, FinancialsConfig>) {
-        // Convert FinancialsConfig to parameters for fetcher compatibility
-        params["statement_type"] = ToSnakeCase(FinancialsStatementTypeWrapper::ToString(config_val.type));
-      } else if constexpr (std::is_same_v<T, MacroEconomicsConfig>) {
-        // MacroEconomics params - indicator remains PascalCase to match FRED convention
-        params["indicator"] = MacroEconomicsIndicatorWrapper::ToString(config_val.indicator);
-      } else if constexpr (std::is_same_v<T, AlternativeDataConfig>) {
-        // Alternative data params - convert to snake_case
-        params["source"] = ToSnakeCase(AlternativeDataSourceWrapper::ToString(config_val.source));
-      } else if constexpr (std::is_same_v<T, TickDataConfig>) {
-        // Tick data params - convert to lowercase
-        auto type_str = TickDataTypeWrapper::ToString(config_val.type);
-        std::transform(type_str.begin(), type_str.end(), type_str.begin(), ::tolower);
-        params["tick_type"] = type_str;
-      }
-    }, config);
-
-    return params;
-  }
-
-private:
-  // Helper: Convert PascalCase to snake_case
-  static std::string ToSnakeCase(const std::string& str) {
-    std::string result;
-    result.reserve(str.size() + 5); // Reserve extra space for underscores
-
-    for (size_t i = 0; i < str.size(); ++i) {
-      char c = str[i];
-
-      // Insert underscore before uppercase letters (except at start)
-      if (i > 0 && std::isupper(c)) {
-        // Check if previous char is lowercase or if next char is lowercase (for acronyms like "SEC")
-        if (std::islower(str[i-1]) ||
-            (i + 1 < str.size() && std::islower(str[i+1]))) {
-          result += '_';
-        }
-      }
-
-      result += std::tolower(c);
-    }
-
-    return result;
   }
 };
 
@@ -221,9 +117,8 @@ struct DataLoaderOptions {
   epoch_frame::Date startDate;
   epoch_frame::Date endDate;
 
-  // Data categories
-  DataCategory primaryCategory = DataCategory::DailyBars;
-  std::vector<AuxiliaryCategoryConfig> auxiliaryCategories;
+  // Data categories - flat set (no primary/auxiliary distinction)
+  std::set<DataCategory> categories = {DataCategory::DailyBars};
 
   // Assets
   asset::AssetHashSet dataloaderAssets;  // All assets to load
@@ -258,36 +153,36 @@ struct DataLoaderOptions {
 
   // Validation
   bool IsValid() const {
-    // Primary must be MinuteBars or DailyBars
-    if (!IsTimeSeriesCategory(primaryCategory)) {
+    if (categories.empty()) {
       return false;
     }
 
-    // Auxiliaries cannot be TimeBars (cannot mix MinuteBars + DailyBars)
-    for (const auto& config : auxiliaryCategories) {
-      if (IsTimeSeriesCategory(config.category)) {
-        return false;
-      }
+    // Cannot mix MinuteBars and DailyBars - they affect the same OHLCV columns
+    bool hasMinuteBars = categories.count(DataCategory::MinuteBars) > 0;
+    bool hasDailyBars = categories.count(DataCategory::DailyBars) > 0;
+    if (hasMinuteBars && hasDailyBars) {
+      return false;
     }
+
     return true;
   }
 
-  // Get all categories (primary + auxiliaries)
+  // Get all categories
   std::vector<DataCategory> GetAllCategories() const {
-    std::vector<DataCategory> all = {primaryCategory};
-    for (const auto& config : auxiliaryCategories) {
-      all.push_back(config.category);
-    }
-    return all;
+    return std::vector<DataCategory>(categories.begin(), categories.end());
   }
 
   // Check if using multi-category mode
   bool IsMultiCategory() const {
-    return !auxiliaryCategories.empty();
+    return categories.size() > 1;
   }
 
-  // For backward compatibility and getter methods
-  DataCategory GetDataCategory() const { return primaryCategory; }
+  // For backward compatibility - returns first category or DailyBars
+  DataCategory GetDataCategory() const {
+    return categories.empty() ? DataCategory::DailyBars : *categories.begin();
+  }
+
+  // Getter methods
   asset::AssetHashSet GetStrategyAssets() const { return strategyAssets; }
   asset::AssetHashSet GetDataloaderAssets() const { return dataloaderAssets; }
   epoch_frame::Date GetStartDate() const { return startDate; }
@@ -297,10 +192,12 @@ struct DataLoaderOptions {
   bool GetEnableCache() const { return enableCache; }
   bool GetUseBatchFetching() const { return useBatchFetching; }
   std::size_t GetBatchSize() const { return batchSize; }
+  const std::set<DataCategory>& GetCategories() const { return categories; }
 
   // Setter methods
-  void SetPrimaryCategory(DataCategory cat) { primaryCategory = cat; }
-  std::vector<AuxiliaryCategoryConfig>& GetAuxiliaryCategories() { return auxiliaryCategories; }
+  void SetCategories(const std::set<DataCategory>& cats) { categories = cats; }
+  void AddCategory(DataCategory cat) { categories.insert(cat); }
+  void RemoveCategory(DataCategory cat) { categories.erase(cat); }
 };
 
 // Alias for compatibility

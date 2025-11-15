@@ -12,7 +12,9 @@
 #include "ipo_client.hpp"
 #include "splits_client.hpp"
 #include "dividends_client.hpp"
+#include "ticker_events_client.hpp"
 #include "news_client.hpp"
+#include "ratios_client.hpp"
 
 namespace data_sdk::polygon {
 
@@ -59,10 +61,19 @@ public:
   // Supports: stocks only
   static std::unique_ptr<DividendsClient> createDividendsClient(const Options& options);
 
+  // Create a new TickerEventsClient for ticker events (ticker changes, etc.)
+  // Useful for: tracking ticker symbol changes over time
+  // Supports: stocks only
+  static std::unique_ptr<TickerEventsClient> createTickerEventsClient(const Options& options);
+
   // Create a new NewsClient for news article data
   // OPTIONAL for backtesting: sentiment analysis, event-driven strategies
   // Supports: all asset types
   static std::unique_ptr<NewsClient> createNewsClient(const Options& options);
+
+  // Create a new RatiosClient for financial ratios data
+  // Supports: stocks only
+  static std::unique_ptr<RatiosClient> createRatiosClient(const Options& options);
 };
 
 } // namespace data_sdk::polygon

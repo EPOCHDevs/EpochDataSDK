@@ -272,4 +272,46 @@ TradesClient::getTradesAsync(std::string ticker, std::string from_date,
                                  std::nullopt, std::move(to_date), std::nullopt);
 }
 
+data_sdk::DataFrameMetadata TradesClient::getMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "trades",
+      .description = "Retrieve historical tick-level trade data for stocks and crypto with nanosecond precision timestamps. Each record represents an individual trade execution with price, size, exchange, and timing information. Data is returned in ascending chronological order by participant timestamp. Use Cases: Microstructure analysis, execution quality studies, high-frequency backtesting, market impact analysis, and granular price discovery research.",
+      .asset_class = std::nullopt,  // Multiple asset classes supported (Stocks, Crypto)
+      .index_normalized = false,  // Tick-level data with precise nanosecond timestamps
+      .category_prefix = "",  // Empty prefix for timeseries data
+      .columns = {
+          {.id = "p",
+           .name = "Price",
+           .description = "Trade execution price",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "s",
+           .name = "Size",
+           .description = "Trade size (number of shares or units). Can be fractional for crypto.",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "x",
+           .name = "Exchange",
+           .description = "Exchange code where the trade was executed",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "seq",
+           .name = "Sequence Number",
+           .description = "Sequence number for trade ordering within the same timestamp",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "sip",
+           .name = "SIP Timestamp",
+           .description = "SIP (Securities Information Processor) timestamp in nanoseconds UTC",
+           .type = ArrowType::INT64,
+           .nullable = true},
+          {.id = "tape",
+           .name = "Tape",
+           .description = "Tape identifier (1=A, 2=B, 3=C for stocks)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+      }};
+}
+
 } // namespace data_sdk::polygon

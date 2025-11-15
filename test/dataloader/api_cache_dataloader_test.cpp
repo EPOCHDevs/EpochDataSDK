@@ -90,16 +90,15 @@ public:
 
 class MockDataFetcher : public IDataFetcher {
 public:
-  MAKE_MOCK5(Fetch,
+  MAKE_MOCK4(Fetch,
              FetchResult(const asset::Asset &, DataCategory, const Date &,
-                         const Date &, const Parameters&),
+                         const Date &),
              const);
 
   // Async version - wraps sync Fetch in coroutine
   drogon::Task<FetchResult> FetchAsync(const asset::Asset &asset, DataCategory category,
-                                       const Date &fromDate, const Date &toDate,
-                                       Parameters parameters = {}) const override {
-    co_return Fetch(asset, category, fromDate, toDate, parameters);
+                                       const Date &fromDate, const Date &toDate) const override {
+    co_return Fetch(asset, category, fromDate, toDate);
   }
 };
 
@@ -121,7 +120,7 @@ public:
     // Setup default options
     option.startDate = DateTime::from_date_str("2024-01-01").date();
     option.endDate = DateTime::from_date_str("2024-01-31").date();
-    option.primaryCategory = DataCategory::DailyBars;
+    option.categories = {DataCategory::DailyBars};
     option.cacheDir = "/tmp/test_cache";
     option.enableCache = true;
     option.cacheTTLSeconds = 3600;
@@ -167,7 +166,7 @@ TEST_CASE("ApiCacheDataloader::LoadAssetBars with cache enabled",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(testDf);
 
     std::filesystem::path dummyPath = "/tmp/test_cache/AAPL.arrow";
@@ -195,7 +194,7 @@ TEST_CASE("ApiCacheDataloader::LoadAssetBars with cache enabled",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(newDf);
 
     // AppendWrite should handle the merge internally
@@ -228,7 +227,7 @@ TEST_CASE("ApiCacheDataloader::LoadAssetBars with cache disabled",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(testDf);
 
     // Should not call any cache methods when disabled
@@ -259,7 +258,7 @@ TEST_CASE("ApiCacheDataloader::LoadAssetBars error handling",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(std::unexpected("Network error: Connection timeout"));
 
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
@@ -295,9 +294,9 @@ TEST_CASE("ApiCacheDataloader::LoadData parallel processing",
     ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset1, _, _, _, _)).RETURN(df1);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset2, _, _, _, _)).RETURN(df2);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset3, _, _, _, _)).RETURN(df3);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset1, _, _, _)).RETURN(df1);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset2, _, _, _)).RETURN(df2);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset3, _, _, _)).RETURN(df3);
 
     ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset1, _, _, _, _, _))
         .RETURN(df1);
@@ -310,7 +309,7 @@ TEST_CASE("ApiCacheDataloader::LoadData parallel processing",
     auto benchmarkAsset = assets.SPY;
     auto benchmarkDf = fixture.createTestDataFrame(20);
 
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(benchmarkAsset, _, _, _, _))
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(benchmarkAsset, _, _, _))
         .RETURN(benchmarkDf);
     ALLOW_CALL(*fixture.mockCache,
                AppendWrite(_, benchmarkAsset, _, _, _, _, _))
@@ -336,7 +335,7 @@ TEST_CASE("ApiCacheDataloader with different data categories",
   const auto &assets = data_sdk::asset::AssetConstants::instance();
 
   SECTION("handles minute bars") {
-    fixture.option.primaryCategory = DataCategory::MinuteBars;
+    fixture.option.categories = {DataCategory::MinuteBars};
     auto asset = assets.AMZN;
     auto testDf = fixture.createTestDataFrame(390); // Full trading day
 
@@ -345,7 +344,7 @@ TEST_CASE("ApiCacheDataloader with different data categories",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::MinuteBars, _, _, _))
+                 Fetch(asset, DataCategory::MinuteBars, _, _))
         .RETURN(testDf);
 
     REQUIRE_CALL(*fixture.mockCache,
@@ -362,7 +361,7 @@ TEST_CASE("ApiCacheDataloader with different data categories",
   }
 
   SECTION("handles daily bars") {
-    fixture.option.primaryCategory = DataCategory::DailyBars;
+    fixture.option.categories = {DataCategory::DailyBars};
     auto asset = assets.IBM;
     auto testDf = fixture.createTestDataFrame(252); // Trading year
 
@@ -371,7 +370,7 @@ TEST_CASE("ApiCacheDataloader with different data categories",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(testDf);
 
     REQUIRE_CALL(*fixture.mockCache,
@@ -402,14 +401,14 @@ TEST_CASE("ApiCacheDataloader with different asset types",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::MinuteBars, _, _, _))
+                 Fetch(asset, DataCategory::MinuteBars, _, _))
         .RETURN(testDf);
 
     REQUIRE_CALL(*fixture.mockCache,
                  AppendWrite(_, asset, DataCategory::MinuteBars, _, _, _, _))
         .RETURN(testDf);
 
-    fixture.option.primaryCategory = DataCategory::MinuteBars;
+    fixture.option.categories = {DataCategory::MinuteBars};
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
@@ -428,7 +427,7 @@ TEST_CASE("ApiCacheDataloader with different asset types",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(testDf);
 
     REQUIRE_CALL(*fixture.mockCache,
@@ -453,7 +452,7 @@ TEST_CASE("ApiCacheDataloader with different asset types",
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
     REQUIRE_CALL(*fixture.mockFetcher,
-                 Fetch(asset, DataCategory::DailyBars, _, _, _))
+                 Fetch(asset, DataCategory::DailyBars, _, _))
         .RETURN(testDf);
 
     REQUIRE_CALL(*fixture.mockCache,
@@ -494,17 +493,23 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
+    // Create test DataFrame once and use for all assets
+    auto testDf = fixture.createTestDataFrame(10);
+    // Store expectations to keep them alive outside loop scope
+    std::vector<std::unique_ptr<trompeloeil::expectation>> expectations;
     for (const auto &asset : testAssets) {
-      auto testDf = fixture.createTestDataFrame(10);
-      ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
-      ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
-          .RETURN(testDf);
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _)).RETURN(testDf));
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _)).RETURN(testDf));
     }
 
     // Setup benchmark asset (SPY)
     auto benchmarkAsset = assets.SPY;
     auto benchmarkDf = fixture.createTestDataFrame(20);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(benchmarkAsset, _, _, _, _))
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, benchmarkAsset, _, _, _))
+        .RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(benchmarkAsset, _, _, _))
         .RETURN(benchmarkDf);
     ALLOW_CALL(*fixture.mockCache,
                AppendWrite(_, benchmarkAsset, _, _, _, _, _))
@@ -540,16 +545,20 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
+    auto testDf = fixture.createTestDataFrame(5);
+    std::vector<std::unique_ptr<trompeloeil::expectation>> expectations;
     for (const auto &asset : testAssets) {
-      auto testDf = fixture.createTestDataFrame(5);
-      ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
-      ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
-          .RETURN(testDf);
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _)).RETURN(testDf));
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _)).RETURN(testDf));
     }
 
     // Setup benchmark
     auto benchmarkDf = fixture.createTestDataFrame(20);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, assets.SPY, _, _, _))
+        .RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _))
         .RETURN(benchmarkDf);
     ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
         .RETURN(benchmarkDf);
@@ -577,16 +586,20 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
+    auto testDf = fixture.createTestDataFrame(8);
+    std::vector<std::unique_ptr<trompeloeil::expectation>> expectations;
     for (const auto &asset : testAssets) {
-      auto testDf = fixture.createTestDataFrame(8);
-      ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
-      ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
-          .RETURN(testDf);
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _)).RETURN(testDf));
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _)).RETURN(testDf));
     }
 
     // Setup benchmark
     auto benchmarkDf = fixture.createTestDataFrame(20);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, assets.SPY, _, _, _))
+        .RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _))
         .RETURN(benchmarkDf);
     ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
         .RETURN(benchmarkDf);
@@ -617,16 +630,20 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
         .LR_RETURN(std::ref(*fixture.mockFetcher));
 
+    auto testDf = fixture.createTestDataFrame(6);
+    std::vector<std::unique_ptr<trompeloeil::expectation>> expectations;
     for (const auto &asset : testAssets) {
-      auto testDf = fixture.createTestDataFrame(6);
-      ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
-      ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
-          .RETURN(testDf);
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _)).RETURN(testDf));
+      expectations.push_back(
+          NAMED_ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _)).RETURN(testDf));
     }
 
     // Setup benchmark
     auto benchmarkDf = fixture.createTestDataFrame(20);
-    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, assets.SPY, _, _, _))
+        .RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _))
         .RETURN(benchmarkDf);
     ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
         .RETURN(benchmarkDf);

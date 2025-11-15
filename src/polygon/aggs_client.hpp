@@ -3,11 +3,17 @@
 #include <optional>
 #include <string>
 
+#include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "base_client.hpp"
+#include "error.hpp"
+#include "options.hpp"
 
 namespace data_sdk::polygon {
+
+template <typename T> using Expected = std::expected<T, HttpError>;
 
 // Options for aggregate data requests
 struct AggsOptions {
@@ -64,6 +70,9 @@ public:
     return getAggregatesAsync(std::move(opts.ticker), std::move(opts.from_date),
                               std::move(opts.to_date), opts.is_eod, opts.adjusted);
   }
+
+  // Get metadata describing the DataFrame structure returned by getAggregates()
+  static data_sdk::DataFrameMetadata getMetadata();
 };
 
 } // namespace data_sdk::polygon

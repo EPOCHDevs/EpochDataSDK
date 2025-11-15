@@ -14,8 +14,7 @@ public:
   std::expected<epoch_frame::DataFrame, std::string>
   Fetch(const asset::Asset &asset, DataCategory category,
         const epoch_frame::Date &fromDate,
-        const epoch_frame::Date &toDate,
-        [[maybe_unused]] const Parameters& parameters = {}) const override {
+        const epoch_frame::Date &toDate) const override {
     using namespace epoch_frame;
     auto source = std::filesystem::path(m_archivePath);
     auto base = (source / epoch_core::DataCategoryWrapper::ToString(category) /
@@ -62,11 +61,10 @@ public:
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
   FetchAsync(const asset::Asset &asset, DataCategory category,
              const epoch_frame::Date &fromDate,
-             const epoch_frame::Date &toDate,
-             Parameters parameters = {}) const override {
+             const epoch_frame::Date &toDate) const override {
     // Archive fetching is local file I/O, relatively fast
     // For simplicity, just call sync version directly
-    co_return Fetch(asset, category, fromDate, toDate, parameters);
+    co_return Fetch(asset, category, fromDate, toDate);
   }
 
 private:

@@ -6,6 +6,7 @@
 #include <drogon/drogon.h>
 #include <epoch_frame/dataframe.h>
 
+#include "epoch_data_sdk/common/metadata.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -66,6 +67,9 @@ public:
     return getNewsAsync(std::move(opts.ticker), std::move(opts.from),
                         std::move(opts.to), opts.limit);
   }
+
+  // Get metadata describing the DataFrame structure returned by getNews()
+  static data_sdk::DataFrameMetadata getMetadata();
 
 private:
   class Impl;

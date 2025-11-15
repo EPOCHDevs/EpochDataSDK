@@ -83,10 +83,8 @@ private:
     FetchResult Fetch([[maybe_unused]] const asset::Asset &asset,
                      [[maybe_unused]] DataCategory category,
                      const epoch_frame::Date &fromDate,
-                     const epoch_frame::Date &toDate,
-                     [[maybe_unused]] const Parameters& parameters = {}) const override {
+                     const epoch_frame::Date &toDate) const override {
       // Ignore passed asset/category and use the ones from constructor
-      // This is for backward compatibility with the legacy interface
       return m_fetchFn(fromDate, toDate);
     }
 
@@ -94,8 +92,7 @@ private:
     drogon::Task<FetchResult> FetchAsync([[maybe_unused]] const asset::Asset &asset,
                                         [[maybe_unused]] DataCategory category,
                                         const epoch_frame::Date &fromDate,
-                                        const epoch_frame::Date &toDate,
-                                        [[maybe_unused]] Parameters parameters = {}) const override {
+                                        const epoch_frame::Date &toDate) const override {
       // Call the wrapped function directly
       co_return m_fetchFn(fromDate, toDate);
     }
@@ -119,8 +116,7 @@ private:
     FetchResult Fetch([[maybe_unused]] const asset::Asset &asset,
                      [[maybe_unused]] DataCategory category,
                      [[maybe_unused]] const epoch_frame::Date &fromDate,
-                     [[maybe_unused]] const epoch_frame::Date &toDate,
-                     [[maybe_unused]] const Parameters& parameters = {}) const override {
+                     [[maybe_unused]] const epoch_frame::Date &toDate) const override {
       throw std::runtime_error("Sync Fetch() not supported on AsyncFetchFunctionAdapter");
     }
 
@@ -128,8 +124,7 @@ private:
     drogon::Task<FetchResult> FetchAsync([[maybe_unused]] const asset::Asset &asset,
                                         [[maybe_unused]] DataCategory category,
                                         const epoch_frame::Date &fromDate,
-                                        const epoch_frame::Date &toDate,
-                                        [[maybe_unused]] Parameters parameters = {}) const override {
+                                        const epoch_frame::Date &toDate) const override {
       co_return co_await m_asyncFetchFn(fromDate, toDate);
     }
 

@@ -3,6 +3,8 @@
 #include "epoch_frame/dataframe.h"
 
 #include "cache/merge_strategy.h"
+#include "simple_merger.hpp"
+#include "metadata_registry.hpp"
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_data_sdk/common/bar_attribute.hpp>
 #include <chrono>
@@ -20,13 +22,34 @@ using cache::normalizeForDailyMerge;
 
 ApiCacheDataloader::ApiCacheDataloader(
     DataloaderOption option, std::shared_ptr<ICacheProvider> cache,
-    std::shared_ptr<IFetcherProvider> fetchers)
+    std::shared_ptr<IFetcherProvider> fetchers,
+    std::unique_ptr<IDataMerger> merger)
     : m_option(std::move(option)), m_cacheProvider(std::move(cache)),
-      m_fetcherProvider(std::move(fetchers)), m_benchmark(std::nullopt) {}
+      m_fetcherProvider(std::move(fetchers)), m_merger(std::move(merger)),
+      m_benchmark(std::nullopt) {
+
+  // Validate options
+  if (m_option.categories.empty()) {
+    throw std::runtime_error("Invalid DataloaderOption: Empty categories");
+  }
+
+  // Cannot mix MinuteBars and DailyBars - they affect the same OHLCV columns
+  bool hasMinuteBars = m_option.categories.count(DataCategory::MinuteBars) > 0;
+  bool hasDailyBars = m_option.categories.count(DataCategory::DailyBars) > 0;
+  if (hasMinuteBars && hasDailyBars) {
+    throw std::runtime_error("Invalid DataloaderOption: Cannot mix MinuteBars and DailyBars");
+  }
+
+  // If no merger provided, create default SimpleMerger
+  if (!m_merger) {
+    m_merger = std::make_unique<SimpleMerger>();
+  }
+}
 
 std::expected<epoch_frame::DataFrame, std::string>
-ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset, DataCategory cat,
-                                  const IDataFetcher::Parameters& parameters) const {
+ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset,
+                                   DataCategory cat,
+                                   const std::unordered_map<std::string, std::string>& /* parameters */) const {
   SPDLOG_DEBUG("LoadAssetBars: Starting for asset {} category {}",
                asset.GetSymbolStr(), DataCategoryWrapper::ToString(cat));
   using namespace epoch_frame;
@@ -53,7 +76,7 @@ ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset, DataCategory cat,
       params.enableCache, fromDate, toDate,
       [&](const epoch_frame::Date &f, const epoch_frame::Date &t) {
         const auto fetch_start = std::chrono::high_resolution_clock::now();
-        auto result = fetcher.Fetch(asset, cat, f, t, parameters);
+        auto result = fetcher.Fetch(asset, cat, f, t);
         const auto fetch_end = std::chrono::high_resolution_clock::now();
         const auto fetch_duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(fetch_end -
@@ -83,8 +106,9 @@ ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset, DataCategory cat,
 
 // Async version of LoadAssetBars
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset, DataCategory cat,
-                                       IDataFetcher::Parameters parameters) const {
+ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
+                                        DataCategory cat,
+                                        std::unordered_map<std::string, std::string> /* parameters */) const {
   SPDLOG_DEBUG("LoadAssetBarsAsync: Starting for asset {} category {}",
                asset.GetSymbolStr(), DataCategoryWrapper::ToString(cat));
   using namespace epoch_frame;
@@ -110,9 +134,9 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset, DataCategory c
   auto res = co_await m_cacheProvider->LoadWithCacheAsync(
       params.cacheDir, asset, cat, params.ttlSeconds,
       params.enableCache, fromDate, toDate,
-      [&fetcher, asset, cat, parameters](const epoch_frame::Date &f, const epoch_frame::Date &t) -> drogon::Task<std::expected<epoch_frame::DataFrame, std::string>> {
+      [&fetcher, asset, cat](const epoch_frame::Date &f, const epoch_frame::Date &t) -> drogon::Task<std::expected<epoch_frame::DataFrame, std::string>> {
         const auto fetch_start = std::chrono::high_resolution_clock::now();
-        auto result = co_await fetcher.FetchAsync(asset, cat, f, t, parameters);
+        auto result = co_await fetcher.FetchAsync(asset, cat, f, t);
         const auto fetch_end = std::chrono::high_resolution_clock::now();
         const auto fetch_duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(fetch_end -
@@ -140,137 +164,86 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset, DataCategory c
   co_return res;
 }
 
-// Single-category loading: just load primary data, no merging (sync)
-std::expected<epoch_frame::DataFrame, std::string>
-ApiCacheDataloader::LoadSingleCategory(const asset::Asset& asset) const {
-  return LoadAssetBars(asset, m_option.primaryCategory);
-}
-
-// Single-category loading: just load primary data, no merging (async)
+// Load all categories for a single asset in parallel, then merge
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadSingleCategoryAsync(const asset::Asset& asset) const {
-  co_return co_await LoadAssetBarsAsync(asset, m_option.primaryCategory);
-}
+ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
+  const auto& categories = m_option.GetCategories();
 
-// Multi-category loading: load primary + auxiliaries, then merge (sync)
-std::expected<epoch_frame::DataFrame, std::string>
-ApiCacheDataloader::LoadMultiCategory(const asset::Asset& asset) const {
-  // 1. Load primary data
-  auto primary_res = LoadAssetBars(asset, m_option.primaryCategory);
-  if (!primary_res || primary_res->empty()) {
-    return primary_res;
+  // Single category - no merge needed
+  if (categories.size() == 1) {
+    co_return co_await LoadAssetBarsAsync(asset, *categories.begin());
   }
 
-  // 2. Add timestamp column and normalize to dates
-  bool is_intraday = IsIntraday(m_option.primaryCategory);
-  std::string ts_col = is_intraday ? "minute_timestamp" : "daily_timestamp";
+  // Multi-category: parallel gather then merge
+  SPDLOG_DEBUG("LoadAssetDataAsync: Loading {} categories for asset {}",
+               categories.size(), asset.GetSymbolStr());
 
-  auto with_ts = AddTimestampColumn(*primary_res, ts_col);
-  auto normalized = NormalizeToDates(with_ts);
+  // Step 1: Parallel gather - load all categories concurrently
+  std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> tasks;
+  std::vector<DataCategory> category_list(categories.begin(), categories.end());
+  tasks.reserve(category_list.size());
 
-  // 3. Merge auxiliary data
-  return std::expected<epoch_frame::DataFrame, std::string>(
-      MergeAuxiliaryData(normalized, asset, is_intraday));
-}
-
-// Multi-category loading: load primary + auxiliaries, then merge (async)
-drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadMultiCategoryAsync(const asset::Asset& asset) const {
-  // 1. Load primary data
-  auto primary_res = co_await LoadAssetBarsAsync(asset, m_option.primaryCategory);
-  if (!primary_res || primary_res->empty()) {
-    co_return primary_res;
+  for (const auto& cat : category_list) {
+    tasks.push_back(LoadAssetBarsAsync(asset, cat));
   }
 
-  // 2. Add timestamp column and normalize to dates
-  bool is_intraday = IsIntraday(m_option.primaryCategory);
-  std::string ts_col = is_intraday ? "minute_timestamp" : "daily_timestamp";
+  // Wait for all category fetches to complete
+  auto results = co_await data_sdk::common::when_all(std::move(tasks));
 
-  auto with_ts = AddTimestampColumn(*primary_res, ts_col);
-  auto normalized = NormalizeToDates(with_ts);
+  // Step 2: Build category_data map from results with column prefixing
+  std::unordered_map<DataCategory, epoch_frame::DataFrame> category_data;
+  for (std::size_t i = 0; i < results.size(); ++i) {
+    const auto& result = results[i];
+    const auto& cat = category_list[i];
 
-  // 3. Merge auxiliary data
-  co_return std::expected<epoch_frame::DataFrame, std::string>(
-      MergeAuxiliaryData(normalized, asset, is_intraday));
-}
-
-// Add timestamp preservation column
-epoch_frame::DataFrame ApiCacheDataloader::AddTimestampColumn(
-    const epoch_frame::DataFrame& df,
-    const std::string& /* column_name */) const {
-
-  // TODO: Implement df.with_column() in EpochFrame
-  // Pseudocode for when EpochFrame API is ready:
-  //   1. Extract timestamps from index using proper Index API
-  //   2. Create new column with extracted timestamps
-  //   3. Return df.with_column(column_name, timestamp_column)
-
-  SPDLOG_WARN("AddTimestampColumn: EpochFrame API not available yet - skipping timestamp preservation");
-  return df;
-}
-
-// Normalize DataFrame index to dates (midnight UTC)
-epoch_frame::DataFrame ApiCacheDataloader::NormalizeToDates(
-    const epoch_frame::DataFrame& df) const {
-
-  // TODO: Implement df.set_index() in EpochFrame
-  // Pseudocode for when EpochFrame API is ready:
-  //   1. Extract index values using proper Index API
-  //   2. Convert each timestamp to date using extractDate()
-  //   3. Return df.set_index(date_index)
-
-  SPDLOG_WARN("NormalizeToDates: EpochFrame API not available yet - returning original index");
-  return df;
-}
-
-// Merge all auxiliary data into primary DataFrame
-epoch_frame::DataFrame ApiCacheDataloader::MergeAuxiliaryData(
-    epoch_frame::DataFrame primary,
-    const asset::Asset& asset,
-    bool is_intraday) const {
-
-  for (const auto& aux_config : m_option.auxiliaryCategories) {
-    // Load auxiliary data with typed config converted to parameters
-    auto aux_res = LoadAssetBars(asset, aux_config.category, aux_config.ToParameters());
-    if (!aux_res) {
-      SPDLOG_WARN("Failed to load auxiliary data {} for {}: {}",
-                 DataCategoryWrapper::ToString(aux_config.category),
-                 asset.ToString(), aux_res.error());
+    if (!result.has_value()) {
+      SPDLOG_WARN("Failed to load {} for {}: {}",
+                  DataCategoryWrapper::ToString(cat),
+                  asset.GetSymbolStr(),
+                  result.error());
       continue;
     }
 
-    if (aux_res->empty()) {
-      SPDLOG_DEBUG("No auxiliary data {} for {} in date range",
-                  DataCategoryWrapper::ToString(aux_config.category), asset.GetSymbolStr());
+    if (result->empty()) {
+      SPDLOG_DEBUG("No {} data for {} in date range",
+                   DataCategoryWrapper::ToString(cat),
+                   asset.GetSymbolStr());
       continue;
     }
 
-    // Normalize auxiliary data based on strategy
-    auto cat_name = DataCategoryWrapper::ToString(aux_config.category);
-    epoch_frame::DataFrame normalized_aux;
-
-    if (is_intraday) {
-      // Intraday: groupby(date).first()
-      normalized_aux = normalizeForIntradayMerge(*aux_res, cat_name);
-    } else {
-      // Daily: preserve all events
-      normalized_aux = normalizeForDailyMerge(*aux_res, cat_name);
+    // Apply column prefixing if needed
+    auto df = *result;
+    const auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
+    if (!metadata.category_prefix.empty()) {
+      SPDLOG_DEBUG("Applying prefix '{}' to {} columns for {}",
+                   metadata.category_prefix,
+                   DataCategoryWrapper::ToString(cat),
+                   asset.GetSymbolStr());
+      df = df.add_prefix(metadata.category_prefix);
     }
 
-    // TODO: Implement df.merge() in EpochFrame
-    // For now, skip merging - needs EpochFrame API
-    SPDLOG_WARN("MergeAuxiliaryData: Skipping merge for {} - EpochFrame API not available",
-               cat_name);
+    category_data[cat] = df;
   }
 
-  return primary;
+  // Check if we have any data
+  if (category_data.empty()) {
+    co_return std::unexpected("No data available for any category");
+  }
+
+  // Step 3: Merge using pluggable merger
+  SPDLOG_DEBUG("LoadAssetDataAsync: Merging {} categories for {}",
+               category_data.size(), asset.GetSymbolStr());
+
+  auto merge_result = m_merger->Merge(category_data);
+  if (!merge_result) {
+    co_return std::unexpected("Merge failed: " + merge_result.error());
+  }
+
+  co_return *merge_result;
 }
 
 void ApiCacheDataloader::LoadData() {
-  // Validation
-  if (!m_option.IsValid()) {
-    throw std::runtime_error("Invalid DataloaderOption: cannot mix MinuteBars and DailyBars");
-  }
+  // Validation is done in constructor
 
   SPDLOG_INFO("Starting data loading process");
   auto assets = GetAssets();
@@ -280,7 +253,7 @@ void ApiCacheDataloader::LoadData() {
 
   if (assets.empty()) {
     SPDLOG_ERROR("No assets to load");
-    return;
+    throw std::runtime_error("No assets to load");
   }
 
   // Create vector of assets for indexed access
@@ -316,11 +289,7 @@ void ApiCacheDataloader::LoadData() {
           SPDLOG_DEBUG("Creating task for asset {} ({}/{})",
                       asset.GetSymbolStr(), i + 1, total_assets);
 
-          if (m_option.IsMultiCategory()) {
-            batch_tasks.push_back(LoadMultiCategoryAsync(asset));
-          } else {
-            batch_tasks.push_back(LoadSingleCategoryAsync(asset));
-          }
+          batch_tasks.push_back(LoadAssetDataAsync(asset));
         }
 
         // Execute current batch concurrently
@@ -372,12 +341,7 @@ void ApiCacheDataloader::LoadData() {
         SPDLOG_DEBUG("Creating task for asset {} with {} categories",
                     asset.GetSymbolStr(), m_option.GetAllCategories().size());
 
-        // Route to appropriate async loading strategy
-        if (m_option.IsMultiCategory()) {
-          tasks.push_back(LoadMultiCategoryAsync(asset));
-        } else {
-          tasks.push_back(LoadSingleCategoryAsync(asset));
-        }
+        tasks.push_back(LoadAssetDataAsync(asset));
       }
 
       SPDLOG_INFO("Executing {} asset load tasks concurrently with syncWhenAll...", tasks.size());
@@ -458,9 +422,8 @@ void ApiCacheDataloader::LoadData() {
   // have same index as equity
   auto benchmarkAsset = asset::AssetConstants::instance().SPY;
   auto dailyOption = m_option; // copy
-  dailyOption.SetPrimaryCategory(DataCategory::DailyBars);
-  dailyOption.GetAuxiliaryCategories().clear(); // No auxiliaries for benchmark
-  ApiCacheDataloader helper(dailyOption, m_cacheProvider, m_fetcherProvider);
+  dailyOption.SetCategories({DataCategory::DailyBars}); // Only DailyBars for benchmark
+  ApiCacheDataloader helper(dailyOption, m_cacheProvider, m_fetcherProvider, std::make_unique<SimpleMerger>());
   if (auto df = helper.LoadAssetBars(benchmarkAsset, DataCategory::DailyBars)) {
     if (df->empty()) {
       SPDLOG_WARN("No benchmark data found for SPY in date range [{} - {}]. "

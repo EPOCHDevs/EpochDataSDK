@@ -3,6 +3,7 @@
 #include <glaze/glaze.hpp>
 #include <spdlog/spdlog.h>
 
+#include <arrow/compute/api.h>
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/series_factory.h>
@@ -13,18 +14,45 @@
 namespace data_sdk::polygon {
 
 namespace {
-// Helper to parse date string (YYYY-MM-DD) to nanoseconds since epoch
-std::int64_t parseDateToNs(const std::string &date_str) {
-  if (date_str.size() < 10) return 0;
+// Helper to parse date strings (YYYY-MM-DD) to nanoseconds since epoch using Arrow
+std::vector<std::int64_t> parseDatesToNs(const std::vector<std::string> &date_strings) {
+  if (date_strings.empty()) return {};
 
-  int y_val = std::atoi(date_str.substr(0, 4).c_str());
-  int m_val = std::atoi(date_str.substr(5, 2).c_str());
-  int d_val = std::atoi(date_str.substr(8, 2).c_str());
+  // Build Arrow StringArray from input strings
+  arrow::StringBuilder builder;
+  auto status = builder.AppendValues(date_strings);
+  if (!status.ok()) {
+    SPDLOG_ERROR("Failed to build StringArray for date parsing: {}", status.message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
 
-  using namespace std::chrono;
-  auto ymd = year_month_day{year{y_val}, month{static_cast<unsigned>(m_val)}, day{static_cast<unsigned>(d_val)}};
-  auto dp = sys_days{ymd};
-  return duration_cast<nanoseconds>(dp.time_since_epoch()).count();
+  auto maybe_array = builder.Finish();
+  if (!maybe_array.ok()) {
+    SPDLOG_ERROR("Failed to finish StringArray: {}", maybe_array.status().message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
+
+  // Parse strings to timestamps using Arrow compute strptime
+  arrow::compute::StrptimeOptions options("%Y-%m-%d", arrow::TimeUnit::NANO, false);
+  auto maybe_result = arrow::compute::CallFunction("strptime", {maybe_array.ValueOrDie()}, &options);
+  if (!maybe_result.ok()) {
+    SPDLOG_ERROR("Failed to parse dates with strptime: {}", maybe_result.status().message());
+    return std::vector<std::int64_t>(date_strings.size(), 0);
+  }
+
+  // Extract nanosecond values from TimestampArray
+  auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(maybe_result.ValueOrDie().make_array());
+  std::vector<std::int64_t> result;
+  result.reserve(timestamp_array->length());
+  for (int64_t i = 0; i < timestamp_array->length(); ++i) {
+    if (timestamp_array->IsNull(i)) {
+      result.push_back(0);
+    } else {
+      result.push_back(timestamp_array->Value(i));
+    }
+  }
+
+  return result;
 }
 } // namespace
 
@@ -64,13 +92,13 @@ public:
     }
 
     // Build DataFrame
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> tickers_col;
     std::vector<int> short_volume, total_volume, exempt_volume, non_exempt_volume;
     std::vector<double> short_volume_ratio;
 
     const auto sz = parsed.results.size();
-    dates.reserve(sz);
+    date_strings.reserve(sz);
     tickers_col.reserve(sz);
     short_volume.reserve(sz);
     total_volume.reserve(sz);
@@ -79,8 +107,7 @@ public:
     short_volume_ratio.reserve(sz);
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.date.value_or(""));
       tickers_col.push_back(r.ticker.value_or(""));
       short_volume.push_back(r.short_volume.value_or(0));
       total_volume.push_back(r.total_volume.value_or(0));
@@ -114,8 +141,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.date.value_or(""));
         tickers_col.push_back(r.ticker.value_or(""));
         short_volume.push_back(r.short_volume.value_or(0));
         total_volume.push_back(r.total_volume.value_or(0));
@@ -130,9 +156,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon short_volume: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "short_volume", "total_volume",
                                          "short_volume_ratio", "exempt_volume",
@@ -179,13 +207,13 @@ public:
     }
 
     // Build DataFrame
-    std::vector<std::int64_t> dates;
+    std::vector<std::string> date_strings;
     std::vector<std::string> tickers_col;
     std::vector<int> short_volume, total_volume, exempt_volume, non_exempt_volume;
     std::vector<double> short_volume_ratio;
 
     const auto sz = parsed.results.size();
-    dates.reserve(sz);
+    date_strings.reserve(sz);
     tickers_col.reserve(sz);
     short_volume.reserve(sz);
     total_volume.reserve(sz);
@@ -194,8 +222,7 @@ public:
     short_volume_ratio.reserve(sz);
 
     for (const auto &r : parsed.results) {
-      const auto date_ns = parseDateToNs(r.date.value_or(""));
-      dates.push_back(date_ns);
+      date_strings.push_back(r.date.value_or(""));
       tickers_col.push_back(r.ticker.value_or(""));
       short_volume.push_back(r.short_volume.value_or(0));
       total_volume.push_back(r.total_volume.value_or(0));
@@ -229,8 +256,7 @@ public:
       }
 
       for (const auto &r : page.results) {
-        const auto date_ns = parseDateToNs(r.date.value_or(""));
-        dates.push_back(date_ns);
+        date_strings.push_back(r.date.value_or(""));
         tickers_col.push_back(r.ticker.value_or(""));
         short_volume.push_back(r.short_volume.value_or(0));
         total_volume.push_back(r.total_volume.value_or(0));
@@ -245,9 +271,11 @@ public:
 
     if (page_count > 1) {
       SPDLOG_INFO("Polygon short_volume Async: fetched {} pages for ticker={} total_rows={}",
-                  page_count, ticker, dates.size());
+                  page_count, ticker, date_strings.size());
     }
 
+    // Parse all date strings to nanoseconds using Arrow strptime
+    auto dates = parseDatesToNs(date_strings);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "short_volume", "total_volume",
                                          "short_volume_ratio", "exempt_volume",
@@ -285,6 +313,48 @@ ShortVolumeClient::getShortVolumeAsync(std::string ticker,
                                         std::optional<int> limit) const {
   return impl_->getShortVolumeAsync(std::move(ticker), std::move(date_from),
                                     std::move(date_to), limit);
+}
+
+data_sdk::DataFrameMetadata ShortVolumeClient::getMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "short_volume",
+      .description = "Retrieve daily aggregated short sale volume data reported to FINRA from off-exchange trading venues and alternative trading systems (ATS). Unlike short interest metrics that measure outstanding positions at specific intervals, this endpoint captures daily trading activity of short sales, helping analysts detect market sentiment shifts and identify short-selling trends. Use cases include intraday sentiment analysis, short-sale trend identification, liquidity analysis, and trading strategy optimization. Available across all Stocks plans with data updated daily and historical availability ranging from 2 years (Basic) to all history (Starter and above).",
+      .asset_class = AssetClass::Stocks,
+      .index_normalized = true,
+      .category_prefix = "SV:",
+      .columns = {
+          {.id = "ticker",
+           .name = "Ticker",
+           .description = "Stock symbol identifier",
+           .type = ArrowType::STRING,
+           .nullable = true},
+          {.id = "short_volume",
+           .name = "Short Volume",
+           .description = "Total number of shares sold short across all reporting venues during the trading date",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "total_volume",
+           .name = "Total Volume",
+           .description = "Total reported trading volume for the date across all venues",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "short_volume_ratio",
+           .name = "Short Volume Ratio",
+           .description = "Percentage of total volume that was sold short, calculated as (short_volume / total_volume) × 100",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "exempt_volume",
+           .name = "Exempt Volume",
+           .description = "Portion of short volume marked exempt from Regulation SHO requirements",
+           .type = ArrowType::INT32,
+           .nullable = true},
+          {.id = "non_exempt_volume",
+           .name = "Non-Exempt Volume",
+           .description = "Portion of short volume subject to Regulation SHO requirements (non-exempt short sales)",
+           .type = ArrowType::INT32,
+           .nullable = true},
+      }};
 }
 
 } // namespace data_sdk::polygon

@@ -38,8 +38,16 @@ std::unique_ptr<DividendsClient> ClientFactory::createDividendsClient(const Opti
   return std::make_unique<DividendsClient>(options);
 }
 
+std::unique_ptr<TickerEventsClient> ClientFactory::createTickerEventsClient(const Options& options) {
+  return std::make_unique<TickerEventsClient>(options);
+}
+
 std::unique_ptr<NewsClient> ClientFactory::createNewsClient(const Options& options) {
   return std::make_unique<NewsClient>(options);
+}
+
+std::unique_ptr<RatiosClient> ClientFactory::createRatiosClient(const Options& options) {
+  return std::make_unique<RatiosClient>(options);
 }
 
 } // namespace data_sdk::polygon

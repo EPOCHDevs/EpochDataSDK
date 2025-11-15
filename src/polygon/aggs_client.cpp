@@ -435,4 +435,51 @@ AggsClient::getAggregatesAsync(std::string ticker, std::string from_date,
   co_return df;
 }
 
+data_sdk::DataFrameMetadata AggsClient::getMetadata() {
+  using namespace data_sdk;
+  return DataFrameMetadata{
+      .data_type = "aggregates",
+      .description = "Retrieve historical OHLCV (Open, High, Low, Close, Volume) aggregate bars for stocks, forex (C: prefix), crypto (X: prefix), and indices. Supports both daily (end-of-day) and intraday (minute-level) data with optional split/dividend adjustments. For stocks, minute bars are automatically filtered to NYSE Regular Trading Hours (09:31-16:00 ET). Data is returned in ascending chronological order. Use Cases: Backtesting trading strategies, technical analysis, portfolio performance analysis, and quantitative research requiring price/volume time series.",
+      .asset_class = std::nullopt,  // Multiple asset classes supported (Stocks, Crypto, FX, Indices)
+      .index_normalized = false,  // Minute bars have time-of-day (intraday timestamps)
+      .category_prefix = "",  // Empty prefix for timeseries data
+      .columns = {
+          {.id = "o",
+           .name = "Open",
+           .description = "Opening price of the bar",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "h",
+           .name = "High",
+           .description = "Highest price during the bar period",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "l",
+           .name = "Low",
+           .description = "Lowest price during the bar period",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "c",
+           .name = "Close",
+           .description = "Closing price of the bar",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "v",
+           .name = "Volume",
+           .description = "Total trading volume during the bar period",
+           .type = ArrowType::FLOAT64,
+           .nullable = false},
+          {.id = "vw",
+           .name = "Volume Weighted Average Price",
+           .description = "Volume weighted average price during the bar period (VWAP). Optional field, may not be present for all tickers or time periods.",
+           .type = ArrowType::FLOAT64,
+           .nullable = true},
+          {.id = "n",
+           .name = "Number of Trades",
+           .description = "Number of individual trades aggregated into this bar. Optional field, may not be present for all tickers or time periods.",
+           .type = ArrowType::INT64,
+           .nullable = true},
+      }};
+}
+
 } // namespace data_sdk::polygon
