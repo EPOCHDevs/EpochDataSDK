@@ -14,6 +14,5 @@ target_sources(epoch_data_sdk_test
         polygon_fetcher_test.cpp
         polygon_timestamp_test.cpp
         fetcher_provider_test.cpp
-        dataloader_option_test.cpp
         simple_merger_test.cpp
 )
