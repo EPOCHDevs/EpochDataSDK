@@ -279,7 +279,7 @@ data_sdk::DataFrameMetadata RatiosClient::getMetadata() {
       .data_type = "financial_ratios",
       .description = "Retrieve comprehensive financial ratios data providing key valuation, profitability, liquidity, and leverage metrics for public companies. This endpoint combines income statements, balance sheets, and cash flow data with daily stock prices to calculate TTM (trailing twelve months) ratios. Use cases include company valuation analysis, comparative financial assessment, health evaluation, and investment screening. Data is updated end-of-day with all historical data available.",
       .asset_class = AssetClass::Stocks,
-      .index_normalized = false,
+      .index_normalized = true,
       .category_prefix = "R:",
       .columns = {
           {.id = "ticker",
