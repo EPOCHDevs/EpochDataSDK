@@ -1,5 +1,5 @@
 #include "simple_merger.hpp"
-#include "metadata_registry.hpp"
+#include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <spdlog/spdlog.h>
 #include <epoch_frame/common.h>
 

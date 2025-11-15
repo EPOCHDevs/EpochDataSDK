@@ -4,7 +4,7 @@
 
 #include "cache/merge_strategy.h"
 #include "simple_merger.hpp"
-#include "metadata_registry.hpp"
+#include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_data_sdk/common/bar_attribute.hpp>
 #include <chrono>

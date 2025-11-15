@@ -1,4 +1,4 @@
-#include "metadata_registry.hpp"
+#include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 
 // Polygon clients
 #include "../polygon/aggs_client.hpp"

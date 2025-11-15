@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../../src/dataloader/simple_merger.hpp"
-#include "../../src/dataloader/metadata_registry.hpp"
+#include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_frame/factory/array_factory.h>

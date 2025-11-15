@@ -1,7 +1,7 @@
 #pragma once
 
 #include "epoch_data_sdk/dataloader/merger.hpp"
-#include "metadata_registry.hpp"
+#include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 
 namespace data_sdk::dataloader {
 
