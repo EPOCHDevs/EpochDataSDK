@@ -58,7 +58,7 @@ static epoch_frame::DataFrame createEmptyDataFrame(DataCategory category) {
 
   // Create empty index (truly empty - 0 rows)
   std::vector<DateTime> empty_dates;
-  auto empty_index = make_datetime_index(empty_dates);
+  auto empty_index = make_datetime_index(empty_dates, "", "UTC");
 
   // Create empty arrays for each column with correct type
   std::vector<arrow::ChunkedArrayPtr> column_arrays;
