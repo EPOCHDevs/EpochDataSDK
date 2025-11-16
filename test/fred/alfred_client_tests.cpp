@@ -53,14 +53,16 @@ TEST_CASE("AlfredClient - ALFRED data with revision tracking", "[fred][alfred_cl
     auto obs_date_col = table->GetColumnByName("observation_date");
     auto revision_col = table->GetColumnByName("revision");
 
-    auto obs_array = std::static_pointer_cast<arrow::StringArray>(obs_date_col->chunk(0));
+    auto obs_array = std::static_pointer_cast<arrow::TimestampArray>(obs_date_col->chunk(0));
     auto rev_array = std::static_pointer_cast<arrow::Int64Array>(revision_col->chunk(0));
 
-    // Count unique observation dates
-    std::unordered_set<std::string> unique_obs_dates;
+    // Count unique observation dates (timestamps)
+    std::unordered_set<int64_t> unique_obs_dates;
     int max_revision = 0;
     for (int64_t i = 0; i < obs_array->length(); i++) {
-      unique_obs_dates.insert(obs_array->GetString(i));
+      if (!obs_array->IsNull(i)) {
+        unique_obs_dates.insert(obs_array->Value(i));
+      }
       max_revision = std::max(max_revision, static_cast<int>(rev_array->Value(i)));
     }
 
@@ -80,12 +82,12 @@ TEST_CASE("AlfredClient - ALFRED data with revision tracking", "[fred][alfred_cl
     auto df_with_index = df->reset_index("published_at");
     auto table_with_index = df_with_index.table();
     auto pub_col = table_with_index->GetColumnByName("published_at");
-    auto pub_array = std::static_pointer_cast<arrow::StringArray>(pub_col->chunk(0));
+    auto pub_array = std::static_pointer_cast<arrow::TimestampArray>(pub_col->chunk(0));
 
     for (int i = 0; i < std::min(10, static_cast<int>(obs_array->length())); i++) {
       std::cout << "  Row " << i << ": "
-                << "published=" << pub_array->GetString(i)
-                << ", obs_date=" << obs_array->GetString(i)
+                << "published_ts=" << pub_array->Value(i)
+                << ", obs_ts=" << obs_array->Value(i)
                 << ", value=" << val_array->Value(i)
                 << ", revision=" << rev_array->Value(i) << "\n";
     }
@@ -116,24 +118,26 @@ TEST_CASE("AlfredClient - ALFRED data with revision tracking", "[fred][alfred_cl
     auto obs_date_col = table->GetColumnByName("observation_date");
     auto revision_col = table->GetColumnByName("revision");
 
-    auto obs_array = std::static_pointer_cast<arrow::StringArray>(obs_date_col->chunk(0));
+    auto obs_array = std::static_pointer_cast<arrow::TimestampArray>(obs_date_col->chunk(0));
     auto rev_array = std::static_pointer_cast<arrow::Int64Array>(revision_col->chunk(0));
 
-    // Track revisions per observation_date
-    std::unordered_map<std::string, std::vector<int>> revisions_by_obs_date;
+    // Track revisions per observation_date (timestamp)
+    std::unordered_map<int64_t, std::vector<int>> revisions_by_obs_date;
     for (int64_t i = 0; i < obs_array->length(); i++) {
-      std::string obs_date = obs_array->GetString(i);
-      int revision = rev_array->Value(i);
-      revisions_by_obs_date[obs_date].push_back(revision);
+      if (!obs_array->IsNull(i)) {
+        int64_t obs_ts = obs_array->Value(i);
+        int revision = rev_array->Value(i);
+        revisions_by_obs_date[obs_ts].push_back(revision);
+      }
     }
 
     // Verify revisions are sequential (1, 2, 3, ...) for each observation_date
     bool all_sequential = true;
-    for (const auto& [obs_date, revisions] : revisions_by_obs_date) {
+    for (const auto& [obs_ts, revisions] : revisions_by_obs_date) {
       for (size_t i = 0; i < revisions.size(); i++) {
         if (revisions[i] != static_cast<int>(i + 1)) {
           all_sequential = false;
-          std::cout << "ERROR: obs_date=" << obs_date
+          std::cout << "ERROR: obs_ts=" << obs_ts
                     << " has non-sequential revision at position " << i
                     << ": expected " << (i + 1) << ", got " << revisions[i] << "\n";
         }
@@ -160,7 +164,7 @@ TEST_CASE("AlfredClient - Metadata verification", "[fred][alfred_client][metadat
 
     // Check each column
     REQUIRE(metadata.columns[0].id == "observation_date");
-    REQUIRE(metadata.columns[0].type == ArrowType::STRING);
+    REQUIRE(metadata.columns[0].type == ArrowType::TIMESTAMP_NS_UTC);
     REQUIRE(metadata.columns[0].nullable == false);
 
     REQUIRE(metadata.columns[1].id == "value");

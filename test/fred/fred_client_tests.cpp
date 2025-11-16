@@ -213,17 +213,17 @@ TEST_CASE("FredClient vs AlfredClient - Side-by-side comparison", "[fred][fred_c
     auto fred_table = fred_with_index.table();
     auto fred_obs_col = fred_table->GetColumnByName("observation_date");
     auto fred_value_col = fred_table->GetColumnByName("value");
-    auto fred_obs_array = std::static_pointer_cast<arrow::StringArray>(fred_obs_col->chunk(0));
+    auto fred_obs_array = std::static_pointer_cast<arrow::TimestampArray>(fred_obs_col->chunk(0));
     auto fred_value_array = std::static_pointer_cast<arrow::DoubleArray>(fred_value_col->chunk(0));
 
     std::cout << "All FRED rows:\n";
-    std::cout << std::setw(20) << "observation_date" << std::setw(15) << "value" << "\n";
-    std::cout << std::string(35, '-') << "\n";
+    std::cout << std::setw(25) << "observation_date_ns" << std::setw(15) << "value" << "\n";
+    std::cout << std::string(40, '-') << "\n";
 
     for (int64_t i = 0; i < fred_with_index.num_rows(); i++) {
-      std::string obs_date = fred_obs_array->GetString(i);
+      int64_t obs_ts = fred_obs_array->Value(i);
       double value = fred_value_array->Value(i);
-      std::cout << std::setw(20) << obs_date << std::setw(15) << std::fixed << std::setprecision(3) << value << "\n";
+      std::cout << std::setw(25) << obs_ts << std::setw(15) << std::fixed << std::setprecision(3) << value << "\n";
     }
 
     std::cout << "\n--- ALFRED CLIENT (Full Revision History) ---\n";
@@ -244,26 +244,26 @@ TEST_CASE("FredClient vs AlfredClient - Side-by-side comparison", "[fred][fred_c
     auto alfred_val_col = alfred_table->GetColumnByName("value");
     auto alfred_rev_col = alfred_table->GetColumnByName("revision");
 
-    auto alfred_pub_array = std::static_pointer_cast<arrow::StringArray>(alfred_pub_col->chunk(0));
-    auto alfred_obs_array = std::static_pointer_cast<arrow::StringArray>(alfred_obs_col->chunk(0));
+    auto alfred_pub_array = std::static_pointer_cast<arrow::TimestampArray>(alfred_pub_col->chunk(0));
+    auto alfred_obs_array = std::static_pointer_cast<arrow::TimestampArray>(alfred_obs_col->chunk(0));
     auto alfred_val_array = std::static_pointer_cast<arrow::DoubleArray>(alfred_val_col->chunk(0));
     auto alfred_rev_array = std::static_pointer_cast<arrow::Int64Array>(alfred_rev_col->chunk(0));
 
     std::cout << "All ALFRED rows:\n";
-    std::cout << std::setw(15) << "published_at"
-              << std::setw(20) << "observation_date"
+    std::cout << std::setw(21) << "published_at_ns"
+              << std::setw(21) << "observation_ts_ns"
               << std::setw(15) << "value"
               << std::setw(10) << "revision" << "\n";
-    std::cout << std::string(60, '-') << "\n";
+    std::cout << std::string(67, '-') << "\n";
 
     for (int64_t i = 0; i < alfred_with_index.num_rows(); i++) {
-      std::string pub_date = alfred_pub_array->GetString(i);
-      std::string obs_date = alfred_obs_array->GetString(i);
+      int64_t pub_ts = alfred_pub_array->Value(i);
+      int64_t obs_ts = alfred_obs_array->Value(i);
       double value = alfred_val_array->Value(i);
       int64_t revision = alfred_rev_array->Value(i);
 
-      std::cout << std::setw(15) << pub_date
-                << std::setw(20) << obs_date
+      std::cout << std::setw(21) << pub_ts
+                << std::setw(21) << obs_ts
                 << std::setw(15) << std::fixed << std::setprecision(3) << value
                 << std::setw(10) << revision << "\n";
     }

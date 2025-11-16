@@ -9,6 +9,7 @@
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
 
+#include "fred/base_client.hpp"
 #include "fred/series_impl.hpp"
 
 namespace data_sdk::fred {
@@ -79,14 +80,17 @@ AlfredClient::getSeries(const std::string &series_id,
     values.push_back(val);
   }
 
-  // Create DataFrame with published_at as index
-  auto index = epoch_frame::factory::index::make_index(
-      epoch_frame::factory::array::make_array(published_at_dates),
-      epoch_frame::MonotonicDirection::Increasing, "published_at");
+  // Create DataFrame with published_at as UTC NANO datetime index
+  auto published_at_timestamps = parseDateStringsToNanoseconds(published_at_dates);
+  auto index = epoch_frame::factory::index::make_datetime_index(
+      published_at_timestamps, "published_at", "UTC");
+
+  // Convert observation_date to UTC NANO timestamp column
+  auto observation_date_timestamps = makeDateTimestampArray(observation_dates);
 
   std::vector<std::string> columns = {"observation_date", "value", "revision"};
   std::vector<arrow::ChunkedArrayPtr> arrays = {
-      epoch_frame::factory::array::make_array(observation_dates),
+      observation_date_timestamps,
       epoch_frame::factory::array::make_array(values),
       epoch_frame::factory::array::make_array(revisions)
   };
@@ -145,14 +149,17 @@ AlfredClient::getSeriesAsync(std::string series_id,
     values.push_back(val);
   }
 
-  // Create DataFrame with published_at as index
-  auto index = epoch_frame::factory::index::make_index(
-      epoch_frame::factory::array::make_array(published_at_dates),
-      epoch_frame::MonotonicDirection::Increasing, "published_at");
+  // Create DataFrame with published_at as UTC NANO datetime index
+  auto published_at_timestamps = parseDateStringsToNanoseconds(published_at_dates);
+  auto index = epoch_frame::factory::index::make_datetime_index(
+      published_at_timestamps, "published_at", "UTC");
+
+  // Convert observation_date to UTC NANO timestamp column
+  auto observation_date_timestamps = makeDateTimestampArray(observation_dates);
 
   std::vector<std::string> columns = {"observation_date", "value", "revision"};
   std::vector<arrow::ChunkedArrayPtr> arrays = {
-      epoch_frame::factory::array::make_array(observation_dates),
+      observation_date_timestamps,
       epoch_frame::factory::array::make_array(values),
       epoch_frame::factory::array::make_array(revisions)
   };
@@ -169,8 +176,8 @@ data_sdk::DataFrameMetadata AlfredClient::getMetadata() {
       .columns = {
           {.id = "observation_date",
            .name = "Observation Date",
-           .description = "The date of the economic observation period being measured (YYYY-MM-DD). This represents WHEN the economic activity occurred (e.g., January 2023 for monthly unemployment rate). Multiple DataFrame rows share the same observation_date when data for that period was revised over time—each revision appears as a separate row with a different published_at index. Observation dates define the economic timeline (data collection period), while the published_at index defines the information timeline (when values became known).",
-           .type = data_sdk::ArrowType::STRING,
+           .description = "The date of the economic observation period being measured as timestamp[ns, UTC] at midnight UTC. This represents WHEN the economic activity occurred (e.g., January 2023 for monthly unemployment rate). Multiple DataFrame rows share the same observation_date when data for that period was revised over time—each revision appears as a separate row with a different published_at index. Observation dates define the economic timeline (data collection period), while the published_at index defines the information timeline (when values became known).",
+           .type = data_sdk::ArrowType::TIMESTAMP_NS_UTC,
            .nullable = false},
           {.id = "value",
            .name = "Value",

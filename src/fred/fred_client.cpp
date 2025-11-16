@@ -9,6 +9,7 @@
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
 
+#include "fred/base_client.hpp"
 #include "fred/series_impl.hpp"
 
 namespace data_sdk::fred {
@@ -77,10 +78,10 @@ FredClient::getSeries(const std::string &series_id,
     values.push_back(val);
   }
 
-  // Create DataFrame with observation_date as index
-  auto index = epoch_frame::factory::index::make_index(
-      epoch_frame::factory::array::make_array(dates),
-      epoch_frame::MonotonicDirection::NotMonotonic, "observation_date");
+  // Create DataFrame with observation_date as UTC NANO datetime index
+  auto date_timestamps = parseDateStringsToNanoseconds(dates);
+  auto index = epoch_frame::factory::index::make_datetime_index(
+      date_timestamps, "observation_date", "UTC");
 
   std::vector<std::string> columns = {"value"};
   std::vector<arrow::ChunkedArrayPtr> arrays = {
@@ -127,10 +128,10 @@ FredClient::getSeriesAsync(std::string series_id,
     values.push_back(val);
   }
 
-  // Create DataFrame with observation_date as index
-  auto index = epoch_frame::factory::index::make_index(
-      epoch_frame::factory::array::make_array(dates),
-      epoch_frame::MonotonicDirection::NotMonotonic, "observation_date");
+  // Create DataFrame with observation_date as UTC NANO datetime index
+  auto date_timestamps = parseDateStringsToNanoseconds(dates);
+  auto index = epoch_frame::factory::index::make_datetime_index(
+      date_timestamps, "observation_date", "UTC");
 
   std::vector<std::string> columns = {"value"};
   std::vector<arrow::ChunkedArrayPtr> arrays = {
@@ -149,7 +150,7 @@ data_sdk::DataFrameMetadata FredClient::getMetadata() {
       .columns = {
           {.id = "value",
            .name = "Value",
-           .description = "The current/latest revised value of the economic data series as known today. Units and frequency are series-specific (examples: percent for unemployment rate, index value for CPI, billions of dollars for GDP, thousands of persons for payroll employment). Null (NaN) indicates data unavailable for that observation period. This value represents FRED's best current estimate and may differ from values originally published on the observation date—economic data undergoes revisions as source agencies refine estimates with more complete information. Real-time period is implicitly set to today, meaning you see the data as it exists in FRED's database now, incorporating all historical revisions.",
+           .description = "The current/latest revised value of the economic data series as known today. Units and frequency are series-specific (examples: percent for unemployment rate, index value for CPI, billions of dollars for GDP, thousands of persons for payroll employment). Null (NaN) indicates data unavailable for that observation period. This value represents FRED's best current estimate and may differ from values originally published on the observation date—economic data undergoes revisions as source agencies refine estimates with more complete information. Real-time period is implicitly set to today, meaning you see the data as it exists in FRED's database now, incorporating all historical revisions. Index is observation_date as timestamp[ns, UTC] at midnight UTC.",
            .type = data_sdk::ArrowType::FLOAT64,
            .nullable = true},
       }};
