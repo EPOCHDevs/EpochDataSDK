@@ -8,6 +8,7 @@ target_sources(epoch_data_sdk_test
         cache_utils_test.cpp
         cache_orchestrator_test.cpp
         cache_manifest_test.cpp
+        dividends_duplicate_integration_test.cpp
         es_futures_integration_test.cpp
         merge_strategy_test.cpp
         multi_norm_integration_test.cpp
