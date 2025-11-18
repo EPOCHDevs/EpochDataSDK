@@ -2,9 +2,16 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <filesystem>
 
 #include <epoch_data_sdk/common/async_batch.hpp>
+#include <epoch_data_sdk/model/builder/asset_builder.hpp>
+#include <epoch_data_sdk/dataloader/options.hpp>
+#include <epoch_frame/serialization.h>
 #include "../common/test_utils.hpp"
+#include "../src/dataloader/api_cache_dataloader.h"
+#include "../src/dataloader/fetcher_provider_default.h"
+#include "../src/dataloader/cache/day_bucket_cache_provider.h"
 #include "../src/polygon/aggs_client.hpp"
 #include "../src/polygon/news_client.hpp"
 #include "../src/polygon/splits_client.hpp"
@@ -211,6 +218,227 @@ TEST_CASE("Real API: Dividends metadata verification", "[polygon][real_api][meta
   validateDataFrameAgainstMetadata(*result, metadata, "AggsClient(AAPL)");
 
   std::cout << "Dividends metadata verification passed!\n";
+}
+
+TEST_CASE("Real API: Dividends cache duplicate detection", "[polygon][real_api][cache][duplicates]") {
+  const char* api_key = std::getenv("POLYGON_API_KEY");
+  REQUIRE(api_key != nullptr);
+
+  std::cout << "\n=== Testing for duplicates in cached dividend data ===\n";
+
+  // Create cache directory for this test
+  std::filesystem::path cache_dir = "test_cache_dividends_dup";
+  std::filesystem::remove_all(cache_dir);  // Clean start
+  std::filesystem::create_directories(cache_dir);
+
+  // Test AAPL dividends which is known to have issues
+  std::string ticker = "AAPL";
+
+  // Step 1: Fetch from API
+  Options opt;
+  opt.api_key = api_key;
+  DividendsClient client(opt);
+
+  auto api_result = client.getDividends(ticker, std::nullopt, "2022-01-01", "2025-01-01",
+                                       std::nullopt, std::nullopt, std::nullopt,
+                                       std::nullopt, std::nullopt, std::nullopt, 1000);
+  REQUIRE(api_result.has_value());
+
+  auto api_df = *api_result;
+  std::cout << "API Response: " << api_df.num_rows() << " rows\n";
+
+  // Step 2: Write to cache using cache mechanism
+  auto asset = asset::MakeAsset({ticker + "-Stocks"});
+  auto cache_path = cache_dir / "Dividends" / "Stocks" / (asset.GetID() + ".arrow");
+  std::filesystem::create_directories(cache_path.parent_path());
+
+  auto write_status = epoch_frame::write_arrow(api_df, cache_path.string(), {
+    .include_index = true,
+    .index_label = "timestamp"
+  });
+
+  REQUIRE(write_status.ok());
+  std::cout << "Wrote to cache: " << cache_path << "\n";
+
+  // Step 3: Read back from cache
+  auto read_result = epoch_frame::read_arrow(cache_path.string(), {
+    .index_column = "timestamp"
+  });
+  REQUIRE(read_result.ok());
+
+  auto cached_df = read_result.MoveValueUnsafe();
+  std::cout << "Read from cache: " << cached_df.num_rows() << " rows\n";
+
+  // Step 4: Check for duplicates in cached data
+  std::unordered_map<int64_t, int> timestamp_counts;
+  auto timestamp_view = cached_df.index()->array().to_timestamp_view();
+
+  for (size_t i = 0; i < cached_df.num_rows(); ++i) {
+    auto ts = timestamp_view->Value(static_cast<int64_t>(i));
+    timestamp_counts[ts]++;
+  }
+
+  std::vector<int64_t> duplicates;
+  for (const auto& [ts, count] : timestamp_counts) {
+    if (count > 1) {
+      duplicates.push_back(ts);
+    }
+  }
+
+  std::cout << "Cache analysis:\n";
+  std::cout << "  Total rows: " << cached_df.num_rows() << "\n";
+  std::cout << "  Unique timestamps: " << timestamp_counts.size() << "\n";
+
+  if (!duplicates.empty()) {
+    std::cout << "  DUPLICATES FOUND: " << duplicates.size() << " timestamps\n\n";
+
+    for (const auto& ts : duplicates) {
+      auto dt = epoch_frame::DateTime::fromtimestamp(ts, "UTC");
+      std::cout << "    " << dt.date().repr() << ": appears "
+                << timestamp_counts[ts] << "x\n";
+    }
+
+    FAIL("Cache contains " << duplicates.size() << " duplicate timestamps!");
+  } else {
+    std::cout << "  No duplicates found - PASS\n";
+  }
+
+  // Cleanup
+  std::filesystem::remove_all(cache_dir);
+  std::cout << "=== Test complete ===\n\n";
+}
+
+TEST_CASE("Real API: Dividends dataloader duplicate test - 30 assets", "[polygon][real_api][dataloader][duplicates]") {
+  const char* api_key = std::getenv("POLYGON_API_KEY");
+  REQUIRE(api_key != nullptr);
+
+  std::cout << "\n=== Testing dividends with 30 assets ===\n";
+
+  // STEP 1: Delete cache first
+  std::filesystem::path cache_dir = "test_cache_dividends_30";
+  std::filesystem::remove_all(cache_dir);
+  std::cout << "1. Deleted cache directory\n";
+
+  // STEP 2: Setup 30 assets (DOW 30 stocks)
+  std::vector<std::string> symbols = {
+    "AAPL", "MSFT", "JPM", "V", "UNH", "WMT", "JNJ", "PG", "NVDA", "HD",
+    "CVX", "MRK", "CSCO", "VZ", "KO", "PFE", "DIS", "AMGN", "NKE", "CRM",
+    "MCD", "IBM", "CAT", "GS", "AXP", "BA", "TRV", "HON", "INTC", "DOW"
+  };
+
+  DividendsClient div_client({.api_key = api_key});
+  auto cache_provider = std::make_shared<dataloader::cache::DayBucketCacheProvider>();
+
+  auto from_date = epoch_frame::DateTime::from_date_str("2022-01-01").date();
+  auto to_date = epoch_frame::DateTime::from_date_str("2024-12-31").date();
+
+  std::cout << "2. Loading dividends for " << symbols.size() << " assets...\n";
+
+  std::unordered_map<std::string, size_t> api_rows;
+  std::unordered_map<std::string, size_t> cache_rows;
+  std::unordered_map<std::string, size_t> duplicate_counts;
+
+  // STEP 3: Load each asset and check cache
+  for (const auto& symbol : symbols) {
+    auto asset = asset::MakeAsset({symbol + "-Stocks"});
+
+    // Load with cache
+    auto result = cache_provider->LoadWithCache(
+      cache_dir,
+      asset,
+      DataCategory::Dividends,
+      86400,
+      true,
+      from_date,
+      to_date,
+      [&](const epoch_frame::Date& f, const epoch_frame::Date& t) -> std::expected<epoch_frame::DataFrame, std::string> {
+        auto api_result = div_client.getDividends(symbol, std::nullopt, f.repr(), t.repr(),
+                                                  std::nullopt, std::nullopt, std::nullopt,
+                                                  std::nullopt, std::nullopt, std::nullopt, 1000);
+        if (!api_result.has_value()) {
+          return std::unexpected(api_result.error().message);
+        }
+
+        api_rows[symbol] = api_result->num_rows();
+        return *api_result;
+      }
+    );
+
+    if (!result.has_value()) {
+      std::cout << "   " << symbol << ": FAILED - " << result.error() << "\n";
+      continue;
+    }
+
+    // Read cache file
+    auto cache_path = cache_dir / "Dividends" / "Stocks" / (asset.GetID() + ".arrow");
+    if (std::filesystem::exists(cache_path)) {
+      auto cached_result = epoch_frame::read_arrow(cache_path.string(), {.index_column = "t"});
+
+      if (cached_result.ok()) {
+        auto cached_df = cached_result.MoveValueUnsafe();
+        cache_rows[symbol] = cached_df.num_rows();
+
+        // Check for duplicates
+        std::unordered_map<int64_t, int> timestamp_counts;
+        auto timestamp_view = cached_df.index()->array().to_timestamp_view();
+
+        for (size_t i = 0; i < cached_df.num_rows(); ++i) {
+          auto ts = timestamp_view->Value(static_cast<int64_t>(i));
+          timestamp_counts[ts]++;
+        }
+
+        size_t dup_count = 0;
+        for (const auto& [ts, count] : timestamp_counts) {
+          if (count > 1) {
+            dup_count++;
+          }
+        }
+
+        if (dup_count > 0) {
+          duplicate_counts[symbol] = dup_count;
+        }
+      }
+    }
+  }
+
+  // STEP 4: Report results
+  std::cout << "\n3. Results Summary:\n";
+  std::cout << "   Assets processed: " << symbols.size() << "\n";
+
+  size_t total_with_duplicates = 0;
+  size_t total_mismatches = 0;
+
+  for (const auto& symbol : symbols) {
+    if (duplicate_counts.contains(symbol)) {
+      std::cout << "   ❌ " << symbol << ": " << duplicate_counts[symbol]
+                << " duplicate timestamps (API=" << api_rows[symbol]
+                << ", Cache=" << cache_rows[symbol] << ")\n";
+      total_with_duplicates++;
+    } else if (api_rows.contains(symbol) && cache_rows.contains(symbol)) {
+      if (api_rows[symbol] != cache_rows[symbol]) {
+        std::cout << "   ⚠️  " << symbol << ": Row mismatch (API=" << api_rows[symbol]
+                  << ", Cache=" << cache_rows[symbol] << ")\n";
+        total_mismatches++;
+      }
+    }
+  }
+
+  if (total_with_duplicates == 0 && total_mismatches == 0) {
+    std::cout << "   ✓ All assets: No duplicates, rows match!\n";
+  } else {
+    std::cout << "\n   Summary:\n";
+    std::cout << "   - Assets with duplicates: " << total_with_duplicates << "\n";
+    std::cout << "   - Assets with row mismatches: " << total_mismatches << "\n";
+  }
+
+  // Cleanup
+  std::filesystem::remove_all(cache_dir);
+  std::cout << "\n=== Test complete ===\n\n";
+
+  // Fail if we found duplicates
+  if (total_with_duplicates > 0) {
+    FAIL("Found duplicates in " << total_with_duplicates << " assets!");
+  }
 }
 
 TEST_CASE("Real API: Ticker Events metadata verification", "[polygon][real_api][metadata]") {
