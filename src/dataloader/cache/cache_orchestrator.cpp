@@ -1,5 +1,4 @@
 #include "cache_orchestrator.h"
-#include "dedup_utils.h"
 #include <epoch_data_sdk/common/time_provider.hpp>
 
 #include <epoch_frame/serialization.h>
@@ -263,41 +262,15 @@ CacheOrchestrator::executeFetch(const FetchStrategy& strategy,
       SPDLOG_INFO("PREPEND_AND_APPEND: fetched {} prepend + {} append = {} total rows",
                  prependResult->num_rows(), appendResult->num_rows(), merged.num_rows());
 
-      // Apply deduplication to merged result
-      auto deduped = deduplicateByTimestamp(merged, params.asset, params.category);
-      if (!deduped) {
-        SPDLOG_ERROR("Deduplication failed for PREPEND_AND_APPEND {}/{}: {}",
-                    params.asset.GetID(), epoch_core::DataCategoryWrapper::ToString(params.category),
-                    deduped.error());
-        return deduped;
-      }
-      return *deduped;
+      return merged;
 
     } else if (prependResult) {
       SPDLOG_WARN("Append fetch failed, using only prepend data: {}", appendResult.error());
-
-      // Apply deduplication to prepend result
-      auto deduped = deduplicateByTimestamp(*prependResult, params.asset, params.category);
-      if (!deduped) {
-        SPDLOG_ERROR("Deduplication failed for prepend {}/{}: {}",
-                    params.asset.GetID(), epoch_core::DataCategoryWrapper::ToString(params.category),
-                    deduped.error());
-        return deduped;
-      }
-      return *deduped;
+      return *prependResult;
 
     } else if (appendResult) {
       SPDLOG_WARN("Prepend fetch failed (likely no early data), using only append data: {}", prependResult.error());
-
-      // Apply deduplication to append result
-      auto deduped = deduplicateByTimestamp(*appendResult, params.asset, params.category);
-      if (!deduped) {
-        SPDLOG_ERROR("Deduplication failed for append {}/{}: {}",
-                    params.asset.GetID(), epoch_core::DataCategoryWrapper::ToString(params.category),
-                    deduped.error());
-        return deduped;
-      }
-      return *deduped;
+      return *appendResult;
 
     } else {
       return std::unexpected("Both prepend and append fetches failed");
@@ -323,15 +296,6 @@ CacheOrchestrator::executeFetch(const FetchStrategy& strategy,
                strategy.fetchFrom->repr(), strategy.fetchTo->repr(),
                duration.count());
 
-    // Apply deduplication before caching to prevent duplicate data from entering cache
-    auto deduped = deduplicateByTimestamp(*result, params.asset, params.category);
-    if (!deduped) {
-      SPDLOG_ERROR("Deduplication failed for {}/{}: {}",
-                  params.asset.GetID(), epoch_core::DataCategoryWrapper::ToString(params.category),
-                  deduped.error());
-      return deduped;
-    }
-    result = deduped;
 
   } else {
     SPDLOG_ERROR("Fetch failed for {} [{} - {}]: {}",

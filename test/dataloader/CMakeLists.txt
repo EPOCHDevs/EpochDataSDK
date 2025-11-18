@@ -6,7 +6,6 @@ target_sources(epoch_data_sdk_test
         archive_fetcher_s3_integration_test.cpp
         cache_provider_test.cpp
         cache_utils_test.cpp
-        dedup_utils_test.cpp
         cache_orchestrator_test.cpp
         cache_manifest_test.cpp
         es_futures_integration_test.cpp
