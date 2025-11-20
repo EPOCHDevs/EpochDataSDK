@@ -62,6 +62,9 @@ TEST_CASE("FRED SeriesClient - convenience methods", "[fred][series][integration
     for (const auto& col : expected_cols) {
       REQUIRE(df->contains(col));
     }
+
+    REQUIRE(df->index()->dtype()->ToString() ==
+        arrow::timestamp(arrow::TimeUnit::NANO, "UTC")->ToString());
   }
 
   SECTION("getGDP") {

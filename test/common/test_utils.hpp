@@ -4,6 +4,8 @@
 #include <arrow/type.h>
 #include <epoch_frame/dataframe.h>
 #include "epoch_data_sdk/common/metadata.hpp"
+#include <epoch_frame/index.h>
+
 
 namespace data_sdk::test {
 
@@ -24,7 +26,6 @@ inline void validateDataFrameAgainstMetadata(
     const epoch_frame::DataFrame& df,
     const DataFrameMetadata& metadata,
     const std::string& client_name = "") {
-
     INFO("Validating " << client_name << " DataFrame against metadata");
 
     // 1. DataFrame can have fewer columns than metadata (optional columns may be missing)
@@ -51,8 +52,9 @@ inline void validateDataFrameAgainstMetadata(
         auto field = schema->GetFieldByName(col_meta.id);
         REQUIRE(field != nullptr);
 
-        // Validate Arrow type matches metadata type
-        auto arrow_type_id = field->type()->id();
+        // Validate Arrow type (and timestamp unit/tz) matches metadata type
+        auto arrow_type = field->type();
+        auto arrow_type_id = arrow_type->id();
         switch (col_meta.type) {
             case ArrowType::STRING:
                 REQUIRE(arrow_type_id == arrow::Type::STRING);
@@ -69,9 +71,14 @@ inline void validateDataFrameAgainstMetadata(
             case ArrowType::FLOAT64:
                 REQUIRE(arrow_type_id == arrow::Type::DOUBLE);
                 break;
-            case ArrowType::TIMESTAMP_NS_UTC:
+            case ArrowType::TIMESTAMP_NS_UTC: {
                 REQUIRE(arrow_type_id == arrow::Type::TIMESTAMP);
+                auto ts_type = std::dynamic_pointer_cast<arrow::TimestampType>(arrow_type);
+                REQUIRE(ts_type != nullptr);
+                REQUIRE(ts_type->unit() == arrow::TimeUnit::NANO);
+                REQUIRE(ts_type->timezone() == "UTC");
                 break;
+            }
             case ArrowType::BOOLEAN:
                 REQUIRE(arrow_type_id == arrow::Type::BOOL);
                 break;
@@ -101,6 +108,9 @@ inline void validateDataFrameAgainstMetadata(
     INFO("✓ All columns validated against metadata");
     INFO("✓ Column types match");
     INFO("✓ No missing or extra columns");
+
+    REQUIRE(df.index()->dtype()->ToString() ==
+        arrow::timestamp(arrow::TimeUnit::NANO, "UTC")->ToString());
 }
 
 } // namespace data_sdk::test

@@ -66,7 +66,23 @@ SimpleMerger::MergeNormalizedData(
   std::vector<epoch_frame::FrameOrSeries> frames;
   frames.reserve(normalized_data.size());
   for (const auto& [cat, df] : normalized_data) {
-    frames.emplace_back(df);
+    // Check for duplicate indices - following pandas behavior, error if duplicates exist
+    // Financial data (IncomeStatements, BalanceSheets, CashFlowStatements) can have
+    // duplicate timestamps due to amended filings/restatements
+    if (df.index()->has_duplicates()) {
+      SPDLOG_WARN("SimpleMerger: Category {} has duplicate index values, deduplicating (keeping last)",
+                  DataCategoryWrapper::ToString(cat));
+
+      // Drop duplicate index values, keeping last occurrence (most recent filing)
+      auto deduped_df = df.drop_duplicates(epoch_frame::DropDuplicatesKeepPolicy::Last);
+
+      SPDLOG_DEBUG("SimpleMerger: Category {} deduplicated: {} rows -> {} rows",
+                   DataCategoryWrapper::ToString(cat), df.num_rows(), deduped_df.num_rows());
+
+      frames.emplace_back(deduped_df);
+    } else {
+      frames.emplace_back(df);
+    }
   }
 
   // Concat along column axis (side-by-side) with outer join on index
@@ -107,7 +123,7 @@ SimpleMerger::MergeNonNormalizedData(
 
   auto result = epoch_frame::concat(options);
   SPDLOG_DEBUG("SimpleMerger: Merged {} non-normalized categories into {} rows × {} columns",
-               non_normalized_data.size(), result.num_rows(), result.num_columns());
+               non_normalized_data.size(), result.num_rows(), result.num_cols());
 
   return result;
 }
