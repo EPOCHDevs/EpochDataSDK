@@ -129,7 +129,7 @@ public:
     const auto N = parsed.results.size();
     std::vector<std::optional<std::string>> ids, titles, authors, urls, amp_urls, image_urls;
     std::vector<std::optional<std::string>> publisher_names, publisher_homepages, publisher_logos, publisher_favicons;
-    std::vector<std::optional<std::string>> descriptions, tickers_str, keywords_str, insights_str;
+    std::vector<std::optional<std::string>> descriptions, tickers_str, keywords_str;
     std::vector<std::string> published_times; // Still need strings for timestamp parsing
 
     ids.reserve(N);
@@ -146,7 +146,6 @@ public:
     descriptions.reserve(N);
     tickers_str.reserve(N);
     keywords_str.reserve(N);
-    insights_str.reserve(N);
 
     for (const auto &r : parsed.results) {
       ids.push_back(r.id);
@@ -197,24 +196,6 @@ public:
         keywords_joined = joined;
       }
       keywords_str.push_back(keywords_joined);
-
-      // Serialize insights to JSON string, or nullopt if none
-      std::optional<std::string> insights_json = std::nullopt;
-      if (r.insights.has_value() && !r.insights->empty()) {
-        std::string json = "[";
-        for (size_t i = 0; i < r.insights->size(); ++i) {
-          if (i > 0) json += ",";
-          const auto& insight = (*r.insights)[i];
-          json += "{";
-          json += "\"ticker\":\"" + insight.ticker.value_or("") + "\",";
-          json += "\"sentiment\":\"" + insight.sentiment.value_or("") + "\",";
-          json += "\"sentiment_reasoning\":\"" + insight.sentiment_reasoning.value_or("") + "\"";
-          json += "}";
-        }
-        json += "]";
-        insights_json = json;
-      }
-      insights_str.push_back(insights_json);
     }
 
     // Convert RFC3339 published_utc strings to nanosecond timestamps
@@ -225,7 +206,7 @@ public:
     std::vector<std::string> columns = {
         "id", "title", "author", "description",
         "article_url", "amp_url", "image_url",
-        "tickers", "keywords", "insights",
+        "tickers", "keywords",
         "publisher_name", "publisher_homepage", "publisher_logo", "publisher_favicon"};
     std::vector<arrow::ChunkedArrayPtr> arrays{
         makeNullableStringArray(ids),
@@ -237,7 +218,6 @@ public:
         makeNullableStringArray(image_urls),
         makeNullableStringArray(tickers_str),
         makeNullableStringArray(keywords_str),
-        makeNullableStringArray(insights_str),
         makeNullableStringArray(publisher_names),
         makeNullableStringArray(publisher_homepages),
         makeNullableStringArray(publisher_logos),
@@ -280,7 +260,7 @@ public:
     const auto N = parsed.results.size();
     std::vector<std::optional<std::string>> ids, titles, authors, urls, amp_urls, image_urls;
     std::vector<std::optional<std::string>> publisher_names, publisher_homepages, publisher_logos, publisher_favicons;
-    std::vector<std::optional<std::string>> descriptions, tickers_str, keywords_str, insights_str;
+    std::vector<std::optional<std::string>> descriptions, tickers_str, keywords_str;
     std::vector<std::string> published_times; // Still need strings for timestamp parsing
 
     ids.reserve(N);
@@ -297,7 +277,6 @@ public:
     descriptions.reserve(N);
     tickers_str.reserve(N);
     keywords_str.reserve(N);
-    insights_str.reserve(N);
 
     for (const auto &r : parsed.results) {
       ids.push_back(r.id);
@@ -348,24 +327,6 @@ public:
         keywords_joined = joined;
       }
       keywords_str.push_back(keywords_joined);
-
-      // Serialize insights to JSON string, or nullopt if none
-      std::optional<std::string> insights_json = std::nullopt;
-      if (r.insights.has_value() && !r.insights->empty()) {
-        std::string json = "[";
-        for (size_t i = 0; i < r.insights->size(); ++i) {
-          if (i > 0) json += ",";
-          const auto& insight = (*r.insights)[i];
-          json += "{";
-          json += "\"ticker\":\"" + insight.ticker.value_or("") + "\",";
-          json += "\"sentiment\":\"" + insight.sentiment.value_or("") + "\",";
-          json += "\"sentiment_reasoning\":\"" + insight.sentiment_reasoning.value_or("") + "\"";
-          json += "}";
-        }
-        json += "]";
-        insights_json = json;
-      }
-      insights_str.push_back(insights_json);
     }
 
     // Convert RFC3339 published_utc strings to nanosecond timestamps
@@ -376,7 +337,7 @@ public:
     std::vector<std::string> columns = {
         "id", "title", "author", "description",
         "article_url", "amp_url", "image_url",
-        "tickers", "keywords", "insights",
+        "tickers", "keywords",
         "publisher_name", "publisher_homepage", "publisher_logo", "publisher_favicon"};
     std::vector<arrow::ChunkedArrayPtr> arrays{
         makeNullableStringArray(ids),
@@ -388,7 +349,6 @@ public:
         makeNullableStringArray(image_urls),
         makeNullableStringArray(tickers_str),
         makeNullableStringArray(keywords_str),
-        makeNullableStringArray(insights_str),
         makeNullableStringArray(publisher_names),
         makeNullableStringArray(publisher_homepages),
         makeNullableStringArray(publisher_logos),
@@ -471,11 +431,6 @@ DataFrameMetadata NewsClient::getMetadata() {
           {.id = "keywords",
            .name = "Keywords",
            .description = "The keywords associated with the article which will vary depending on the publishing source (comma-separated)",
-           .type = ArrowType::STRING,
-           .nullable = true},
-          {.id = "insights",
-           .name = "Insights",
-           .description = "The insights related to the article (JSON array with ticker, sentiment, and sentiment_reasoning)",
            .type = ArrowType::STRING,
            .nullable = true},
           {.id = "publisher_name",

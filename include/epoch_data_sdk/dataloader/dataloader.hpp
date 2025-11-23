@@ -26,6 +26,8 @@ public:
   virtual void LoadData() = 0;
 
   // Get loaded data (asset -> DataFrame map)
+  // Note: If crossSectionalCategories are specified in options, they will be
+  // merged as columns into each asset's DataFrame
   virtual DataMap GetStoredData() const = 0;
 
   // Query methods
@@ -45,6 +47,18 @@ public:
   LoadAssetBarsAsync(const asset::Asset& asset,
                      DataCategory category,
                      std::unordered_map<std::string, std::string> parameters = {}) const = 0;
+
+  // Cross-sectional economic data methods (FRED indicators)
+  // Fetch cross-sectional data without asset - category determines the series
+  virtual std::expected<epoch_frame::DataFrame, std::string>
+  LoadCrossSectionalData(CrossSectionalDataCategory category,
+                         const epoch_frame::Date& fromDate,
+                         const epoch_frame::Date& toDate) const = 0;
+
+  virtual drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
+                              const epoch_frame::Date& fromDate,
+                              const epoch_frame::Date& toDate) const = 0;
 };
 
 } // namespace data_sdk

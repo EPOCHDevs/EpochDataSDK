@@ -62,9 +62,21 @@ DataFrameMetadata MetadataRegistry::GetMetadataForCategory(DataCategory category
   return it->second;
 }
 
-  DataFrameMetadata MetadataRegistry::GetAlfredMetadata() {
-    return fred::AlfredClient::getMetadata();
-  }
+DataFrameMetadata MetadataRegistry::GetAlfredMetadata() {
+  return fred::AlfredClient::getMetadata();
+}
 
+DataFrameMetadata MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalDataCategory category) {
+  // Cross-sectional economic indicators use the same schema as ALFRED
+  // (published_at index, observation_date, value, revision columns)
+  auto metadata = fred::AlfredClient::getMetadata();
+
+  // Update description to be specific to the category
+  metadata.description = "Cross-sectional economic indicator: " +
+                        CrossSectionalDataCategoryWrapper::ToString(category);
+  metadata.data_type = "economic_indicator";
+
+  return metadata;
+}
 
 } // namespace data_sdk::dataloader

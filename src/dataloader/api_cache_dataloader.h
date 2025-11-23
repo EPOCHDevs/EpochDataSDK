@@ -6,6 +6,7 @@
 #include <epoch_data_sdk/dataloader/cache/provider.hpp>
 #include <epoch_data_sdk/dataloader/dataloader.hpp>
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
+#include <epoch_data_sdk/dataloader/cross_sectional_fetcher.hpp>
 #include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
@@ -51,6 +52,17 @@ public:
                      DataCategory category,
                      std::unordered_map<std::string, std::string> parameters = {}) const final;
 
+  // Cross-sectional economic data methods (FRED indicators)
+  std::expected<epoch_frame::DataFrame, std::string>
+  LoadCrossSectionalData(CrossSectionalDataCategory category,
+                         const epoch_frame::Date& fromDate,
+                         const epoch_frame::Date& toDate) const final;
+
+  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
+                              const epoch_frame::Date& fromDate,
+                              const epoch_frame::Date& toDate) const final;
+
   // Build cache load parameters from options
   cache::CacheLoadParams buildCacheParams(const asset::Asset& asset,
                                           DataCategory category,
@@ -63,6 +75,7 @@ private:
   DataloaderOption m_option;
   std::shared_ptr<ICacheProvider> m_cacheProvider;
   std::shared_ptr<IFetcherProvider> m_fetcherProvider;
+  std::shared_ptr<ICrossSectionalFetcher> m_crossSectionalFetcher;
   std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;

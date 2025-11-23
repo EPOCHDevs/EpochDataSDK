@@ -17,11 +17,27 @@ CREATE_ENUM(DataCategory,
 
 CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);
 
+// Cross-sectional economic indicator categories (FRED data)
+CREATE_ENUM(CrossSectionalDataCategory,
+            // Inflation Indicators
+            CPI, CoreCPI, PCE, CorePCE,
+            // Interest Rates & Monetary Policy
+            FedFunds, Treasury3M, Treasury2Y, Treasury5Y, Treasury10Y, Treasury30Y,
+            // Employment & Labor Market
+            Unemployment, NonfarmPayrolls, InitialClaims,
+            // Economic Growth & Production
+            GDP, IndustrialProduction, RetailSales, HousingStarts,
+            // Market Sentiment & Money Supply
+            ConsumerSentiment, M2, SP500, VIX
+            );
+
 namespace data_sdk {
 using epoch_core::DataCategory;
 using epoch_core::DataCategoryWrapper;
 using epoch_core::BenchmarkKind;
 using epoch_core::BenchmarkKindWrapper;
+using epoch_core::CrossSectionalDataCategory;
+using epoch_core::CrossSectionalDataCategoryWrapper;
 
 // Data providers
 enum class DataProvider {

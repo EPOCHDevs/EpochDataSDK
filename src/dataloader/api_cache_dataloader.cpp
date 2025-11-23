@@ -4,6 +4,7 @@
 
 #include "cache/merge_strategy.h"
 #include "simple_merger.hpp"
+#include "fred_cross_sectional_fetcher.hpp"
 #include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_data_sdk/common/bar_attribute.hpp>
@@ -112,7 +113,9 @@ ApiCacheDataloader::ApiCacheDataloader(
     std::shared_ptr<IFetcherProvider> fetchers,
     std::unique_ptr<IDataMerger> merger)
     : m_option(std::move(option)), m_cacheProvider(std::move(cache)),
-      m_fetcherProvider(std::move(fetchers)), m_merger(std::move(merger)),
+      m_fetcherProvider(std::move(fetchers)),
+      m_crossSectionalFetcher(std::make_shared<FredCrossSectionalFetcher>()),
+      m_merger(std::move(merger)),
       m_benchmark(std::nullopt) {
 
   // Validate options
@@ -515,6 +518,105 @@ void ApiCacheDataloader::LoadData() {
   LogCampaignViability();
 #endif
 
+  // Load cross-sectional economic data if requested and merge into each asset
+  const auto& crossSectionalCategories = m_option.GetCrossSectionalCategories();
+  if (!crossSectionalCategories.empty() && !m_loadedData.empty()) {
+    SPDLOG_INFO("Loading {} cross-sectional economic indicators to merge with {} assets",
+                crossSectionalCategories.size(), m_loadedData.size());
+
+    // Load cross-sectional data in parallel
+    std::vector<CrossSectionalDataCategory> cs_category_vec(
+        crossSectionalCategories.begin(), crossSectionalCategories.end());
+
+    std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> cs_tasks;
+    cs_tasks.reserve(cs_category_vec.size());
+
+    for (const auto& category : cs_category_vec) {
+      cs_tasks.push_back(LoadCrossSectionalDataAsync(
+          category, m_option.GetStartDate(), m_option.GetEndDate()));
+    }
+
+    // Execute all cross-sectional tasks concurrently
+    auto cs_results = data_sdk::common::syncWhenAll(std::move(cs_tasks));
+
+    // Collect successfully loaded indicators
+    std::unordered_map<CrossSectionalDataCategory, epoch_frame::DataFrame> indicators;
+    for (size_t i = 0; i < cs_category_vec.size(); ++i) {
+      const auto& category = cs_category_vec[i];
+      const auto& result = cs_results[i];
+
+      if (!result.has_value()) {
+        SPDLOG_ERROR("Failed to load cross-sectional data for {}: {}",
+                    CrossSectionalDataCategoryWrapper::ToString(category),
+                    result.error());
+        continue;
+      }
+
+      if (result->empty()) {
+        SPDLOG_WARN("No data found for {} in date range [{} - {}]",
+                    CrossSectionalDataCategoryWrapper::ToString(category),
+                    m_option.GetStartDate().repr(),
+                    m_option.GetEndDate().repr());
+        continue;
+      }
+
+      SPDLOG_INFO("Loaded {} rows for economic indicator: {}",
+                  result->num_rows(),
+                  CrossSectionalDataCategoryWrapper::ToString(category));
+      indicators[category] = *result;
+    }
+
+    if (!indicators.empty()) {
+      SPDLOG_INFO("Successfully loaded {}/{} indicators - merging into {} assets",
+                  indicators.size(), crossSectionalCategories.size(), m_loadedData.size());
+
+      // Merge indicators into each asset's DataFrame using SimpleMerger
+      for (auto& [asset, asset_df] : m_loadedData) {
+        // Build a map for merger: convert CrossSectionalDataCategory to DataCategory enum
+        // We'll use a temporary map with prefixed DataFrames
+        std::unordered_map<DataCategory, epoch_frame::DataFrame> merge_map;
+
+        // Add current asset data as the base (e.g., as DailyBars)
+        auto base_category = m_option.GetDataCategory();
+        merge_map[base_category] = asset_df;
+
+        // Add each cross-sectional indicator with prefix
+        for (const auto& [category, indicator_df] : indicators) {
+          std::string prefix = "ECON:" + CrossSectionalDataCategoryWrapper::ToString(category) + ":";
+          auto prefixed_df = indicator_df.add_prefix(prefix);
+
+          // Use a dummy DataCategory for the merger (we'll use News as placeholder)
+          // The merger will just merge on index, which is what we want
+          merge_map[DataCategory::News] = prefixed_df;
+
+          // Merge using SimpleMerger
+          auto merge_result = m_merger->Merge(merge_map);
+          if (!merge_result.has_value()) {
+            SPDLOG_ERROR("Failed to merge {} into {}: {}",
+                        CrossSectionalDataCategoryWrapper::ToString(category),
+                        asset.GetSymbolStr(), merge_result.error());
+            continue;
+          }
+
+          // Update asset_df with merged result
+          asset_df = *merge_result;
+          merge_map.clear();
+          merge_map[base_category] = asset_df;
+
+          SPDLOG_DEBUG("Merged {} into {} ({} columns added)",
+                      CrossSectionalDataCategoryWrapper::ToString(category),
+                      asset.GetSymbolStr(),
+                      prefixed_df.num_cols());
+        }
+
+        // Update the stored asset DataFrame
+        m_loadedData[asset] = asset_df;
+      }
+
+      SPDLOG_INFO("Cross-sectional data merge complete");
+    }
+  }
+
   // Benchmark SPY (daily) - Note: TearSheetDataOption requires benchmark to
   // have same index as equity
   auto benchmarkAsset = asset::AssetConstants::instance().SPY;
@@ -616,6 +718,53 @@ void ApiCacheDataloader::LogCampaignViability() const {
       SPDLOG_INFO("    * {} ({} rows)", asset.GetSymbolStr(), df.num_rows());
     }
   }
+}
+
+// Cross-sectional economic data methods (FRED indicators)
+std::expected<epoch_frame::DataFrame, std::string>
+ApiCacheDataloader::LoadCrossSectionalData(CrossSectionalDataCategory category,
+                                          const epoch_frame::Date& fromDate,
+                                          const epoch_frame::Date& toDate) const {
+  SPDLOG_DEBUG("LoadCrossSectionalData: {} from {} to {}",
+               CrossSectionalDataCategoryWrapper::ToString(category),
+               fromDate.repr(), toDate.repr());
+
+  // Simply delegate to async version and wait for result
+  return drogon::sync_wait(LoadCrossSectionalDataAsync(category, fromDate, toDate));
+}
+
+drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+ApiCacheDataloader::LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
+                                               const epoch_frame::Date& fromDate,
+                                               const epoch_frame::Date& toDate) const {
+  SPDLOG_DEBUG("LoadCrossSectionalDataAsync: Starting for category {}",
+               CrossSectionalDataCategoryWrapper::ToString(category));
+
+  const auto start_time = std::chrono::high_resolution_clock::now();
+
+  if (!m_crossSectionalFetcher) {
+    SPDLOG_ERROR("Cross-sectional fetcher not initialized");
+    co_return std::unexpected("Cross-sectional fetcher not initialized");
+  }
+
+  // Fetch directly using the cross-sectional fetcher (no caching for now - can be added later)
+  auto result = co_await m_crossSectionalFetcher->FetchAsync(category, fromDate, toDate);
+
+  const auto end_time = std::chrono::high_resolution_clock::now();
+  const auto total_duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+  if (result.has_value()) {
+    SPDLOG_INFO("LoadCrossSectionalDataAsync: Successfully loaded {} ({} rows) in {}ms",
+                CrossSectionalDataCategoryWrapper::ToString(category),
+                result->num_rows(), total_duration.count());
+  } else {
+    SPDLOG_ERROR("LoadCrossSectionalDataAsync: Failed to load {}: {}",
+                 CrossSectionalDataCategoryWrapper::ToString(category),
+                 result.error());
+  }
+
+  co_return result;
 }
 
 } // namespace data_sdk::dataloader

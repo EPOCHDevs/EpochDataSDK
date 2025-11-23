@@ -20,7 +20,19 @@ public:
    * @throws std::invalid_argument if category is not supported
    */
   static DataFrameMetadata GetMetadataForCategory(DataCategory category);
+
+  /**
+   * Get metadata for ALFRED point-in-time economic data
+   * @return DataFrameMetadata with ALFRED schema (published_at, observation_date, value, revision)
+   */
   static DataFrameMetadata GetAlfredMetadata();
+
+  /**
+   * Get metadata for cross-sectional economic indicators
+   * @param category The cross-sectional data category
+   * @return DataFrameMetadata with ALFRED schema (same as GetAlfredMetadata)
+   */
+  static DataFrameMetadata GetCrossSectionalMetadata(CrossSectionalDataCategory category);
 };
 
 } // namespace data_sdk::dataloader

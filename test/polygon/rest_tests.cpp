@@ -803,7 +803,7 @@ TEST_CASE("NewsClient: getNews integration test", "[polygon][rest][news][integra
         std::vector<std::string> expected_cols = {
             "id", "title", "author", "description",
             "article_url", "amp_url", "image_url",
-            "tickers", "keywords", "insights",
+            "tickers", "keywords",
             "publisher_name", "publisher_homepage", "publisher_logo", "publisher_favicon"
         };
         REQUIRE(df->num_cols() == expected_cols.size());
@@ -824,8 +824,8 @@ TEST_CASE("NewsClient: getNews integration test", "[polygon][rest][news][integra
         REQUIRE(!metadata.description.empty());
 
         // 2. Column count must match
-        REQUIRE(metadata.columns.size() == 14);
-        REQUIRE(df->num_cols() == 14);
+        REQUIRE(metadata.columns.size() == 13);
+        REQUIRE(df->num_cols() == 13);
 
         // 3. Use helper to validate all columns
         validateDataFrameAgainstMetadata(*df, metadata, "NewsClient");

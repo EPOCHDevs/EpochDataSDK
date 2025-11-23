@@ -45,6 +45,9 @@ struct DataLoaderOptions {
   // Data categories - flat set (no primary/auxiliary distinction)
   std::set<DataCategory> categories = {DataCategory::DailyBars};
 
+  // Cross-sectional economic indicators to load
+  std::set<CrossSectionalDataCategory> crossSectionalCategories;
+
   // Assets
   asset::AssetHashSet dataloaderAssets;  // All assets to load
   asset::AssetHashSet strategyAssets;     // Assets used in strategy (subset)
@@ -118,11 +121,20 @@ struct DataLoaderOptions {
   bool GetUseBatchFetching() const { return useBatchFetching; }
   std::size_t GetBatchSize() const { return batchSize; }
   const std::set<DataCategory>& GetCategories() const { return categories; }
+  const std::set<CrossSectionalDataCategory>& GetCrossSectionalCategories() const {
+    return crossSectionalCategories;
+  }
 
   // Setter methods
   void SetCategories(const std::set<DataCategory>& cats) { categories = cats; }
   void AddCategory(DataCategory cat) { categories.insert(cat); }
   void RemoveCategory(DataCategory cat) { categories.erase(cat); }
+  void AddCrossSectionalCategory(CrossSectionalDataCategory cat) {
+    crossSectionalCategories.insert(cat);
+  }
+  void RemoveCrossSectionalCategory(CrossSectionalDataCategory cat) {
+    crossSectionalCategories.erase(cat);
+  }
 };
 
 // Alias for compatibility
