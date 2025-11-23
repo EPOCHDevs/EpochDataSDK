@@ -50,6 +50,12 @@ public:
   // 5. Write fetched data to cache
   void writeToCache(const CacheWriteParams& params);
 
+  // 6. Filter DataFrame to only include rows with index >= fromDate && index <= toDate
+  static std::expected<epoch_frame::DataFrame, std::string>
+  filterByIndexDateRange(const epoch_frame::DataFrame& df,
+                         const epoch_frame::Date& fromDate,
+                         const epoch_frame::Date& toDate);
+
   // Set time provider (mainly for testing)
   void setTimeProvider(TimeProviderPtr provider) { m_timeProvider = provider; }
 

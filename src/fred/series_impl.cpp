@@ -2,6 +2,7 @@
 
 #include <glaze/glaze.hpp>
 #include <spdlog/spdlog.h>
+#include <epoch_frame/datetime.h>
 
 namespace data_sdk::fred {
 
@@ -12,6 +13,89 @@ SeriesImpl::fetchSeries(const std::string &series_id,
                         const std::string &realtime_start,
                         const std::string &realtime_end) const {
 
+  // FRED API has a 2000 vintage date limit for JSON format
+  // For daily series over 20 years, this limit is exceeded
+  // Solution: chunk realtime period into smaller ranges (e.g., 3 years each)
+  // Reference: https://github.com/mortada/fredapi/issues/28
+
+  // Simple year-based chunking to avoid complex date parsing
+  // Extract years from YYYY-MM-DD format
+  auto parseYear = [](const std::string& dateStr) -> std::optional<int> {
+    if (dateStr.size() >= 4 && dateStr != "9999-12-31") {
+      try {
+        return std::stoi(dateStr.substr(0, 4));
+      } catch (...) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  };
+
+  auto rt_start_year = parseYear(realtime_start);
+  auto rt_end_year = parseYear(realtime_end);
+
+  // Chunk if span > 3 years (3 years × 365 days = 1095 vintages for daily series, safe margin under 2000)
+  if (rt_start_year.has_value() && rt_end_year.has_value()) {
+    const int year_span = *rt_end_year - *rt_start_year;
+
+    if (year_span > 3) {
+      SPDLOG_INFO("FRED realtime period chunking: {}-year span, splitting into 3-year chunks",
+                  year_span);
+
+      SeriesObservationsResponse result;
+      result.observations.clear();
+
+      int chunk_count = 0;
+      int current_year = *rt_start_year;
+
+      while (current_year <= *rt_end_year) {
+        const int chunk_end_year = std::min(current_year + 3, *rt_end_year);
+        chunk_count++;
+
+        // Use original dates for first and last chunks to preserve exact boundaries
+        const std::string chunk_rt_start = (current_year == *rt_start_year)
+            ? realtime_start
+            : std::to_string(current_year) + "-01-01";
+
+        const std::string chunk_rt_end = (chunk_end_year == *rt_end_year)
+            ? realtime_end
+            : std::to_string(chunk_end_year) + "-12-31";
+
+        SPDLOG_DEBUG("FRED chunk {}: realtime [{} - {}]", chunk_count,
+                    chunk_rt_start, chunk_rt_end);
+
+        // Recursively call fetchSeries for this chunk (won't recurse again since chunk is small)
+        auto chunk_result = fetchSeries(series_id, observation_start, observation_end,
+                                       chunk_rt_start, chunk_rt_end);
+
+        if (!chunk_result) {
+          SPDLOG_WARN("FRED chunk {} failed: {}", chunk_count, chunk_result.error().message);
+          // Continue with other chunks even if one fails
+          current_year = chunk_end_year + 1;
+          continue;
+        }
+
+        // Merge observations from this chunk
+        result.observations.insert(result.observations.end(),
+                                  chunk_result->observations.begin(),
+                                  chunk_result->observations.end());
+
+        // Update metadata from last successful chunk
+        result.count = result.observations.size();
+        result.offset = 0;
+        result.limit = chunk_result->limit;
+
+        current_year = chunk_end_year + 1;
+      }
+
+      SPDLOG_INFO("FRED realtime chunking: fetched {} chunks, total {} observations",
+                  chunk_count, result.observations.size());
+
+      return result;
+    }
+  }
+
+  // Single request (no chunking needed)
   std::vector<std::pair<std::string, std::string>> q;
   q.emplace_back("series_id", series_id);
   q.emplace_back("observation_start", observation_start);
@@ -94,6 +178,89 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
                              std::string realtime_start,
                              std::string realtime_end) const {
 
+  // FRED API has a 2000 vintage date limit for JSON format
+  // For daily series over 20 years, this limit is exceeded
+  // Solution: chunk realtime period into smaller ranges (e.g., 3 years each)
+  // Reference: https://github.com/mortada/fredapi/issues/28
+
+  // Simple year-based chunking to avoid complex date parsing
+  // Extract years from YYYY-MM-DD format
+  auto parseYear = [](const std::string& dateStr) -> std::optional<int> {
+    if (dateStr.size() >= 4 && dateStr != "9999-12-31") {
+      try {
+        return std::stoi(dateStr.substr(0, 4));
+      } catch (...) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  };
+
+  auto rt_start_year = parseYear(realtime_start);
+  auto rt_end_year = parseYear(realtime_end);
+
+  // Chunk if span > 3 years (3 years × 365 days = 1095 vintages for daily series, safe margin under 2000)
+  if (rt_start_year.has_value() && rt_end_year.has_value()) {
+    const int year_span = *rt_end_year - *rt_start_year;
+
+    if (year_span > 3) {
+      SPDLOG_INFO("FRED realtime period chunking (async): {}-year span, splitting into 3-year chunks",
+                  year_span);
+
+      SeriesObservationsResponse result;
+      result.observations.clear();
+
+      int chunk_count = 0;
+      int current_year = *rt_start_year;
+
+      while (current_year <= *rt_end_year) {
+        const int chunk_end_year = std::min(current_year + 3, *rt_end_year);
+        chunk_count++;
+
+        // Use original dates for first and last chunks to preserve exact boundaries
+        const std::string chunk_rt_start = (current_year == *rt_start_year)
+            ? realtime_start
+            : std::to_string(current_year) + "-01-01";
+
+        const std::string chunk_rt_end = (chunk_end_year == *rt_end_year)
+            ? realtime_end
+            : std::to_string(chunk_end_year) + "-12-31";
+
+        SPDLOG_DEBUG("FRED chunk {} (async): realtime [{} - {}]", chunk_count,
+                    chunk_rt_start, chunk_rt_end);
+
+        // Recursively call fetchSeriesAsync for this chunk (won't recurse again since chunk is small)
+        auto chunk_result = co_await fetchSeriesAsync(series_id, observation_start, observation_end,
+                                                      chunk_rt_start, chunk_rt_end);
+
+        if (!chunk_result) {
+          SPDLOG_WARN("FRED chunk {} (async) failed: {}", chunk_count, chunk_result.error().message);
+          // Continue with other chunks even if one fails
+          current_year = chunk_end_year + 1;
+          continue;
+        }
+
+        // Merge observations from this chunk
+        result.observations.insert(result.observations.end(),
+                                  chunk_result->observations.begin(),
+                                  chunk_result->observations.end());
+
+        // Update metadata from last successful chunk
+        result.count = result.observations.size();
+        result.offset = 0;
+        result.limit = chunk_result->limit;
+
+        current_year = chunk_end_year + 1;
+      }
+
+      SPDLOG_INFO("FRED realtime chunking (async): fetched {} chunks, total {} observations",
+                  chunk_count, result.observations.size());
+
+      co_return result;
+    }
+  }
+
+  // Single request (no chunking needed)
   std::vector<std::pair<std::string, std::string>> q;
   q.emplace_back("series_id", series_id);
   q.emplace_back("observation_start", observation_start);

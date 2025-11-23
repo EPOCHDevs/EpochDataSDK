@@ -57,13 +57,6 @@ AlfredClient::getSeries(const std::string &series_id,
     std::string obs_date = obs.date.value_or("");
     std::string pub_date = obs.realtime_start.value_or("");
 
-    // Filter: Only include rows where published_at is within query range [from, to]
-    // For backtesting, we only want data that was published during the backtest period
-    // This ensures point-in-time correctness and avoids lookahead bias
-    if (pub_date < from || pub_date > to) {
-      continue;  // Skip data published outside query range
-    }
-
     // Increment revision number for this observation_date
     revision_counter[obs_date]++;
     int revision_num = revision_counter[obs_date];
@@ -132,13 +125,6 @@ AlfredClient::getSeriesAsync(std::string series_id,
   for (const auto &obs : response->observations) {
     std::string obs_date = obs.date.value_or("");
     std::string pub_date = obs.realtime_start.value_or("");
-
-    // Filter: Only include rows where published_at is within query range [from, to]
-    // For backtesting, we only want data that was published during the backtest period
-    // This ensures point-in-time correctness and avoids lookahead bias
-    if (pub_date < from || pub_date > to) {
-      continue;  // Skip data published outside query range
-    }
 
     // Increment revision number for this observation_date
     revision_counter[obs_date]++;

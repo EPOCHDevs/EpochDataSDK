@@ -59,7 +59,13 @@ CacheOrchestrator::load(const CacheLoadParams& params, const IDataFetcher& fetch
   }
 
   // Step 5: Merge cached and fetched data
-  return mergeData(probeResult, fetchedData);
+  auto merged = mergeData(probeResult, fetchedData);
+  if (!merged) {
+    return merged;
+  }
+
+  // Step 6: Filter by index date range to only keep data within [fromDate, toDate]
+  return filterByIndexDateRange(*merged, params.fromDate, params.toDate);
 }
 
 CacheProbeResult CacheOrchestrator::probeCache(const CacheLoadParams& params) const {
@@ -305,6 +311,36 @@ CacheOrchestrator::executeFetch(const FetchStrategy& strategy,
   }
 
   return result;
+}
+
+std::expected<epoch_frame::DataFrame, std::string>
+CacheOrchestrator::filterByIndexDateRange(const epoch_frame::DataFrame& df,
+                                         const epoch_frame::Date& fromDate,
+                                         const epoch_frame::Date& toDate) {
+  if (df.empty()) {
+    return df;
+  }
+
+  // Convert from/to dates to timestamps (midnight UTC)
+  const epoch_frame::DateTime fromDateTime{fromDate, {.tz = "UTC"}};
+  const epoch_frame::DateTime toDateTime{toDate, {.tz = "UTC"}};
+
+  const epoch_frame::Scalar startTs{fromDateTime};
+  const epoch_frame::Scalar endTs{toDateTime};
+
+  // Filter using loc to only include rows with index >= from && index <= to
+  auto filtered = df.loc({startTs, endTs});
+
+  const auto originalRows = df.num_rows();
+  const auto filteredRows = filtered.num_rows();
+
+  if (filteredRows < originalRows) {
+    SPDLOG_INFO("Filtered DataFrame by index date range: {} -> {} rows (removed {} rows outside [{}, {}])",
+               originalRows, filteredRows, originalRows - filteredRows,
+               fromDate.repr(), toDate.repr());
+  }
+
+  return filtered;
 }
 
 std::expected<epoch_frame::DataFrame, std::string>
@@ -571,7 +607,13 @@ CacheOrchestrator::loadAsync(const CacheLoadParams& params, const IDataFetcher& 
   }
 
   // Step 5: Merge cached and fetched data
-  co_return mergeData(probeResult, fetchedData);
+  auto merged = mergeData(probeResult, fetchedData);
+  if (!merged) {
+    co_return merged;
+  }
+
+  // Step 6: Filter by index date range to only keep data within [fromDate, toDate]
+  co_return filterByIndexDateRange(*merged, params.fromDate, params.toDate);
 }
 
 // Async version of executeFetch
