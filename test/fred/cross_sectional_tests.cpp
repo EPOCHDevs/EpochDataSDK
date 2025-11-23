@@ -80,8 +80,8 @@ TEST_CASE("FredCrossSectionalFetcher - Basic functionality", "[fred][cross_secti
   }
 
   SECTION("Fetch GDP data (sync)") {
-    auto from = epoch_frame::Date(2020, 1, 1);
-    auto to = epoch_frame::Date(2024, 1, 1);
+    auto from = epoch_frame::DateTime::from_date_str("2020-01-01").date();
+    auto to = epoch_frame::DateTime::from_date_str("2024-01-01").date();
 
     auto result = fetcher.Fetch(CrossSectionalDataCategory::GDP, from, to);
 
@@ -100,8 +100,8 @@ TEST_CASE("FredCrossSectionalFetcher - Async functionality", "[fred][cross_secti
   FredCrossSectionalFetcher fetcher;
 
   SECTION("Fetch Unemployment data (async)") {
-    auto from = epoch_frame::Date(2023, 1, 1);
-    auto to = epoch_frame::Date(2023, 12, 31);
+    auto from = epoch_frame::DateTime::from_date_str("2023-01-01").date();
+    auto to = epoch_frame::DateTime::from_date_str("2023-12-31").date();
 
     auto task = [&]() -> drogon::Task<void> {
       auto result = co_await fetcher.FetchAsync(CrossSectionalDataCategory::Unemployment, from, to);
@@ -115,14 +115,15 @@ TEST_CASE("FredCrossSectionalFetcher - Async functionality", "[fred][cross_secti
       REQUIRE(df.num_rows() > 0);
 
       std::cout << "Unemployment data (async): " << df.num_rows() << " rows\n";
+      co_return;
     };
 
     drogon::sync_wait(task());
   }
 
   SECTION("Fetch 10Y Treasury data (async)") {
-    auto from = epoch_frame::Date(2024, 1, 1);
-    auto to = epoch_frame::Date(2024, 6, 30);
+    auto from = epoch_frame::DateTime::from_date_str("2024-01-01").date();
+    auto to = epoch_frame::DateTime::from_date_str("2024-06-30").date();
 
     auto task = [&]() -> drogon::Task<void> {
       auto result = co_await fetcher.FetchAsync(CrossSectionalDataCategory::Treasury10Y, from, to);
@@ -131,6 +132,7 @@ TEST_CASE("FredCrossSectionalFetcher - Async functionality", "[fred][cross_secti
       REQUIRE(result->num_rows() > 0);
 
       std::cout << "Treasury 10Y data (async): " << result->num_rows() << " rows\n";
+      co_return;
     };
 
     drogon::sync_wait(task());
