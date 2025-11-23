@@ -145,34 +145,32 @@ TEST_CASE("FredCrossSectionalFetcher - Multiple indicators", "[fred][cross_secti
   }
 
   FredCrossSectionalFetcher fetcher;
-  auto from = epoch_frame::Date(2023, 1, 1);
-  auto to = epoch_frame::Date(2023, 12, 31);
+  auto from = epoch_frame::DateTime::from_date_str("2023-01-01").date();
+  auto to = epoch_frame::DateTime::from_date_str("2023-12-31").date();
 
   SECTION("Fetch multiple indicators in parallel") {
     auto task = [&]() -> drogon::Task<void> {
       // Fetch multiple indicators concurrently
-      auto cpi_task = fetcher.FetchAsync(CrossSectionalDataCategory::CPI, from, to);
-      auto gdp_task = fetcher.FetchAsync(CrossSectionalDataCategory::GDP, from, to);
-      auto unemployment_task = fetcher.FetchAsync(CrossSectionalDataCategory::Unemployment, from, to);
-      auto fedfunds_task = fetcher.FetchAsync(CrossSectionalDataCategory::FedFunds, from, to);
+      std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> tasks;
+      tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::CPI, from, to));
+      tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::GDP, from, to));
+      tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::Unemployment, from, to));
+      tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::FedFunds, from, to));
 
-      auto [cpi, gdp, unemployment, fedfunds] = co_await drogon::when_all(
-          std::move(cpi_task),
-          std::move(gdp_task),
-          std::move(unemployment_task),
-          std::move(fedfunds_task)
-      );
+      auto results = co_await data_sdk::common::when_all(std::move(tasks));
 
-      REQUIRE(cpi.has_value());
-      REQUIRE(gdp.has_value());
-      REQUIRE(unemployment.has_value());
-      REQUIRE(fedfunds.has_value());
+      REQUIRE(results.size() == 4);
+      REQUIRE(results[0].has_value());  // CPI
+      REQUIRE(results[1].has_value());  // GDP
+      REQUIRE(results[2].has_value());  // Unemployment
+      REQUIRE(results[3].has_value());  // FedFunds
 
       std::cout << "Parallel fetch results:\n";
-      std::cout << "  CPI: " << cpi->num_rows() << " rows\n";
-      std::cout << "  GDP: " << gdp->num_rows() << " rows\n";
-      std::cout << "  Unemployment: " << unemployment->num_rows() << " rows\n";
-      std::cout << "  Fed Funds: " << fedfunds->num_rows() << " rows\n";
+      std::cout << "  CPI: " << results[0]->num_rows() << " rows\n";
+      std::cout << "  GDP: " << results[1]->num_rows() << " rows\n";
+      std::cout << "  Unemployment: " << results[2]->num_rows() << " rows\n";
+      std::cout << "  Fed Funds: " << results[3]->num_rows() << " rows\n";
+      co_return;
     };
 
     drogon::sync_wait(task());
