@@ -79,15 +79,43 @@ DataFrameMetadata MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalData
   return metadata;
 }
 
-DataFrameMetadata MetadataRegistry::GetIndicesMetadata(const std::string& indexTicker) {
+DataFrameMetadata MetadataRegistry::GetIndicesMetadata() {
   // Market indices use the same OHLCV schema as AggsClient
   auto metadata = polygon::AggsClient::getMetadata();
 
-  // Update description to be specific to the index
-  metadata.description = "Market index data: " + indexTicker;
-  metadata.data_type = "market_index";
+  // Remove vw and n columns (indices don't have volume-weighted average or trade count)
+  metadata.columns.erase(
+      std::remove_if(metadata.columns.begin(), metadata.columns.end(),
+                     [](const auto& col) { return col.id == "vw" || col.id == "n"; }),
+      metadata.columns.end());
 
   return metadata;
+}
+
+DataFrameMetadata MetadataRegistry::GetMetadata(const std::string& key) {
+  // Handle specific market indices (IDX:SPX, IDX:VIX, etc.)
+  if (key.starts_with("IDX:") or key == "Indices") {
+    std::string ticker = key.substr(4);  // Extract ticker after "IDX:"
+    return GetIndicesMetadata();
+  }
+
+  // Try to parse as CrossSectionalDataCategory (economic indicators)
+  try {
+    auto cross_cat = CrossSectionalDataCategoryWrapper::FromString(key);
+    return GetCrossSectionalMetadata(cross_cat);
+  } catch (const std::exception&) {
+    // Not a cross-sectional category, continue to DataCategory
+  }
+
+  // Try to parse as DataCategory
+  try {
+    auto category = DataCategoryWrapper::FromString(key);
+    return GetMetadataForCategory(category);
+  } catch (const std::exception&) {
+    throw std::invalid_argument(
+        "Unsupported metadata key: " + key +
+        ". Expected DataCategory name, CrossSectionalDataCategory name, or 'IDX:<ticker>'");
+  }
 }
 
 } // namespace data_sdk::dataloader

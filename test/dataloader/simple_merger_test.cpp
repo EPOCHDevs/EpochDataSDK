@@ -32,8 +32,8 @@ TEST_CASE("SimpleMerger - Single Category Pass-Through", "[simple_merger]") {
   auto index = make_datetime_index(dates);
   auto expected = make_dataframe<double>(index, {opens, closes}, {"o", "c"});
 
-  std::unordered_map<DataCategory, DataFrame> category_data = {
-      {DataCategory::DailyBars, expected}
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), expected}
   };
 
   auto result = merger.Merge(category_data);
@@ -44,7 +44,7 @@ TEST_CASE("SimpleMerger - Single Category Pass-Through", "[simple_merger]") {
 
 TEST_CASE("SimpleMerger - Empty Data Error", "[simple_merger]") {
   SimpleMerger merger;
-  std::unordered_map<DataCategory, DataFrame> category_data;
+  std::unordered_map<std::string, DataFrame> category_data;
 
   auto result = merger.Merge(category_data);
 
@@ -79,10 +79,10 @@ TEST_CASE("SimpleMerger - All Normalized (DailyBars + Dividends + Splits)", "[si
   auto split_df = make_dataframe<double>(split_index, {split_ratios}, {"S:split_ratio"});
 
   // Merge all three categories
-  std::unordered_map<DataCategory, DataFrame> category_data = {
-      {DataCategory::DailyBars, daily_df},
-      {DataCategory::Dividends, div_df},
-      {DataCategory::Splits, split_df},
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), daily_df},
+      {DataCategoryWrapper::ToString(DataCategory::Dividends), div_df},
+      {DataCategoryWrapper::ToString(DataCategory::Splits), split_df},
   };
 
   auto result = merger.Merge(category_data);
@@ -130,9 +130,9 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with Forward-Fill)", "[s
   auto div_df = make_dataframe<double>(div_index, {div_amounts}, {"D:cash_amount"});
 
   // Merge MinuteBars (non-normalized) + Dividends (normalized)
-  std::unordered_map<DataCategory, DataFrame> category_data = {
-      {DataCategory::MinuteBars, minute_df},
-      {DataCategory::Dividends, div_df},
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::MinuteBars), minute_df},
+      {DataCategoryWrapper::ToString(DataCategory::Dividends), div_df},
   };
 
   auto result = merger.Merge(category_data);
@@ -216,10 +216,10 @@ TEST_CASE("SimpleMerger - Verify IsSameNormalizationPolicy", "[simple_merger]") 
   auto df3 = make_dataframe<double>(index, {std::vector<double>{2.0}}, {"S:ratio"});
 
   // Test: All normalized categories (DailyBars, Dividends, Splits)
-  std::unordered_map<DataCategory, DataFrame> all_normalized = {
-      {DataCategory::DailyBars, df1},
-      {DataCategory::Dividends, df2},
-      {DataCategory::Splits, df3},
+  std::unordered_map<std::string, DataFrame> all_normalized = {
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), df1},
+      {DataCategoryWrapper::ToString(DataCategory::Dividends), df2},
+      {DataCategoryWrapper::ToString(DataCategory::Splits), df3},
   };
 
   auto result = merger.Merge(all_normalized);
@@ -233,8 +233,8 @@ TEST_CASE("SimpleMerger - Verify IsSameNormalizationPolicy", "[simple_merger]") 
   REQUIRE(result->equals(expected));
 
   // Test: Single category (should always work)
-  std::unordered_map<DataCategory, DataFrame> single_cat = {
-      {DataCategory::News, df1},
+  std::unordered_map<std::string, DataFrame> single_cat = {
+      {DataCategoryWrapper::ToString(DataCategory::News), df1},
   };
 
   result = merger.Merge(single_cat);

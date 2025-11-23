@@ -278,7 +278,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     opt.endDate = epoch_frame::DateTime::from_date_str("2023-03-31").date();
     opt.categories = {DataCategory::DailyBars};
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
-    opt.enableCache = false;  // Disable cache for test
+    opt.cacheDir = "/tmp/epoch_test_cache";  // Provide cache directory
+    opt.enableCache = true;  // Enable cache
 
     // Add cross-sectional economic indicators
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::CPI);
@@ -307,12 +308,14 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     std::cout << "SPY DataFrame has " << spy_df.num_rows() << " rows and "
               << spy_df.num_cols() << " columns\n";
 
-    // Verify regular OHLCV columns exist
-    REQUIRE(spy_df.contains("O"));
-    REQUIRE(spy_df.contains("H"));
-    REQUIRE(spy_df.contains("L"));
-    REQUIRE(spy_df.contains("C"));
-    REQUIRE(spy_df.contains("V"));
+    // Verify regular OHLCV columns exist (lowercase from Polygon API)
+    REQUIRE(spy_df.contains("o"));
+    REQUIRE(spy_df.contains("h"));
+    REQUIRE(spy_df.contains("l"));
+    REQUIRE(spy_df.contains("c"));
+    REQUIRE(spy_df.contains("v"));
+    REQUIRE(spy_df.contains("vw"));  // volume-weighted average price
+    REQUIRE(spy_df.contains("n"));   // number of trades
 
     // Verify economic indicator columns were merged
     REQUIRE(spy_df.contains("ECON:CPI:observation_date"));
@@ -327,7 +330,20 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     REQUIRE(spy_df.contains("ECON:Unemployment:value"));
     REQUIRE(spy_df.contains("ECON:Unemployment:revision"));
 
+    // Verify economic data has non-null values (not all nulls)
+    auto cpi_value = spy_df["ECON:CPI:value"];
+    auto cpi_array = cpi_value.contiguous_array();
+    auto cpi_non_null_count = cpi_array.length() - cpi_array.null_count();
+    REQUIRE(cpi_non_null_count > 0);  // CPI should have some non-null values
+
+    auto fed_funds_value = spy_df["ECON:FedFunds:value"];
+    auto fed_funds_array = fed_funds_value.contiguous_array();
+    auto fed_funds_non_null_count = fed_funds_array.length() - fed_funds_array.null_count();
+    REQUIRE(fed_funds_non_null_count > 0);  // FedFunds should have some non-null values
+
     std::cout << "Successfully verified economic columns in SPY DataFrame\n";
+    std::cout << "CPI non-null values: " << cpi_non_null_count << "/" << cpi_array.length() << "\n";
+    std::cout << "FedFunds non-null values: " << fed_funds_non_null_count << "/" << fed_funds_array.length() << "\n";
     std::cout << "Column names: ";
     for (const auto& col : spy_df.column_names()) {
       if (col.find("ECON:") == 0) {
@@ -346,7 +362,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
         asset::AssetConstants::instance().SPY,
         asset::AssetConstants::instance().QQQ
     };
-    opt.enableCache = false;
+    opt.cacheDir = "/tmp/epoch_test_cache";  // Provide cache directory
+    opt.enableCache = true;  // Enable cache
 
     // Add fewer indicators for faster test
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::GDP);
@@ -376,5 +393,79 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     }
 
     std::cout << "Successfully loaded " << data.size() << " assets with economic indicators\n";
+  }
+
+  SECTION("Load SPY with economic indicators (minute bars)") {
+    // Test that economic data (daily frequency) merges correctly with minute-level data
+    DataloaderOption opt;
+    opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day
+    opt.categories = {DataCategory::MinuteBars};
+    opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
+    opt.cacheDir = "/tmp/epoch_test_cache_minute";  // Use different cache dir for minute bars
+    opt.enableCache = true;  // Enable cache
+
+    // Add cross-sectional economic indicators (daily frequency)
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::CPI);
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::FedFunds);
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Unemployment);
+
+    std::cout << "Creating dataloader with minute bars and "
+              << opt.GetCrossSectionalCategories().size()
+              << " economic indicators\\n";
+
+    // Create dataloader
+    auto dataloader = CreateApiCacheDataLoader(opt);
+    REQUIRE(dataloader != nullptr);
+
+    // Load data
+    dataloader->LoadData();
+
+    // Get loaded data
+    auto data = dataloader->GetStoredData();
+    REQUIRE(data.size() > 0);
+
+    // Get SPY DataFrame
+    auto spy = asset::AssetConstants::instance().SPY;
+    REQUIRE(data.contains(spy));
+
+    const auto& spy_df = data.at(spy);
+    std::cout << "SPY MinuteBars DataFrame has " << spy_df.num_rows() << " rows and "
+              << spy_df.num_cols() << " columns\\n";
+
+    // Debug: print column names
+    std::cout << "Columns: ";
+    for (const auto& col : spy_df.column_names()) {
+      std::cout << col << ", ";
+    }
+    std::cout << "\\n";
+
+    // Verify we have minute-level data (should be many rows for a trading day)
+    REQUIRE(spy_df.num_rows() > 100);  // At least 100 minute bars
+
+    // Verify regular OHLCV columns exist (lowercase from Polygon API)
+    REQUIRE(spy_df.contains("o"));
+    REQUIRE(spy_df.contains("h"));
+    REQUIRE(spy_df.contains("l"));
+    REQUIRE(spy_df.contains("c"));
+    REQUIRE(spy_df.contains("v"));
+    REQUIRE(spy_df.contains("vw"));  // volume-weighted average price
+    REQUIRE(spy_df.contains("n"));   // number of trades
+
+    // Verify economic indicator columns were merged (daily data merged into minute data)
+    REQUIRE(spy_df.contains("ECON:CPI:observation_date"));
+    REQUIRE(spy_df.contains("ECON:CPI:value"));
+    REQUIRE(spy_df.contains("ECON:CPI:revision"));
+
+    REQUIRE(spy_df.contains("ECON:FedFunds:observation_date"));
+    REQUIRE(spy_df.contains("ECON:FedFunds:value"));
+    REQUIRE(spy_df.contains("ECON:FedFunds:revision"));
+
+    REQUIRE(spy_df.contains("ECON:Unemployment:observation_date"));
+    REQUIRE(spy_df.contains("ECON:Unemployment:value"));
+    REQUIRE(spy_df.contains("ECON:Unemployment:revision"));
+
+    std::cout << "Successfully verified economic columns in SPY MinuteBars DataFrame\\n";
+    std::cout << "Economic data (daily frequency) correctly merged with minute-level bars\\n";
   }
 }

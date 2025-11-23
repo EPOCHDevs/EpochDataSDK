@@ -36,10 +36,18 @@ public:
 
   /**
    * Get metadata for market indices data
-   * @param indexTicker The index ticker symbol (e.g., "SPX", "VIX")
-   * @return DataFrameMetadata with OHLCV schema (same as AggsClient)
+   * @return DataFrameMetadata with OHLCV schema (same as AggsClient, without vw and n)
    */
-  static DataFrameMetadata GetIndicesMetadata(const std::string& indexTicker);
+  static DataFrameMetadata GetIndicesMetadata();
+
+  /**
+   * Get metadata for a string key (supports DataCategory names and auxiliary keys)
+   * @param key String key - can be DataCategory name (e.g., "DailyBars"),
+   *            "EconomicIndicator" for economic data, or "Indices" for market indices
+   * @return DataFrameMetadata for the specified key
+   * @throws std::invalid_argument if key is not recognized
+   */
+  static DataFrameMetadata GetMetadata(const std::string& key);
 };
 
 } // namespace data_sdk::dataloader

@@ -233,21 +233,22 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
   auto results = co_await data_sdk::common::when_all(std::move(tasks));
 
   // Step 2: Build category_data map from results with column prefixing
-  std::unordered_map<DataCategory, epoch_frame::DataFrame> category_data;
-  std::vector<std::pair<DataCategory, epoch_frame::DataFrame>> empty_categories;
+  std::unordered_map<std::string, epoch_frame::DataFrame> category_data;
+  std::vector<std::pair<std::string, epoch_frame::DataFrame>> empty_categories;
 
   for (std::size_t i = 0; i < results.size(); ++i) {
     const auto& result = results[i];
     const auto& cat = category_list[i];
+    std::string cat_key = DataCategoryWrapper::ToString(cat);
 
     if (!result.has_value()) {
       SPDLOG_WARN("Failed to load {} for {}: {} - creating empty DataFrame with schema",
-                  DataCategoryWrapper::ToString(cat),
+                  cat_key,
                   asset.GetSymbolStr(),
                   result.error());
       // Create empty DataFrame even for failed categories to ensure schema consistency
       auto empty_df = createEmptyDataFrame(cat);
-      empty_categories.emplace_back(cat, empty_df);
+      empty_categories.emplace_back(cat_key, empty_df);
       continue;
     }
 
@@ -257,15 +258,15 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
     // If empty, create empty DataFrame with proper schema and save for later
     if (df.empty()) {
       SPDLOG_INFO("No {} data for {} in date range - creating empty DataFrame with schema",
-                   DataCategoryWrapper::ToString(cat),
+                   cat_key,
                    asset.GetSymbolStr());
       df = createEmptyDataFrame(cat);
       SPDLOG_INFO("Created empty {} DataFrame with {} columns",
-                   DataCategoryWrapper::ToString(cat),
+                   cat_key,
                    df.num_cols());
       // Note: prefix already applied in createEmptyDataFrame
       // Store for later reindexing after we know the final index
-      empty_categories.emplace_back(cat, df);
+      empty_categories.emplace_back(cat_key, df);
       continue;
     }
 
@@ -273,12 +274,12 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
     if (!metadata.category_prefix.empty()) {
       SPDLOG_DEBUG("Applying prefix '{}' to {} columns for {}",
                    metadata.category_prefix,
-                   DataCategoryWrapper::ToString(cat),
+                   cat_key,
                    asset.GetSymbolStr());
       df = df.add_prefix(metadata.category_prefix);
     }
 
-    category_data[cat] = df;
+    category_data[cat_key] = df;
   }
 
   // First merge non-empty categories to get the final index
@@ -303,7 +304,7 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
     for (const auto& [cat, empty_df] : empty_categories) {
       SPDLOG_INFO("Adding {} empty columns to merged index of {} rows",
-                  DataCategoryWrapper::ToString(cat),
+                  cat,
                   merged_df.num_rows());
 
       // Add each column from empty DataFrame as null column with merged_df's index
@@ -332,7 +333,7 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
       SPDLOG_INFO("Added {} columns from {} (all null)",
                   empty_df.num_cols(),
-                  DataCategoryWrapper::ToString(cat));
+                  cat);
     }
   }
 
@@ -574,42 +575,38 @@ void ApiCacheDataloader::LoadData() {
 
       // Merge indicators into each asset's DataFrame using SimpleMerger
       for (auto& [asset, asset_df] : m_loadedData) {
-        // Build a map for merger: convert CrossSectionalDataCategory to DataCategory enum
-        // We'll use a temporary map with prefixed DataFrames
-        std::unordered_map<DataCategory, epoch_frame::DataFrame> merge_map;
+        // Build string-based merge map with asset data + all indicators
+        std::unordered_map<std::string, epoch_frame::DataFrame> merge_map;
 
-        // Add current asset data as the base (e.g., as DailyBars)
+        // Add current asset data with category name as key
         auto base_category = m_option.GetDataCategory();
-        merge_map[base_category] = asset_df;
+        std::string base_key = DataCategoryWrapper::ToString(base_category);
+        merge_map[base_key] = asset_df;
 
-        // Add each cross-sectional indicator with prefix
+        // Add each economic indicator with unique string key
         for (const auto& [category, indicator_df] : indicators) {
           std::string prefix = "ECON:" + CrossSectionalDataCategoryWrapper::ToString(category) + ":";
           auto prefixed_df = indicator_df.add_prefix(prefix);
 
-          // Use a dummy DataCategory for the merger (we'll use News as placeholder)
-          // The merger will just merge on index, which is what we want
-          merge_map[DataCategory::News] = prefixed_df;
-
-          // Merge using SimpleMerger
-          auto merge_result = m_merger->Merge(merge_map);
-          if (!merge_result.has_value()) {
-            SPDLOG_ERROR("Failed to merge {} into {}: {}",
-                        CrossSectionalDataCategoryWrapper::ToString(category),
-                        asset.GetSymbolStr(), merge_result.error());
-            continue;
-          }
-
-          // Update asset_df with merged result
-          asset_df = *merge_result;
-          merge_map.clear();
-          merge_map[base_category] = asset_df;
-
-          SPDLOG_DEBUG("Merged {} into {} ({} columns added)",
-                      CrossSectionalDataCategoryWrapper::ToString(category),
-                      asset.GetSymbolStr(),
-                      prefixed_df.num_cols());
+          // Use category name as unique key
+          std::string indicator_key = CrossSectionalDataCategoryWrapper::ToString(category);
+          merge_map[indicator_key] = prefixed_df;
         }
+
+        // Merge all data (asset + all indicators) in one call using SimpleMerger
+        auto merge_result = m_merger->Merge(merge_map);
+        if (!merge_result.has_value()) {
+          SPDLOG_ERROR("Failed to merge economic indicators into {}: {}",
+                      asset.GetSymbolStr(), merge_result.error());
+          continue;
+        }
+
+        asset_df = *merge_result;
+
+        SPDLOG_DEBUG("Merged {} economic indicators into {} ({} total columns)",
+                    indicators.size(),
+                    asset.GetSymbolStr(),
+                    asset_df.num_cols());
 
         // Update the stored asset DataFrame
         m_loadedData[asset] = asset_df;
@@ -673,38 +670,37 @@ void ApiCacheDataloader::LoadData() {
 
       // Merge indices into each asset's DataFrame using SimpleMerger
       for (auto& [asset, asset_df] : m_loadedData) {
-        // Build a map for merger
-        std::unordered_map<DataCategory, epoch_frame::DataFrame> merge_map;
+        // Build string-based merge map with asset data + all indices
+        std::unordered_map<std::string, epoch_frame::DataFrame> merge_map;
 
-        // Add current asset data as the base
+        // Add current asset data with category name as key
         auto base_category = m_option.GetDataCategory();
-        merge_map[base_category] = asset_df;
+        std::string base_key = DataCategoryWrapper::ToString(base_category);
+        merge_map[base_key] = asset_df;
 
-        // Add each index with prefix
+        // Add each index with unique string key
         for (const auto& [ticker, index_df] : indices) {
-          std::string prefix = "IDX:" + ticker + ":";
-          auto prefixed_df = index_df.add_prefix(prefix);
+          std::string prefix = "IDX:" + ticker;
+          auto prefixed_df = index_df.add_prefix(prefix + ":");
 
-          // Use a dummy DataCategory for the merger (we'll use News as placeholder)
-          // The merger will just merge on index, which is what we want
-          merge_map[DataCategory::News] = prefixed_df;
-
-          // Merge using SimpleMerger
-          auto merge_result = m_merger->Merge(merge_map);
-          if (!merge_result.has_value()) {
-            SPDLOG_ERROR("Failed to merge index {} into {}: {}",
-                        ticker, asset.GetSymbolStr(), merge_result.error());
-            continue;
-          }
-
-          // Update asset_df with merged result
-          asset_df = *merge_result;
-          merge_map.clear();
-          merge_map[base_category] = asset_df;
-
-          SPDLOG_DEBUG("Merged index {} into {} ({} columns added)",
-                      ticker, asset.GetSymbolStr(), prefixed_df.num_cols());
+          // Use "IDX:<ticker>" as unique key for metadata registry
+          merge_map[prefix] = prefixed_df;
         }
+
+        // Merge all data (asset + all indices) in one call using SimpleMerger
+        auto merge_result = m_merger->Merge(merge_map);
+        if (!merge_result.has_value()) {
+          SPDLOG_ERROR("Failed to merge indices into {}: {}",
+                      asset.GetSymbolStr(), merge_result.error());
+          continue;
+        }
+
+        asset_df = *merge_result;
+
+        SPDLOG_DEBUG("Merged {} indices into {} ({} total columns)",
+                    indices.size(),
+                    asset.GetSymbolStr(),
+                    asset_df.num_cols());
 
         // Update the stored asset DataFrame
         m_loadedData[asset] = asset_df;

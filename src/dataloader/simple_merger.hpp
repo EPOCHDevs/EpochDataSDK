@@ -31,23 +31,23 @@ public:
   ~SimpleMerger() override = default;
 
   std::expected<epoch_frame::DataFrame, std::string>
-  Merge(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) override;
+  Merge(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) override;
 
 private:
   // Check if all categories have the same normalization policy
-  bool IsSameNormalizationPolicy(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) const;
+  bool IsSameNormalizationPolicy(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) const;
 
   // Merge all normalized data (concat with outer join on dates)
   std::expected<epoch_frame::DataFrame, std::string>
-  MergeNormalizedData(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& normalized_data) const;
+  MergeNormalizedData(const std::unordered_map<std::string, epoch_frame::DataFrame>& normalized_data) const;
 
   // Merge all non-normalized data (concat with outer join on timestamps)
   std::expected<epoch_frame::DataFrame, std::string>
-  MergeNonNormalizedData(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& non_normalized_data) const;
+  MergeNonNormalizedData(const std::unordered_map<std::string, epoch_frame::DataFrame>& non_normalized_data) const;
 
   // Merge mixed data (normalized + non-normalized with forward-fill)
   std::expected<epoch_frame::DataFrame, std::string>
-  MergeMixedData(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) const;
+  MergeMixedData(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) const;
 };
 
 } // namespace data_sdk::dataloader

@@ -6,46 +6,46 @@
 namespace data_sdk::dataloader {
 
 std::expected<epoch_frame::DataFrame, std::string>
-SimpleMerger::Merge(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) {
-  if (category_data.empty()) {
-    return std::unexpected("Cannot merge empty category data");
+SimpleMerger::Merge(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) {
+  if (data_map.empty()) {
+    return std::unexpected("Cannot merge empty data map");
   }
 
-  // Single category - no merge needed
-  if (category_data.size() == 1) {
-    return category_data.begin()->second;
+  // Single DataFrame - no merge needed
+  if (data_map.size() == 1) {
+    return data_map.begin()->second;
   }
 
   // Determine merge strategy based on index normalization
-  if (IsSameNormalizationPolicy(category_data)) {
+  if (IsSameNormalizationPolicy(data_map)) {
     // Check if all are normalized or all are non-normalized
-    auto first_metadata = MetadataRegistry::GetMetadataForCategory(category_data.begin()->first);
+    auto first_metadata = MetadataRegistry::GetMetadata(data_map.begin()->first);
     if (first_metadata.index_normalized) {
       SPDLOG_DEBUG("SimpleMerger: All categories normalized, using outer join on dates");
-      return MergeNormalizedData(category_data);
+      return MergeNormalizedData(data_map);
     } else {
       SPDLOG_DEBUG("SimpleMerger: All categories non-normalized, using outer join on timestamps");
-      return MergeNonNormalizedData(category_data);
+      return MergeNonNormalizedData(data_map);
     }
   } else {
     SPDLOG_DEBUG("SimpleMerger: Mixed normalized/non-normalized, using forward-fill strategy");
-    return MergeMixedData(category_data);
+    return MergeMixedData(data_map);
   }
 }
 
 bool SimpleMerger::IsSameNormalizationPolicy(
-    const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) const {
+    const std::unordered_map<std::string, epoch_frame::DataFrame>& category_data) const {
   if (category_data.empty()) {
     return true;
   }
 
   // Get the index_normalized value from the first category
-  auto first_metadata = MetadataRegistry::GetMetadataForCategory(category_data.begin()->first);
+  auto first_metadata = MetadataRegistry::GetMetadata(category_data.begin()->first);
   bool expected_normalized = first_metadata.index_normalized;
 
   // Check if all categories have the same index_normalized value
   for (const auto& [cat, df] : category_data) {
-    auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
+    auto metadata = MetadataRegistry::GetMetadata(cat);
     if (metadata.index_normalized != expected_normalized) {
       return false;  // Found a mismatch
     }
@@ -56,7 +56,7 @@ bool SimpleMerger::IsSameNormalizationPolicy(
 
 std::expected<epoch_frame::DataFrame, std::string>
 SimpleMerger::MergeNormalizedData(
-    const std::unordered_map<DataCategory, epoch_frame::DataFrame>& normalized_data) const {
+    const std::unordered_map<std::string, epoch_frame::DataFrame>& normalized_data) const {
 
   if (normalized_data.empty()) {
     return std::unexpected("MergeNormalizedData: No data to merge");
@@ -71,13 +71,13 @@ SimpleMerger::MergeNormalizedData(
     // duplicate timestamps due to amended filings/restatements
     if (df.index()->has_duplicates()) {
       SPDLOG_WARN("SimpleMerger: Category {} has duplicate index values, deduplicating (keeping last)",
-                  DataCategoryWrapper::ToString(cat));
+                  cat);
 
       // Drop duplicate index values, keeping last occurrence (most recent filing)
       auto deduped_df = df.drop_duplicates(epoch_frame::DropDuplicatesKeepPolicy::Last);
 
       SPDLOG_DEBUG("SimpleMerger: Category {} deduplicated: {} rows -> {} rows",
-                   DataCategoryWrapper::ToString(cat), df.num_rows(), deduped_df.num_rows());
+                   cat, df.num_rows(), deduped_df.num_rows());
 
       frames.emplace_back(deduped_df);
     } else {
@@ -101,7 +101,7 @@ SimpleMerger::MergeNormalizedData(
 
 std::expected<epoch_frame::DataFrame, std::string>
 SimpleMerger::MergeNonNormalizedData(
-    const std::unordered_map<DataCategory, epoch_frame::DataFrame>& non_normalized_data) const {
+    const std::unordered_map<std::string, epoch_frame::DataFrame>& non_normalized_data) const {
 
   if (non_normalized_data.empty()) {
     return std::unexpected("MergeNonNormalizedData: No data to merge");
@@ -130,14 +130,14 @@ SimpleMerger::MergeNonNormalizedData(
 
 std::expected<epoch_frame::DataFrame, std::string>
 SimpleMerger::MergeMixedData(
-    const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) const {
+    const std::unordered_map<std::string, epoch_frame::DataFrame>& category_data) const {
 
   // Separate normalized and non-normalized categories
-  std::unordered_map<DataCategory, epoch_frame::DataFrame> normalized;
-  std::unordered_map<DataCategory, epoch_frame::DataFrame> non_normalized;
+  std::unordered_map<std::string, epoch_frame::DataFrame> normalized;
+  std::unordered_map<std::string, epoch_frame::DataFrame> non_normalized;
 
   for (const auto& [cat, df] : category_data) {
-    auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
+    auto metadata = MetadataRegistry::GetMetadata(cat);
     if (metadata.index_normalized) {
       normalized[cat] = df;
     } else {
@@ -163,7 +163,9 @@ SimpleMerger::MergeMixedData(
   auto merged_normalized = *merged_normalized_result;
 
   // Step 3: Concat both DataFrames with outer join (keeps all timestamps)
-  std::vector<epoch_frame::FrameOrSeries> frames = {merged_intraday, merged_normalized};
+  std::vector<epoch_frame::FrameOrSeries> frames;
+  frames.push_back(merged_intraday);
+  frames.push_back(merged_normalized);
   epoch_frame::ConcatOptions options;
   options.frames = std::move(frames);
   options.joinType = epoch_frame::JoinType::Outer;

@@ -24,19 +24,19 @@ public:
   virtual ~IDataMerger() = default;
 
   /**
-   * Merge multiple category DataFrames into a single DataFrame
+   * Merge multiple DataFrames with string keys
    *
-   * @param category_data Map of DataCategory to DataFrame (all for same asset)
+   * @param data_map Map of string keys to DataFrame (e.g., "DailyBars", "Indices", "EconomicIndicator")
    * @return Merged DataFrame on success, error string on failure
    *
    * Expected behavior:
    * - All input DataFrames share compatible date ranges
-   * - Output DataFrame has combined columns from all categories
-   * - Column names are prefixed with category name to avoid conflicts
+   * - Output DataFrame has combined columns from all keys
+   * - Column names should be prefixed before adding to map to avoid conflicts
    * - Index is determined by merge strategy (date-aligned or timestamp-aligned)
    */
   virtual std::expected<epoch_frame::DataFrame, std::string>
-  Merge(const std::unordered_map<DataCategory, epoch_frame::DataFrame>& category_data) = 0;
+  Merge(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) = 0;
 };
 
 } // namespace data_sdk::dataloader

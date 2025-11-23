@@ -40,12 +40,11 @@ TEST_CASE("PolygonIndicesFetcher - Basic functionality", "[polygon][indices][fet
     REQUIRE(result.has_value());
     const auto& df = *result;
 
-    // Verify OHLCV schema
-    REQUIRE(df.contains("open"));
-    REQUIRE(df.contains("high"));
-    REQUIRE(df.contains("low"));
-    REQUIRE(df.contains("close"));
-    REQUIRE(df.contains("volume"));
+    // Verify OHLC schema (lowercase single letters, no volume for indices)
+    REQUIRE(df.contains("o"));
+    REQUIRE(df.contains("h"));
+    REQUIRE(df.contains("l"));
+    REQUIRE(df.contains("c"));
 
     // Verify we have data
     REQUIRE(df.num_rows() > 0);
@@ -95,11 +94,10 @@ TEST_CASE("PolygonIndicesFetcher - Async functionality", "[polygon][indices][fet
       REQUIRE(result.has_value());
       const auto& df = *result;
 
-      REQUIRE(df.contains("open"));
-      REQUIRE(df.contains("high"));
-      REQUIRE(df.contains("low"));
-      REQUIRE(df.contains("close"));
-      REQUIRE(df.contains("volume"));
+      REQUIRE(df.contains("o"));
+      REQUIRE(df.contains("h"));
+      REQUIRE(df.contains("l"));
+      REQUIRE(df.contains("c"));
       REQUIRE(df.num_rows() > 0);
 
       std::cout << "SPX data (async): " << df.num_rows() << " rows\n";
@@ -181,12 +179,11 @@ TEST_CASE("PolygonIndicesFetcher - Intraday support", "[polygon][indices][fetche
     REQUIRE(result.has_value());
     const auto& df = *result;
 
-    // Verify OHLCV schema
-    REQUIRE(df.contains("open"));
-    REQUIRE(df.contains("high"));
-    REQUIRE(df.contains("low"));
-    REQUIRE(df.contains("close"));
-    REQUIRE(df.contains("volume"));
+    // Verify OHLC schema
+    REQUIRE(df.contains("o"));
+    REQUIRE(df.contains("h"));
+    REQUIRE(df.contains("l"));
+    REQUIRE(df.contains("c"));
 
     // Minute data should have many more rows than daily
     REQUIRE(df.num_rows() > 0);
@@ -205,26 +202,23 @@ TEST_CASE("Indices - Metadata", "[polygon][indices][metadata]") {
     // Verify schema (same as AggsClient - OHLCV)
     REQUIRE(metadata.columns.size() > 0);
 
-    // Find OHLCV columns
-    bool has_open = false;
-    bool has_high = false;
-    bool has_low = false;
-    bool has_close = false;
-    bool has_volume = false;
+    // Find OHLC columns (lowercase single letters)
+    bool has_o = false;
+    bool has_h = false;
+    bool has_l = false;
+    bool has_c = false;
 
     for (const auto& col : metadata.columns) {
-      if (col.id == "open") has_open = true;
-      if (col.id == "high") has_high = true;
-      if (col.id == "low") has_low = true;
-      if (col.id == "close") has_close = true;
-      if (col.id == "volume") has_volume = true;
+      if (col.id == "o") has_o = true;
+      if (col.id == "h") has_h = true;
+      if (col.id == "l") has_l = true;
+      if (col.id == "c") has_c = true;
     }
 
-    REQUIRE(has_open);
-    REQUIRE(has_high);
-    REQUIRE(has_low);
-    REQUIRE(has_close);
-    REQUIRE(has_volume);
+    REQUIRE(has_o);
+    REQUIRE(has_h);
+    REQUIRE(has_l);
+    REQUIRE(has_c);
   }
 
   SECTION("Metadata for different indices") {
@@ -251,7 +245,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-31").date();
     opt.categories = {DataCategory::DailyBars};
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
-    opt.enableCache = false;  // Disable cache for test
+    opt.cacheDir = "/tmp/epoch_test_cache";  // Provide cache directory
+    opt.enableCache = true;  // Enable cache
 
     // Add market indices
     opt.AddIndexTicker("SPX");
@@ -277,21 +272,33 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     const auto& spy_df = data.at(asset::AssetConstants::instance().SPY);
     REQUIRE(spy_df.num_rows() > 0);
 
-    // Verify indices columns are present with "IDX:" prefix
-    REQUIRE(spy_df.contains("IDX:SPX:close"));
-    REQUIRE(spy_df.contains("IDX:VIX:close"));
-    REQUIRE(spy_df.contains("IDX:NDX:close"));
+    // Verify indices columns are present with "IDX:" prefix (lowercase single letters)
+    REQUIRE(spy_df.contains("IDX:SPX:c"));
+    REQUIRE(spy_df.contains("IDX:VIX:c"));
+    REQUIRE(spy_df.contains("IDX:NDX:c"));
 
-    // Verify all OHLCV columns for indices
-    REQUIRE(spy_df.contains("IDX:SPX:open"));
-    REQUIRE(spy_df.contains("IDX:SPX:high"));
-    REQUIRE(spy_df.contains("IDX:SPX:low"));
-    REQUIRE(spy_df.contains("IDX:SPX:volume"));
+    // Verify all OHLC columns for indices
+    REQUIRE(spy_df.contains("IDX:SPX:o"));
+    REQUIRE(spy_df.contains("IDX:SPX:h"));
+    REQUIRE(spy_df.contains("IDX:SPX:l"));
+
+    // Verify indices data is not all null
+    auto spx_close = spy_df["IDX:SPX:c"];
+    auto spx_array = spx_close.contiguous_array();
+    auto spx_non_null = spx_array.length() - spx_array.null_count();
+    REQUIRE(spx_non_null > 0);
+
+    auto vix_close = spy_df["IDX:VIX:c"];
+    auto vix_array = vix_close.contiguous_array();
+    auto vix_non_null = vix_array.length() - vix_array.null_count();
+    REQUIRE(vix_non_null > 0);
 
     std::cout << "SPY DataFrame has " << spy_df.num_rows() << " rows and "
               << spy_df.num_cols() << " columns (including indices)\n";
+    std::cout << "SPX non-null: " << spx_non_null << "/" << spx_array.length() << "\n";
+    std::cout << "VIX non-null: " << vix_non_null << "/" << vix_array.length() << "\n";
     std::cout << "Column names: ";
-    for (const auto& col : spy_df.columns()) {
+    for (const auto& col : spy_df.column_names()) {
       std::cout << col << " ";
     }
     std::cout << "\n";
@@ -306,7 +313,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
         asset::AssetConstants::instance().SPY,
         asset::AssetConstants::instance().QQQ
     };
-    opt.enableCache = false;
+    opt.cacheDir = "/tmp/epoch_test_cache";
+    opt.enableCache = true;
 
     // Add indices
     opt.AddIndexTicker("SPX");
@@ -325,13 +333,135 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     const auto& spy_df = data.at(asset::AssetConstants::instance().SPY);
     const auto& qqq_df = data.at(asset::AssetConstants::instance().QQQ);
 
-    REQUIRE(spy_df.contains("IDX:SPX:close"));
-    REQUIRE(spy_df.contains("IDX:VIX:close"));
-    REQUIRE(qqq_df.contains("IDX:SPX:close"));
-    REQUIRE(qqq_df.contains("IDX:VIX:close"));
+    REQUIRE(spy_df.contains("IDX:SPX:c"));
+    REQUIRE(spy_df.contains("IDX:VIX:c"));
+    REQUIRE(qqq_df.contains("IDX:SPX:c"));
+    REQUIRE(qqq_df.contains("IDX:VIX:c"));
+
+    // Verify indices data is not all null for SPY
+    auto spy_spx_close = spy_df["IDX:SPX:c"];
+    auto spy_spx_array = spy_spx_close.contiguous_array();
+    REQUIRE((spy_spx_array.length() - spy_spx_array.null_count()) > 0);
+
+    // Verify indices data is not all null for QQQ
+    auto qqq_spx_close = qqq_df["IDX:SPX:c"];
+    auto qqq_spx_array = qqq_spx_close.contiguous_array();
+    REQUIRE((qqq_spx_array.length() - qqq_spx_array.null_count()) > 0);
 
     std::cout << "SPY: " << spy_df.num_rows() << " rows, " << spy_df.num_cols() << " cols\n";
     std::cout << "QQQ: " << qqq_df.num_rows() << " rows, " << qqq_df.num_cols() << " cols\n";
+  }
+
+  SECTION("Load SPY with market indices (intraday)") {
+    // Setup dataloader option for minute bars
+    DataloaderOption opt;
+    opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day for speed
+    opt.categories = {DataCategory::MinuteBars};
+    opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
+    opt.cacheDir = "/tmp/epoch_test_cache";
+    opt.enableCache = true;
+
+    // Add market indices
+    opt.AddIndexTicker("SPX");
+    opt.AddIndexTicker("VIX");
+
+    std::cout << "Creating dataloader with " << opt.GetIndicesTickers().size()
+              << " market indices (INTRADAY)\n";
+
+    // Create dataloader
+    auto dataloader = CreateApiCacheDataLoader(opt);
+    REQUIRE(dataloader != nullptr);
+
+    // Load data
+    dataloader->LoadData();
+
+    // Get loaded data
+    auto data = dataloader->GetStoredData();
+    REQUIRE(!data.empty());
+    REQUIRE(data.contains(asset::AssetConstants::instance().SPY));
+
+    // Get SPY DataFrame
+    const auto& spy_df = data.at(asset::AssetConstants::instance().SPY);
+    REQUIRE(spy_df.num_rows() > 0);
+
+    // Verify indices columns are present with "IDX:" prefix
+    REQUIRE(spy_df.contains("IDX:SPX:c"));
+    REQUIRE(spy_df.contains("IDX:VIX:c"));
+
+    // Verify all OHLC columns for indices
+    REQUIRE(spy_df.contains("IDX:SPX:o"));
+    REQUIRE(spy_df.contains("IDX:SPX:h"));
+    REQUIRE(spy_df.contains("IDX:SPX:l"));
+
+    // Verify indices data is not all null (intraday)
+    auto spx_close_intra = spy_df["IDX:SPX:c"];
+    auto spx_array_intra = spx_close_intra.contiguous_array();
+    REQUIRE((spx_array_intra.length() - spx_array_intra.null_count()) > 0);
+
+    auto vix_close_intra = spy_df["IDX:VIX:c"];
+    auto vix_array_intra = vix_close_intra.contiguous_array();
+    REQUIRE((vix_array_intra.length() - vix_array_intra.null_count()) > 0);
+
+    // Minute data should have significantly more rows than daily
+    std::cout << "SPY intraday DataFrame has " << spy_df.num_rows() << " rows and "
+              << spy_df.num_cols() << " columns (including indices)\n";
+
+    // Verify we have intraday data (should have many rows for a single day)
+    REQUIRE(spy_df.num_rows() > 30);  // At least 30 minutes of data
+  }
+
+  SECTION("Load multiple assets with indices (intraday)") {
+    DataloaderOption opt;
+    opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day for speed
+    opt.categories = {DataCategory::MinuteBars};
+    opt.dataloaderAssets = {
+        asset::AssetConstants::instance().SPY,
+        asset::AssetConstants::instance().QQQ
+    };
+    opt.cacheDir = "/tmp/epoch_test_cache";
+    opt.enableCache = true;
+
+    // Add indices
+    opt.AddIndexTicker("SPX");
+    opt.AddIndexTicker("VIX");
+
+    auto dataloader = CreateApiCacheDataLoader(opt);
+    REQUIRE(dataloader != nullptr);
+
+    dataloader->LoadData();
+    auto data = dataloader->GetStoredData();
+
+    // Verify both assets have indices merged
+    REQUIRE(data.contains(asset::AssetConstants::instance().SPY));
+    REQUIRE(data.contains(asset::AssetConstants::instance().QQQ));
+
+    const auto& spy_df = data.at(asset::AssetConstants::instance().SPY);
+    const auto& qqq_df = data.at(asset::AssetConstants::instance().QQQ);
+
+    // Verify indices columns present in both
+    REQUIRE(spy_df.contains("IDX:SPX:c"));
+    REQUIRE(spy_df.contains("IDX:VIX:c"));
+    REQUIRE(qqq_df.contains("IDX:SPX:c"));
+    REQUIRE(qqq_df.contains("IDX:VIX:c"));
+
+    // Verify indices data is not all null for SPY (intraday)
+    auto spy_spx_intra = spy_df["IDX:SPX:c"];
+    auto spy_spx_intra_array = spy_spx_intra.contiguous_array();
+    REQUIRE((spy_spx_intra_array.length() - spy_spx_intra_array.null_count()) > 0);
+
+    // Verify indices data is not all null for QQQ (intraday)
+    auto qqq_spx_intra = qqq_df["IDX:SPX:c"];
+    auto qqq_spx_intra_array = qqq_spx_intra.contiguous_array();
+    REQUIRE((qqq_spx_intra_array.length() - qqq_spx_intra_array.null_count()) > 0);
+
+    // Both should have intraday data
+    REQUIRE(spy_df.num_rows() > 30);
+    REQUIRE(qqq_df.num_rows() > 30);
+
+    std::cout << "Intraday - SPY: " << spy_df.num_rows() << " rows, " << spy_df.num_cols() << " cols\n";
+    std::cout << "Intraday - QQQ: " << qqq_df.num_rows() << " rows, " << qqq_df.num_cols() << " cols\n";
   }
 }
 
@@ -359,10 +489,17 @@ TEST_CASE("DataLoader - Direct indices loading", "[polygon][indices][dataloader]
     REQUIRE(result.has_value());
     const auto& df = *result;
     REQUIRE(df.num_rows() > 0);
-    REQUIRE(df.contains("open"));
-    REQUIRE(df.contains("close"));
 
+    // Debug: print actual columns
     std::cout << "Direct SPX load: " << df.num_rows() << " rows\n";
+    std::cout << "Columns: ";
+    for (const auto& col : df.column_names()) {
+      std::cout << col << " ";
+    }
+    std::cout << "\n";
+
+    REQUIRE(df.contains("o"));
+    REQUIRE(df.contains("c"));
   }
 
   SECTION("Load index data directly (async)") {
