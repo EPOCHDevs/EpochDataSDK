@@ -6,6 +6,17 @@
 
 namespace data_sdk::fred {
 
+// Helper function to check if error indicates series doesn't exist in ALFRED
+static bool isAlfredNotAvailableError(const HttpError& error) {
+  return error.message.find("does not exist in ALFRED") != std::string::npos;
+}
+
+// Helper function to check if error indicates too many vintage dates
+static bool isTooManyVintagesError(const HttpError& error) {
+  return error.message.find("vintage dates") != std::string::npos &&
+         error.message.find("exceeds the maximum") != std::string::npos;
+}
+
 Expected<SeriesObservationsResponse>
 SeriesImpl::fetchSeries(const std::string &series_id,
                         const std::string &observation_start,
@@ -35,12 +46,16 @@ SeriesImpl::fetchSeries(const std::string &series_id,
   auto rt_end_year = parseYear(realtime_end);
 
   // Chunk if span > 3 years (3 years × 365 days = 1095 vintages for daily series, safe margin under 2000)
+  // Use smaller chunks (1 year) for very high-frequency data if 3-year chunks fail
   if (rt_start_year.has_value() && rt_end_year.has_value()) {
     const int year_span = *rt_end_year - *rt_start_year;
 
-    if (year_span > 3) {
-      SPDLOG_INFO("FRED realtime period chunking: {}-year span, splitting into 3-year chunks",
-                  year_span);
+    // Determine chunk size: default to 3 years
+    constexpr int chunk_years = 3;
+
+    if (year_span > chunk_years) {
+      SPDLOG_INFO("FRED realtime period chunking: {}-year span, splitting into {}-year chunks",
+                  year_span, chunk_years);
 
       SeriesObservationsResponse result;
       result.observations.clear();
@@ -49,7 +64,7 @@ SeriesImpl::fetchSeries(const std::string &series_id,
       int current_year = *rt_start_year;
 
       while (current_year <= *rt_end_year) {
-        const int chunk_end_year = std::min(current_year + 3, *rt_end_year);
+        const int chunk_end_year = std::min(current_year + chunk_years, *rt_end_year);
         chunk_count++;
 
         // Use original dates for first and last chunks to preserve exact boundaries
@@ -69,7 +84,46 @@ SeriesImpl::fetchSeries(const std::string &series_id,
                                        chunk_rt_start, chunk_rt_end);
 
         if (!chunk_result) {
-          SPDLOG_WARN("FRED chunk {} failed: {}", chunk_count, chunk_result.error().message);
+          const auto& error = chunk_result.error();
+          SPDLOG_WARN("FRED chunk {} failed: {}", chunk_count, error.message);
+
+          // Check for specific error types on first chunk
+          if (chunk_count == 1) {
+            // Series doesn't exist in ALFRED - fallback to FRED mode
+            if (isAlfredNotAvailableError(error)) {
+              SPDLOG_INFO("FRED: Series {} not in ALFRED, falling back to FRED mode (no realtime)", series_id);
+              // Retry without realtime parameters (FRED mode)
+              return fetchSeries(series_id, observation_start, observation_end, "", "");
+            }
+
+            // Too many vintages even with 3-year chunking - try 1-year chunks
+            if (isTooManyVintagesError(error) && chunk_years == 3 && year_span > 1) {
+              SPDLOG_WARN("FRED: Too many vintages with 3-year chunks, retrying with 1-year chunks");
+
+              // Manually do 1-year chunking
+              SeriesObservationsResponse retry_result;
+              retry_result.observations.clear();
+
+              for (int year = *rt_start_year; year <= *rt_end_year; ++year) {
+                const std::string year_rt_start = (year == *rt_start_year) ? realtime_start : std::to_string(year) + "-01-01";
+                const std::string year_rt_end = (year == *rt_end_year) ? realtime_end : std::to_string(year) + "-12-31";
+
+                SPDLOG_DEBUG("FRED 1-year chunk: realtime [{} - {}]", year_rt_start, year_rt_end);
+
+                auto year_result = fetchSeries(series_id, observation_start, observation_end, year_rt_start, year_rt_end);
+                if (year_result) {
+                  retry_result.observations.insert(retry_result.observations.end(),
+                                                  year_result->observations.begin(),
+                                                  year_result->observations.end());
+                }
+              }
+
+              retry_result.count = retry_result.observations.size();
+              SPDLOG_INFO("FRED 1-year chunking: fetched {} total observations", *retry_result.count);
+              return retry_result;
+            }
+          }
+
           // Continue with other chunks even if one fails
           current_year = chunk_end_year + 1;
           continue;
@@ -207,12 +261,16 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
   auto rt_end_year = parseYear(realtime_end);
 
   // Chunk if span > 3 years (3 years × 365 days = 1095 vintages for daily series, safe margin under 2000)
+  // Use smaller chunks (1 year) for very high-frequency data if 3-year chunks fail
   if (rt_start_year.has_value() && rt_end_year.has_value()) {
     const int year_span = *rt_end_year - *rt_start_year;
 
-    if (year_span > 3) {
-      SPDLOG_INFO("FRED realtime period chunking (async): {}-year span, splitting into 3-year chunks",
-                  year_span);
+    // Determine chunk size: default to 3 years
+    constexpr int chunk_years = 3;
+
+    if (year_span > chunk_years) {
+      SPDLOG_INFO("FRED realtime period chunking (async): {}-year span, splitting into {}-year chunks",
+                  year_span, chunk_years);
 
       SeriesObservationsResponse result;
       result.observations.clear();
@@ -221,7 +279,7 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
       int current_year = *rt_start_year;
 
       while (current_year <= *rt_end_year) {
-        const int chunk_end_year = std::min(current_year + 3, *rt_end_year);
+        const int chunk_end_year = std::min(current_year + chunk_years, *rt_end_year);
         chunk_count++;
 
         // Use original dates for first and last chunks to preserve exact boundaries
@@ -241,7 +299,46 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
                                                       chunk_rt_start, chunk_rt_end);
 
         if (!chunk_result) {
-          SPDLOG_WARN("FRED chunk {} (async) failed: {}", chunk_count, chunk_result.error().message);
+          const auto& error = chunk_result.error();
+          SPDLOG_WARN("FRED chunk {} (async) failed: {}", chunk_count, error.message);
+
+          // Check for specific error types on first chunk
+          if (chunk_count == 1) {
+            // Series doesn't exist in ALFRED - fallback to FRED mode
+            if (isAlfredNotAvailableError(error)) {
+              SPDLOG_INFO("FRED (async): Series {} not in ALFRED, falling back to FRED mode (no realtime)", series_id);
+              // Retry without realtime parameters (FRED mode)
+              co_return co_await fetchSeriesAsync(series_id, observation_start, observation_end, "", "");
+            }
+
+            // Too many vintages even with 3-year chunking - try 1-year chunks
+            if (isTooManyVintagesError(error) && chunk_years == 3 && year_span > 1) {
+              SPDLOG_WARN("FRED (async): Too many vintages with 3-year chunks, retrying with 1-year chunks");
+
+              // Manually do 1-year chunking
+              SeriesObservationsResponse retry_result;
+              retry_result.observations.clear();
+
+              for (int year = *rt_start_year; year <= *rt_end_year; ++year) {
+                const std::string year_rt_start = (year == *rt_start_year) ? realtime_start : std::to_string(year) + "-01-01";
+                const std::string year_rt_end = (year == *rt_end_year) ? realtime_end : std::to_string(year) + "-12-31";
+
+                SPDLOG_DEBUG("FRED 1-year chunk (async): realtime [{} - {}]", year_rt_start, year_rt_end);
+
+                auto year_result = co_await fetchSeriesAsync(series_id, observation_start, observation_end, year_rt_start, year_rt_end);
+                if (year_result) {
+                  retry_result.observations.insert(retry_result.observations.end(),
+                                                  year_result->observations.begin(),
+                                                  year_result->observations.end());
+                }
+              }
+
+              retry_result.count = retry_result.observations.size();
+              SPDLOG_INFO("FRED 1-year chunking (async): fetched {} total observations", *retry_result.count);
+              co_return retry_result;
+            }
+          }
+
           // Continue with other chunks even if one fails
           current_year = chunk_end_year + 1;
           continue;

@@ -13,6 +13,7 @@ namespace data_sdk::dataloader {
 
 // FRED implementation of cross-sectional economic data fetcher
 // Uses AlfredClient for point-in-time data with revision tracking
+// Note: Some series (e.g., daily interest rates) do not exist in ALFRED and will fail
 class FredCrossSectionalFetcher : public ICrossSectionalFetcher {
 public:
   FredCrossSectionalFetcher() : m_options(MakeDefaultOptions()) {
