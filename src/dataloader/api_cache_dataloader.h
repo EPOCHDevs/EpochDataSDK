@@ -7,6 +7,7 @@
 #include <epoch_data_sdk/dataloader/dataloader.hpp>
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
 #include <epoch_data_sdk/dataloader/cross_sectional_fetcher.hpp>
+#include <epoch_data_sdk/dataloader/indices_fetcher.hpp>
 #include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
@@ -63,6 +64,19 @@ public:
                               const epoch_frame::Date& fromDate,
                               const epoch_frame::Date& toDate) const final;
 
+  // Market indices data methods (Polygon indices like SPX, VIX, NDX)
+  std::expected<epoch_frame::DataFrame, std::string>
+  LoadIndicesData(const std::string& indexTicker,
+                  const epoch_frame::Date& fromDate,
+                  const epoch_frame::Date& toDate,
+                  bool is_eod = true) const final;
+
+  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadIndicesDataAsync(const std::string& indexTicker,
+                       const epoch_frame::Date& fromDate,
+                       const epoch_frame::Date& toDate,
+                       bool is_eod = true) const final;
+
   // Build cache load parameters from options
   cache::CacheLoadParams buildCacheParams(const asset::Asset& asset,
                                           DataCategory category,
@@ -76,6 +90,7 @@ private:
   std::shared_ptr<ICacheProvider> m_cacheProvider;
   std::shared_ptr<IFetcherProvider> m_fetcherProvider;
   std::shared_ptr<ICrossSectionalFetcher> m_crossSectionalFetcher;
+  std::shared_ptr<IIndicesFetcher> m_indicesFetcher;
   std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;

@@ -3,6 +3,10 @@
 #include <iostream>
 
 #include <epoch_data_sdk/common/enums.hpp>
+#include <epoch_data_sdk/common/async_batch.hpp>
+#include <epoch_data_sdk/dataloader/factory.hpp>
+#include <epoch_data_sdk/dataloader/options.hpp>
+#include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_frame/datetime.h>
 #include <epoch_data_sdk/dataloader/metadata_registry.hpp>
 #include "../../src/dataloader/fred_cross_sectional_fetcher.hpp"
@@ -11,6 +15,7 @@
 using namespace data_sdk;
 using namespace data_sdk::dataloader;
 using namespace data_sdk::fred;
+using namespace data_sdk::common;
 
 static std::string getApiKey() {
   const char *env = std::getenv("FRED_API_KEY");
@@ -157,7 +162,7 @@ TEST_CASE("FredCrossSectionalFetcher - Multiple indicators", "[fred][cross_secti
       tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::Unemployment, from, to));
       tasks.push_back(fetcher.FetchAsync(CrossSectionalDataCategory::FedFunds, from, to));
 
-      auto results = co_await data_sdk::common::when_all(std::move(tasks));
+      auto results = co_await when_all(std::move(tasks));
 
       REQUIRE(results.size() == 4);
       REQUIRE(results[0].has_value());  // CPI
@@ -252,5 +257,124 @@ TEST_CASE("CrossSectional - All indicators have correct mappings", "[fred][cross
 
   for (const auto& [category, expected_id] : expected_mappings) {
     REQUIRE(getSeriesId(category) == expected_id);
+  }
+}
+
+TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fred][cross_sectional][integration][dataloader]") {
+  if (!hasApiKey()) {
+    SKIP("FRED_API_KEY not set");
+  }
+
+  // Skip if POLYGON_API_KEY not set (needed for asset data)
+  const char* polygon_key = std::getenv("POLYGON_API_KEY");
+  if (!polygon_key || std::string(polygon_key).empty()) {
+    SKIP("POLYGON_API_KEY not set");
+  }
+
+  SECTION("Load SPY with economic indicators") {
+    // Setup dataloader option
+    DataloaderOption opt;
+    opt.startDate = epoch_frame::DateTime::from_date_str("2023-01-01").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2023-03-31").date();
+    opt.categories = {DataCategory::DailyBars};
+    opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
+    opt.enableCache = false;  // Disable cache for test
+
+    // Add cross-sectional economic indicators
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::CPI);
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::FedFunds);
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Unemployment);
+
+    std::cout << "Creating dataloader with " << opt.GetCrossSectionalCategories().size()
+              << " economic indicators\n";
+
+    // Create dataloader
+    auto dataloader = CreateApiCacheDataLoader(opt);
+    REQUIRE(dataloader != nullptr);
+
+    // Load data
+    dataloader->LoadData();
+
+    // Get loaded data
+    auto data = dataloader->GetStoredData();
+    REQUIRE(data.size() > 0);
+
+    // Get SPY DataFrame
+    auto spy = asset::AssetConstants::instance().SPY;
+    REQUIRE(data.contains(spy));
+
+    const auto& spy_df = data.at(spy);
+    std::cout << "SPY DataFrame has " << spy_df.num_rows() << " rows and "
+              << spy_df.num_cols() << " columns\n";
+
+    // Verify regular OHLCV columns exist
+    REQUIRE(spy_df.contains("O"));
+    REQUIRE(spy_df.contains("H"));
+    REQUIRE(spy_df.contains("L"));
+    REQUIRE(spy_df.contains("C"));
+    REQUIRE(spy_df.contains("V"));
+
+    // Verify economic indicator columns were merged
+    REQUIRE(spy_df.contains("ECON:CPI:observation_date"));
+    REQUIRE(spy_df.contains("ECON:CPI:value"));
+    REQUIRE(spy_df.contains("ECON:CPI:revision"));
+
+    REQUIRE(spy_df.contains("ECON:FedFunds:observation_date"));
+    REQUIRE(spy_df.contains("ECON:FedFunds:value"));
+    REQUIRE(spy_df.contains("ECON:FedFunds:revision"));
+
+    REQUIRE(spy_df.contains("ECON:Unemployment:observation_date"));
+    REQUIRE(spy_df.contains("ECON:Unemployment:value"));
+    REQUIRE(spy_df.contains("ECON:Unemployment:revision"));
+
+    std::cout << "Successfully verified economic columns in SPY DataFrame\n";
+    std::cout << "Column names: ";
+    for (const auto& col : spy_df.column_names()) {
+      if (col.find("ECON:") == 0) {
+        std::cout << col << ", ";
+      }
+    }
+    std::cout << "\n";
+  }
+
+  SECTION("Load multiple assets with GDP and Treasury10Y") {
+    DataloaderOption opt;
+    opt.startDate = epoch_frame::DateTime::from_date_str("2023-06-01").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2023-06-30").date();
+    opt.categories = {DataCategory::DailyBars};
+    opt.dataloaderAssets = {
+        asset::AssetConstants::instance().SPY,
+        asset::AssetConstants::instance().QQQ
+    };
+    opt.enableCache = false;
+
+    // Add fewer indicators for faster test
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::GDP);
+    opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Treasury10Y);
+
+    auto dataloader = CreateApiCacheDataLoader(opt);
+    dataloader->LoadData();
+
+    auto data = dataloader->GetStoredData();
+
+    // Both assets should be loaded
+    REQUIRE(data.size() >= 1);  // At least one should succeed
+
+    // Check each loaded asset has economic columns
+    for (const auto& [asset, df] : data) {
+      std::cout << "Checking " << asset.GetSymbolStr() << " - "
+                << df.num_rows() << " rows, " << df.num_cols() << " columns\n";
+
+      // Should have price data
+      REQUIRE(df.contains("C"));
+
+      // Should have economic data
+      REQUIRE(df.contains("ECON:GDP:observation_date"));
+      REQUIRE(df.contains("ECON:GDP:value"));
+      REQUIRE(df.contains("ECON:Treasury10Y:observation_date"));
+      REQUIRE(df.contains("ECON:Treasury10Y:value"));
+    }
+
+    std::cout << "Successfully loaded " << data.size() << " assets with economic indicators\n";
   }
 }

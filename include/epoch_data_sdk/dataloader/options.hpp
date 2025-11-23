@@ -48,6 +48,9 @@ struct DataLoaderOptions {
   // Cross-sectional economic indicators to load
   std::set<CrossSectionalDataCategory> crossSectionalCategories;
 
+  // Market indices to load (e.g., "SPX", "VIX", "NDX")
+  std::set<std::string> indicesTickers;
+
   // Assets
   asset::AssetHashSet dataloaderAssets;  // All assets to load
   asset::AssetHashSet strategyAssets;     // Assets used in strategy (subset)
@@ -124,6 +127,9 @@ struct DataLoaderOptions {
   const std::set<CrossSectionalDataCategory>& GetCrossSectionalCategories() const {
     return crossSectionalCategories;
   }
+  const std::set<std::string>& GetIndicesTickers() const {
+    return indicesTickers;
+  }
 
   // Setter methods
   void SetCategories(const std::set<DataCategory>& cats) { categories = cats; }
@@ -134,6 +140,12 @@ struct DataLoaderOptions {
   }
   void RemoveCrossSectionalCategory(CrossSectionalDataCategory cat) {
     crossSectionalCategories.erase(cat);
+  }
+  void AddIndexTicker(const std::string& ticker) {
+    indicesTickers.insert(ticker);
+  }
+  void RemoveIndexTicker(const std::string& ticker) {
+    indicesTickers.erase(ticker);
   }
 };
 

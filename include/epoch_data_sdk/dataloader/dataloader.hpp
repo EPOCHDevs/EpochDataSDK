@@ -59,6 +59,21 @@ public:
   LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
                               const epoch_frame::Date& fromDate,
                               const epoch_frame::Date& toDate) const = 0;
+
+  // Market indices data methods (Polygon indices like SPX, VIX, NDX)
+  // Fetch index data using ticker symbols (without "I:" prefix)
+  // is_eod: true = daily bars, false = minute bars
+  virtual std::expected<epoch_frame::DataFrame, std::string>
+  LoadIndicesData(const std::string& indexTicker,
+                  const epoch_frame::Date& fromDate,
+                  const epoch_frame::Date& toDate,
+                  bool is_eod = true) const = 0;
+
+  virtual drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadIndicesDataAsync(const std::string& indexTicker,
+                       const epoch_frame::Date& fromDate,
+                       const epoch_frame::Date& toDate,
+                       bool is_eod = true) const = 0;
 };
 
 } // namespace data_sdk

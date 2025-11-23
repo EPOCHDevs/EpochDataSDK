@@ -79,4 +79,15 @@ DataFrameMetadata MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalData
   return metadata;
 }
 
+DataFrameMetadata MetadataRegistry::GetIndicesMetadata(const std::string& indexTicker) {
+  // Market indices use the same OHLCV schema as AggsClient
+  auto metadata = polygon::AggsClient::getMetadata();
+
+  // Update description to be specific to the index
+  metadata.description = "Market index data: " + indexTicker;
+  metadata.data_type = "market_index";
+
+  return metadata;
+}
+
 } // namespace data_sdk::dataloader

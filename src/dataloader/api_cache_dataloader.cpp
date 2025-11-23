@@ -5,6 +5,7 @@
 #include "cache/merge_strategy.h"
 #include "simple_merger.hpp"
 #include "fred_cross_sectional_fetcher.hpp"
+#include "polygon_indices_fetcher.hpp"
 #include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_data_sdk/common/bar_attribute.hpp>
@@ -115,6 +116,7 @@ ApiCacheDataloader::ApiCacheDataloader(
     : m_option(std::move(option)), m_cacheProvider(std::move(cache)),
       m_fetcherProvider(std::move(fetchers)),
       m_crossSectionalFetcher(std::make_shared<FredCrossSectionalFetcher>()),
+      m_indicesFetcher(std::make_shared<PolygonIndicesFetcher>()),
       m_merger(std::move(merger)),
       m_benchmark(std::nullopt) {
 
@@ -617,6 +619,101 @@ void ApiCacheDataloader::LoadData() {
     }
   }
 
+  // Load market indices data if requested and merge into each asset
+  const auto& indicesTickers = m_option.GetIndicesTickers();
+  if (!indicesTickers.empty() && !m_loadedData.empty()) {
+    // Determine if we're loading daily or minute bars
+    bool hasMinuteBars = m_option.categories.count(DataCategory::MinuteBars) > 0;
+    bool is_eod = !hasMinuteBars;  // true for daily, false for minute
+
+    SPDLOG_INFO("Loading {} market indices ({}) to merge with {} assets",
+                indicesTickers.size(), is_eod ? "daily" : "minute", m_loadedData.size());
+
+    // Load indices data in parallel
+    std::vector<std::string> indices_vec(
+        indicesTickers.begin(), indicesTickers.end());
+
+    std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> indices_tasks;
+    indices_tasks.reserve(indices_vec.size());
+
+    for (const auto& ticker : indices_vec) {
+      indices_tasks.push_back(LoadIndicesDataAsync(
+          ticker, m_option.GetStartDate(), m_option.GetEndDate(), is_eod));
+    }
+
+    // Execute all indices tasks concurrently
+    auto indices_results = data_sdk::common::syncWhenAll(std::move(indices_tasks));
+
+    // Collect successfully loaded indices
+    std::unordered_map<std::string, epoch_frame::DataFrame> indices;
+    for (size_t i = 0; i < indices_vec.size(); ++i) {
+      const auto& ticker = indices_vec[i];
+      const auto& result = indices_results[i];
+
+      if (!result.has_value()) {
+        SPDLOG_ERROR("Failed to load index data for {}: {}", ticker, result.error());
+        continue;
+      }
+
+      if (result->empty()) {
+        SPDLOG_WARN("No data found for index {} in date range [{} - {}]",
+                    ticker,
+                    m_option.GetStartDate().repr(),
+                    m_option.GetEndDate().repr());
+        continue;
+      }
+
+      SPDLOG_INFO("Loaded {} rows for market index: {}", result->num_rows(), ticker);
+      indices[ticker] = *result;
+    }
+
+    if (!indices.empty()) {
+      SPDLOG_INFO("Successfully loaded {}/{} indices - merging into {} assets",
+                  indices.size(), indicesTickers.size(), m_loadedData.size());
+
+      // Merge indices into each asset's DataFrame using SimpleMerger
+      for (auto& [asset, asset_df] : m_loadedData) {
+        // Build a map for merger
+        std::unordered_map<DataCategory, epoch_frame::DataFrame> merge_map;
+
+        // Add current asset data as the base
+        auto base_category = m_option.GetDataCategory();
+        merge_map[base_category] = asset_df;
+
+        // Add each index with prefix
+        for (const auto& [ticker, index_df] : indices) {
+          std::string prefix = "IDX:" + ticker + ":";
+          auto prefixed_df = index_df.add_prefix(prefix);
+
+          // Use a dummy DataCategory for the merger (we'll use News as placeholder)
+          // The merger will just merge on index, which is what we want
+          merge_map[DataCategory::News] = prefixed_df;
+
+          // Merge using SimpleMerger
+          auto merge_result = m_merger->Merge(merge_map);
+          if (!merge_result.has_value()) {
+            SPDLOG_ERROR("Failed to merge index {} into {}: {}",
+                        ticker, asset.GetSymbolStr(), merge_result.error());
+            continue;
+          }
+
+          // Update asset_df with merged result
+          asset_df = *merge_result;
+          merge_map.clear();
+          merge_map[base_category] = asset_df;
+
+          SPDLOG_DEBUG("Merged index {} into {} ({} columns added)",
+                      ticker, asset.GetSymbolStr(), prefixed_df.num_cols());
+        }
+
+        // Update the stored asset DataFrame
+        m_loadedData[asset] = asset_df;
+      }
+
+      SPDLOG_INFO("Indices data merge complete");
+    }
+  }
+
   // Benchmark SPY (daily) - Note: TearSheetDataOption requires benchmark to
   // have same index as equity
   auto benchmarkAsset = asset::AssetConstants::instance().SPY;
@@ -762,6 +859,52 @@ ApiCacheDataloader::LoadCrossSectionalDataAsync(CrossSectionalDataCategory categ
     SPDLOG_ERROR("LoadCrossSectionalDataAsync: Failed to load {}: {}",
                  CrossSectionalDataCategoryWrapper::ToString(category),
                  result.error());
+  }
+
+  co_return result;
+}
+
+// Market indices data methods (Polygon indices like SPX, VIX, NDX)
+std::expected<epoch_frame::DataFrame, std::string>
+ApiCacheDataloader::LoadIndicesData(const std::string& indexTicker,
+                                   const epoch_frame::Date& fromDate,
+                                   const epoch_frame::Date& toDate,
+                                   bool is_eod) const {
+  SPDLOG_DEBUG("LoadIndicesData: {} from {} to {} ({})",
+               indexTicker, fromDate.repr(), toDate.repr(), is_eod ? "daily" : "minute");
+
+  // Simply delegate to async version and wait for result
+  return drogon::sync_wait(LoadIndicesDataAsync(indexTicker, fromDate, toDate, is_eod));
+}
+
+drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+ApiCacheDataloader::LoadIndicesDataAsync(const std::string& indexTicker,
+                                        const epoch_frame::Date& fromDate,
+                                        const epoch_frame::Date& toDate,
+                                        bool is_eod) const {
+  SPDLOG_DEBUG("LoadIndicesDataAsync: Starting for index {} ({})",
+               indexTicker, is_eod ? "daily" : "minute");
+
+  const auto start_time = std::chrono::high_resolution_clock::now();
+
+  if (!m_indicesFetcher) {
+    SPDLOG_ERROR("Indices fetcher not initialized");
+    co_return std::unexpected("Indices fetcher not initialized");
+  }
+
+  // Fetch directly using the indices fetcher (no caching for now - can be added later)
+  auto result = co_await m_indicesFetcher->FetchAsync(indexTicker, fromDate, toDate, is_eod);
+
+  const auto end_time = std::chrono::high_resolution_clock::now();
+  const auto total_duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+  if (result.has_value()) {
+    SPDLOG_INFO("LoadIndicesDataAsync: Successfully loaded {} ({} rows) in {}ms",
+                indexTicker, result->num_rows(), total_duration.count());
+  } else {
+    SPDLOG_ERROR("LoadIndicesDataAsync: Failed to load {}: {}",
+                 indexTicker, result.error());
   }
 
   co_return result;

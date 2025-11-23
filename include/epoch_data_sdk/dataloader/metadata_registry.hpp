@@ -33,6 +33,13 @@ public:
    * @return DataFrameMetadata with ALFRED schema (same as GetAlfredMetadata)
    */
   static DataFrameMetadata GetCrossSectionalMetadata(CrossSectionalDataCategory category);
+
+  /**
+   * Get metadata for market indices data
+   * @param indexTicker The index ticker symbol (e.g., "SPX", "VIX")
+   * @return DataFrameMetadata with OHLCV schema (same as AggsClient)
+   */
+  static DataFrameMetadata GetIndicesMetadata(const std::string& indexTicker);
 };
 
 } // namespace data_sdk::dataloader
