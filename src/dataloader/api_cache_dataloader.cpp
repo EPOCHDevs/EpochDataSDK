@@ -307,25 +307,39 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
                   cat,
                   merged_df.num_rows());
 
-      // Add each column from empty DataFrame as null column with merged_df's index
+      // Add each column from empty DataFrame as typed null column with merged_df's index
       for (const auto& col_name : empty_df.column_names()) {
-        // Create null array matching merged_df's row count
-        auto null_builder = std::make_shared<arrow::NullBuilder>();
+        // Get the proper type from empty_df schema instead of using NullType
+        auto schema = empty_df.table()->schema();
+        auto field_idx = schema->GetFieldIndex(col_name);
+        if (field_idx == -1) {
+          throw std::runtime_error("Column not found in empty DataFrame: " + col_name);
+        }
+        auto col_type = schema->field(field_idx)->type();
+
+        // Create typed builder that preserves the schema
+        std::unique_ptr<arrow::ArrayBuilder> builder;
+        auto status = arrow::MakeBuilder(arrow::default_memory_pool(), col_type, &builder);
+        if (!status.ok()) {
+          throw std::runtime_error("Failed to create typed builder: " + status.ToString());
+        }
+
+        // Append nulls using the typed builder (maintains type, not NullType)
         for (size_t i = 0; i < merged_df.num_rows(); ++i) {
-          auto status = null_builder->AppendNull();
+          status = builder->AppendNull();
           if (!status.ok()) {
             throw std::runtime_error("Failed to append null: " + status.ToString());
           }
         }
 
-        arrow::ArrayPtr null_array;
-        auto status = null_builder->Finish(&null_array);
+        arrow::ArrayPtr typed_null_array;
+        status = builder->Finish(&typed_null_array);
         if (!status.ok()) {
-          throw std::runtime_error("Failed to finish null array: " + status.ToString());
+          throw std::runtime_error("Failed to finish typed null array: " + status.ToString());
         }
 
         // Create Series with the same index as merged_df
-        auto null_series = epoch_frame::Series(merged_df.index(), std::make_shared<arrow::ChunkedArray>(null_array), col_name);
+        auto null_series = epoch_frame::Series(merged_df.index(), std::make_shared<arrow::ChunkedArray>(typed_null_array), col_name);
 
         // Add to merged DataFrame
         merged_df = merged_df.assign(col_name, null_series);

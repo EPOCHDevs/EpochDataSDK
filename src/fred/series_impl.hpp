@@ -18,6 +18,7 @@ public:
 
   // Fetch series data with specified parameters
   // Returns raw observations with realtime_start dates
+  // observation_start/end are optional - if empty, FRED API will return all observations
   Expected<SeriesObservationsResponse>
   fetchSeries(const std::string &series_id,
               const std::string &observation_start,

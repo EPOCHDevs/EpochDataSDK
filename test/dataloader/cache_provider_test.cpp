@@ -36,7 +36,7 @@ public:
     std::vector<double> closes;
 
     for (size_t i = 0; i < numDays; ++i) {
-      auto date = DateTime::from_date_str(startDate) + chrono_days(i);
+      auto date = DateTime::from_date_str(startDate, "UTC") + chrono_days(i);
       dates.push_back(date);
       closes.push_back(100.0 + i);
     }

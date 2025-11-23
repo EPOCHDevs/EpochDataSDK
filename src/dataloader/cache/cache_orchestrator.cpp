@@ -321,14 +321,26 @@ CacheOrchestrator::filterByIndexDateRange(const epoch_frame::DataFrame& df,
     return df;
   }
 
-  // Convert from/to dates to timestamps (midnight UTC)
-  const epoch_frame::DateTime fromDateTime{fromDate, {.tz = "UTC"}};
-  const epoch_frame::DateTime toDateTime{toDate, {.tz = "UTC"}};
+  // Detect timezone from the DataFrame's index to avoid type mismatches
+  auto index = df.index();
+  auto index_array = index->array();
+
+  std::string tz = "";
+  if (auto timestamp_type = std::dynamic_pointer_cast<arrow::TimestampType>(index_array->type())) {
+    tz = timestamp_type->timezone();  // Empty string if no timezone
+  }
+
+  // Convert from/to dates to timestamps using the same timezone as the index
+  // fromDate: start of day (00:00:00)
+  // toDate: end of day - use start of next day minus 1 nanosecond
+  const epoch_frame::DateTime fromDateTime{fromDate, {.tz = tz}};
+  const epoch_frame::DateTime toDateTime{toDate + chrono_days(1), {.tz = tz}};  // Next day at midnight
 
   const epoch_frame::Scalar startTs{fromDateTime};
-  const epoch_frame::Scalar endTs{toDateTime};
+  // Subtract 1 nanosecond from toDateTime to get end of day (23:59:59.999999999)
+  const epoch_frame::Scalar endTs{epoch_frame::DateTime{(toDateTime.m_nanoseconds - chrono_nanoseconds(1)).count(), tz}};
 
-  // Filter using loc to only include rows with index >= from && index <= to
+  // Filter using loc to only include rows with index >= from && index <= to (end of day)
   auto filtered = df.loc({startTs, endTs});
 
   const auto originalRows = df.num_rows();

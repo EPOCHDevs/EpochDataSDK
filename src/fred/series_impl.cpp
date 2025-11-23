@@ -98,8 +98,15 @@ SeriesImpl::fetchSeries(const std::string &series_id,
   // Single request (no chunking needed)
   std::vector<std::pair<std::string, std::string>> q;
   q.emplace_back("series_id", series_id);
-  q.emplace_back("observation_start", observation_start);
-  q.emplace_back("observation_end", observation_end);
+
+  // Only add observation dates if provided (empty = omit, gets all observations like Python fredapi)
+  if (!observation_start.empty()) {
+    q.emplace_back("observation_start", observation_start);
+  }
+  if (!observation_end.empty()) {
+    q.emplace_back("observation_end", observation_end);
+  }
+
   q.emplace_back("realtime_start", realtime_start);
   q.emplace_back("realtime_end", realtime_end);
   q.emplace_back("sort_order", "asc");
@@ -263,8 +270,15 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
   // Single request (no chunking needed)
   std::vector<std::pair<std::string, std::string>> q;
   q.emplace_back("series_id", series_id);
-  q.emplace_back("observation_start", observation_start);
-  q.emplace_back("observation_end", observation_end);
+
+  // Only add observation dates if provided (empty = omit, gets all observations like Python fredapi)
+  if (!observation_start.empty()) {
+    q.emplace_back("observation_start", observation_start);
+  }
+  if (!observation_end.empty()) {
+    q.emplace_back("observation_end", observation_end);
+  }
+
   q.emplace_back("realtime_start", realtime_start);
   q.emplace_back("realtime_end", realtime_end);
   q.emplace_back("sort_order", "asc");

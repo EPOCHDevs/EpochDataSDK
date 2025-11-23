@@ -32,10 +32,10 @@ AlfredClient::getSeries(const std::string &series_id,
                         const std::string &from,
                         const std::string &to) const {
 
-  // FIXED: Set both observation and realtime dates to get all revisions
-  // observation dates: which economic periods we want
-  // realtime dates: get all revisions from 'from' through today
-  auto response = impl_->fetchSeries(series_id, from, to, from, "9999-12-31");
+  // FIXED: ALFRED only cares about realtime dates (when data was published)
+  // observation dates: omitted (empty strings) to get ALL observations, matching Python fredapi
+  // realtime dates: filter to 'from' through 'to' (prevents lookahead bias, enables chunking)
+  auto response = impl_->fetchSeries(series_id, "", "", from, to);
   if (!response)
     return std::unexpected(response.error());
 
@@ -103,8 +103,10 @@ AlfredClient::getSeriesAsync(std::string series_id,
                              std::string from,
                              std::string to) const {
 
-  // FIXED: Set both observation and realtime dates to get all revisions
-  auto response = co_await impl_->fetchSeriesAsync(series_id, from, to, from, "9999-12-31");
+  // FIXED: ALFRED only cares about realtime dates (when data was published)
+  // observation dates: omitted (empty strings) to get ALL observations, matching Python fredapi
+  // realtime dates: filter to 'from' through 'to' (prevents lookahead bias, enables chunking)
+  auto response = co_await impl_->fetchSeriesAsync(series_id, "", "", from, to);
   if (!response)
     co_return std::unexpected(response.error());
 
