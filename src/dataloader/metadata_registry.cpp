@@ -79,24 +79,36 @@ DataFrameMetadata MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalData
   return metadata;
 }
 
-DataFrameMetadata MetadataRegistry::GetIndicesMetadata() {
+DataFrameMetadata MetadataRegistry::GetIndicesMetadata(bool is_eod) {
   // Market indices use the same OHLCV schema as AggsClient
-  auto metadata = polygon::AggsClient::getMetadata();
+  auto metadata = is_eod
+    ? []() {
+        auto meta = polygon::AggsClient::getMetadata();
+        meta.index_normalized = true;  // Daily bars normalized to midnight UTC
+        return meta;
+      }()
+    : polygon::AggsClient::getMetadata();  // Non-normalized (intraday timestamps)
 
-  // Remove vw and n columns (indices don't have volume-weighted average or trade count)
+  // Remove v, vw and n columns (indices don't have volume data)
   metadata.columns.erase(
       std::remove_if(metadata.columns.begin(), metadata.columns.end(),
-                     [](const auto& col) { return col.id == "vw" || col.id == "n"; }),
+                     [](const auto& col) { return col.id == "v" || col.id == "vw" || col.id == "n"; }),
       metadata.columns.end());
 
   return metadata;
 }
 
 DataFrameMetadata MetadataRegistry::GetMetadata(const std::string& key) {
-  // Handle specific market indices (IDX:SPX, IDX:VIX, etc.)
-  if (key.starts_with("IDX:") or key == "Indices") {
-    std::string ticker = key.substr(4);  // Extract ticker after "IDX:"
-    return GetIndicesMetadata();
+  // Handle specific market indices (IDX:SPX:daily, IDX:SPX:minute, or generic "Indices")
+  if (key.starts_with("IDX:")) {
+    // Parse timespan from key: "IDX:SPX:daily" or "IDX:SPX:minute"
+    bool is_eod = key.ends_with(":daily");
+    return GetIndicesMetadata(is_eod);
+  }
+
+  if (key == "Indices") {
+    // Generic indices - default to daily/normalized
+    return GetIndicesMetadata(true);
   }
 
   // Try to parse as CrossSectionalDataCategory (economic indicators)

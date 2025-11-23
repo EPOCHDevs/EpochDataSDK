@@ -382,8 +382,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
       std::cout << "Checking " << asset.GetSymbolStr() << " - "
                 << df.num_rows() << " rows, " << df.num_cols() << " columns\n";
 
-      // Should have price data
-      REQUIRE(df.contains("C"));
+      // Should have price data (lowercase from Polygon API)
+      REQUIRE(df.contains("c"));
 
       // Should have economic data
       REQUIRE(df.contains("ECON:GDP:observation_date"));

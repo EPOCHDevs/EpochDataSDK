@@ -36,9 +36,10 @@ public:
 
   /**
    * Get metadata for market indices data
-   * @return DataFrameMetadata with OHLCV schema (same as AggsClient, without vw and n)
+   * @param is_eod True for daily bars (normalized index), false for minute bars (non-normalized)
+   * @return DataFrameMetadata with OHLC schema (without v, vw, and n)
    */
-  static DataFrameMetadata GetIndicesMetadata();
+  static DataFrameMetadata GetIndicesMetadata(bool is_eod);
 
   /**
    * Get metadata for a string key (supports DataCategory names and auxiliary keys)

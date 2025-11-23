@@ -679,12 +679,14 @@ void ApiCacheDataloader::LoadData() {
         merge_map[base_key] = asset_df;
 
         // Add each index with unique string key
+        std::string timespan = is_eod ? "daily" : "minute";
         for (const auto& [ticker, index_df] : indices) {
           std::string prefix = "IDX:" + ticker;
           auto prefixed_df = index_df.add_prefix(prefix + ":");
 
-          // Use "IDX:<ticker>" as unique key for metadata registry
-          merge_map[prefix] = prefixed_df;
+          // Use "IDX:<ticker>:<timespan>" as unique key for metadata registry
+          // This allows the metadata registry to set index_normalized correctly
+          merge_map[prefix + ":" + timespan] = prefixed_df;
         }
 
         // Merge all data (asset + all indices) in one call using SimpleMerger

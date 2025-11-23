@@ -193,43 +193,46 @@ TEST_CASE("PolygonIndicesFetcher - Intraday support", "[polygon][indices][fetche
 }
 
 TEST_CASE("Indices - Metadata", "[polygon][indices][metadata]") {
-  SECTION("Get metadata for indices") {
-    auto metadata = MetadataRegistry::GetIndicesMetadata("SPX");
+  SECTION("Get metadata for daily indices") {
+    auto metadata = MetadataRegistry::GetIndicesMetadata(true);  // is_eod = true
 
-    REQUIRE(metadata.data_type == "market_index");
-    REQUIRE(metadata.description.find("SPX") != std::string::npos);
+    REQUIRE(metadata.data_type == "aggregates");
+    REQUIRE(!metadata.description.empty());
+    REQUIRE(metadata.index_normalized == true);  // Daily = normalized
 
-    // Verify schema (same as AggsClient - OHLCV)
-    REQUIRE(metadata.columns.size() > 0);
+    // Verify schema (OHLC only - no v, vw, or n)
+    REQUIRE(metadata.columns.size() == 4);  // Only o, h, l, c
 
-    // Find OHLC columns (lowercase single letters)
-    bool has_o = false;
-    bool has_h = false;
-    bool has_l = false;
-    bool has_c = false;
+    bool has_o = false, has_h = false, has_l = false, has_c = false;
+    bool has_v = false, has_vw = false, has_n = false;
 
     for (const auto& col : metadata.columns) {
       if (col.id == "o") has_o = true;
       if (col.id == "h") has_h = true;
       if (col.id == "l") has_l = true;
       if (col.id == "c") has_c = true;
+      if (col.id == "v") has_v = true;
+      if (col.id == "vw") has_vw = true;
+      if (col.id == "n") has_n = true;
     }
 
     REQUIRE(has_o);
     REQUIRE(has_h);
     REQUIRE(has_l);
     REQUIRE(has_c);
+    REQUIRE_FALSE(has_v);   // No volume for indices
+    REQUIRE_FALSE(has_vw);  // No VWAP for indices
+    REQUIRE_FALSE(has_n);   // No trade count for indices
   }
 
-  SECTION("Metadata for different indices") {
-    auto spx_meta = MetadataRegistry::GetIndicesMetadata("SPX");
-    auto vix_meta = MetadataRegistry::GetIndicesMetadata("VIX");
+  SECTION("Get metadata for intraday indices") {
+    auto metadata = MetadataRegistry::GetIndicesMetadata(false);  // is_eod = false
 
-    // Should have same schema but different descriptions
-    REQUIRE(spx_meta.columns.size() == vix_meta.columns.size());
-    REQUIRE(spx_meta.description != vix_meta.description);
-    REQUIRE(spx_meta.description.find("SPX") != std::string::npos);
-    REQUIRE(vix_meta.description.find("VIX") != std::string::npos);
+    REQUIRE(metadata.data_type == "aggregates");
+    REQUIRE(metadata.index_normalized == false);  // Intraday = non-normalized
+
+    // Verify same OHLC schema
+    REQUIRE(metadata.columns.size() == 4);
   }
 }
 
