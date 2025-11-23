@@ -184,7 +184,7 @@ TEST_CASE("FredCrossSectionalFetcher - Multiple indicators", "[fred][cross_secti
 
 TEST_CASE("CrossSectional - Metadata", "[fred][cross_sectional][metadata]") {
   SECTION("Get metadata for cross-sectional categories") {
-    auto metadata = MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalDataCategory::CPI);
+    auto metadata = MetadataRegistry::GetMetadata("CPI");
 
     REQUIRE(metadata.data_type == "economic_indicator");
     REQUIRE(metadata.description.find("CPI") != std::string::npos);
@@ -209,8 +209,8 @@ TEST_CASE("CrossSectional - Metadata", "[fred][cross_sectional][metadata]") {
   }
 
   SECTION("Metadata for different categories") {
-    auto cpi_meta = MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalDataCategory::CPI);
-    auto gdp_meta = MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalDataCategory::GDP);
+    auto cpi_meta = MetadataRegistry::GetMetadata("CPI");
+    auto gdp_meta = MetadataRegistry::GetMetadata("GDP");
 
     // Should have same schema but different descriptions
     REQUIRE(cpi_meta.columns.size() == gdp_meta.columns.size());
@@ -355,8 +355,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
 
   SECTION("Load multiple assets with GDP and Treasury10Y") {
     DataloaderOption opt;
-    opt.startDate = epoch_frame::DateTime::from_date_str("2023-06-01").date();
-    opt.endDate = epoch_frame::DateTime::from_date_str("2023-06-30").date();
+    opt.startDate = epoch_frame::DateTime::from_date_str("2023-01-01").date();
+    opt.endDate = epoch_frame::DateTime::from_date_str("2023-12-31").date();  // Full year to capture quarterly GDP publications
     opt.categories = {DataCategory::DailyBars};
     opt.dataloaderAssets = {
         asset::AssetConstants::instance().SPY,
@@ -399,7 +399,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     // Test that economic data (daily frequency) merges correctly with minute-level data
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
-    opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day
+    opt.endDate = epoch_frame::DateTime::from_date_str("2024-03-31").date();  // 3 months to capture monthly economic publications
     opt.categories = {DataCategory::MinuteBars};
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
     opt.cacheDir = "/tmp/epoch_test_cache_minute";  // Use different cache dir for minute bars
@@ -440,8 +440,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     }
     std::cout << "\\n";
 
-    // Verify we have minute-level data (should be many rows for a trading day)
-    REQUIRE(spy_df.num_rows() > 100);  // At least 100 minute bars
+    // Verify we have minute-level data (should be many rows for 3 months)
+    REQUIRE(spy_df.num_rows() > 10000);  // At least 10k minute bars (60+ trading days)
 
     // Verify regular OHLCV columns exist (lowercase from Polygon API)
     REQUIRE(spy_df.contains("o"));

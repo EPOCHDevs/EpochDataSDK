@@ -66,19 +66,6 @@ DataFrameMetadata MetadataRegistry::GetAlfredMetadata() {
   return fred::AlfredClient::getMetadata();
 }
 
-DataFrameMetadata MetadataRegistry::GetCrossSectionalMetadata(CrossSectionalDataCategory category) {
-  // Cross-sectional economic indicators use the same schema as ALFRED
-  // (published_at index, observation_date, value, revision columns)
-  auto metadata = fred::AlfredClient::getMetadata();
-
-  // Update description to be specific to the category
-  metadata.description = "Cross-sectional economic indicator: " +
-                        CrossSectionalDataCategoryWrapper::ToString(category);
-  metadata.data_type = "economic_indicator";
-
-  return metadata;
-}
-
 DataFrameMetadata MetadataRegistry::GetIndicesMetadata(bool is_eod) {
   // Market indices use the same OHLCV schema as AggsClient
   auto metadata = is_eod
@@ -113,8 +100,12 @@ DataFrameMetadata MetadataRegistry::GetMetadata(const std::string& key) {
 
   // Try to parse as CrossSectionalDataCategory (economic indicators)
   try {
-    auto cross_cat = CrossSectionalDataCategoryWrapper::FromString(key);
-    return GetCrossSectionalMetadata(cross_cat);
+    (void)CrossSectionalDataCategoryWrapper::FromString(key);  // Validate it's a valid category
+    // Cross-sectional economic indicators use the same schema as ALFRED
+    auto metadata = fred::AlfredClient::getMetadata();
+    metadata.description = "Cross-sectional economic indicator: " + key;
+    metadata.data_type = "economic_indicator";
+    return metadata;
   } catch (const std::exception&) {
     // Not a cross-sectional category, continue to DataCategory
   }

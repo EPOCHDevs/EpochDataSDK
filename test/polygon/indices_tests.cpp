@@ -46,10 +46,18 @@ TEST_CASE("PolygonIndicesFetcher - Basic functionality", "[polygon][indices][fet
     REQUIRE(df.contains("l"));
     REQUIRE(df.contains("c"));
 
+    // Verify NO volume columns (indices don't have volume data)
+    REQUIRE_FALSE(df.contains("v"));
+    REQUIRE_FALSE(df.contains("vw"));
+    REQUIRE_FALSE(df.contains("n"));
+
+    // Should only have 4 columns: o, h, l, c
+    REQUIRE(df.num_cols() == 4);
+
     // Verify we have data
     REQUIRE(df.num_rows() > 0);
 
-    std::cout << "SPX data: " << df.num_rows() << " rows\n";
+    std::cout << "SPX data: " << df.num_rows() << " rows, " << df.num_cols() << " cols\n";
   }
 
   SECTION("Fetch VIX data (sync, daily)") {

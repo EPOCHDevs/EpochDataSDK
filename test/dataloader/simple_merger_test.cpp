@@ -49,7 +49,7 @@ TEST_CASE("SimpleMerger - Empty Data Error", "[simple_merger]") {
   auto result = merger.Merge(category_data);
 
   REQUIRE_FALSE(result.has_value());
-  REQUIRE(result.error() == "Cannot merge empty category data");
+  REQUIRE(result.error() == "Cannot merge empty data map");
 }
 
 TEST_CASE("SimpleMerger - All Normalized (DailyBars + Dividends + Splits)", "[simple_merger]") {

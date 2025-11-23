@@ -51,8 +51,20 @@ public:
       return std::unexpected("Polygon API error: " + result.error().message);
     }
 
-    SPDLOG_DEBUG("Successfully fetched {} rows for index {}", result->num_rows(), full_ticker);
-    return std::expected<epoch_frame::DataFrame, std::string>(std::move(*result));
+    // Remove volume columns (v, vw, n) - indices don't have volume data
+    auto df = *result;
+    std::vector<std::string> cols_to_drop;
+    if (df.contains("v")) cols_to_drop.push_back("v");
+    if (df.contains("vw")) cols_to_drop.push_back("vw");
+    if (df.contains("n")) cols_to_drop.push_back("n");
+
+    if (!cols_to_drop.empty()) {
+      df = df.drop(cols_to_drop);
+      SPDLOG_DEBUG("Dropped volume columns from index {}: {} columns removed", full_ticker, cols_to_drop.size());
+    }
+
+    SPDLOG_DEBUG("Successfully fetched {} rows for index {} (OHLC only)", df.num_rows(), full_ticker);
+    return std::expected<epoch_frame::DataFrame, std::string>(std::move(df));
   }
 
   // Async fetch for concurrent operations
@@ -81,8 +93,20 @@ public:
       co_return std::unexpected("Polygon API error: " + result.error().message);
     }
 
-    SPDLOG_DEBUG("Successfully fetched {} rows for index {}", result->num_rows(), full_ticker);
-    co_return std::expected<epoch_frame::DataFrame, std::string>(std::move(*result));
+    // Remove volume columns (v, vw, n) - indices don't have volume data
+    auto df = *result;
+    std::vector<std::string> cols_to_drop;
+    if (df.contains("v")) cols_to_drop.push_back("v");
+    if (df.contains("vw")) cols_to_drop.push_back("vw");
+    if (df.contains("n")) cols_to_drop.push_back("n");
+
+    if (!cols_to_drop.empty()) {
+      df = df.drop(cols_to_drop);
+      SPDLOG_DEBUG("Dropped volume columns from index {}: {} columns removed", full_ticker, cols_to_drop.size());
+    }
+
+    SPDLOG_DEBUG("Successfully fetched {} rows for index {} (OHLC only)", df.num_rows(), full_ticker);
+    co_return std::expected<epoch_frame::DataFrame, std::string>(std::move(df));
   }
 
 private:

@@ -28,13 +28,6 @@ public:
   static DataFrameMetadata GetAlfredMetadata();
 
   /**
-   * Get metadata for cross-sectional economic indicators
-   * @param category The cross-sectional data category
-   * @return DataFrameMetadata with ALFRED schema (same as GetAlfredMetadata)
-   */
-  static DataFrameMetadata GetCrossSectionalMetadata(CrossSectionalDataCategory category);
-
-  /**
    * Get metadata for market indices data
    * @param is_eod True for daily bars (normalized index), false for minute bars (non-normalized)
    * @return DataFrameMetadata with OHLC schema (without v, vw, and n)
