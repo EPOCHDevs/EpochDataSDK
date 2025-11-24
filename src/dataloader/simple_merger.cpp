@@ -250,8 +250,8 @@ SimpleMerger::MergeMixedData(
   // Create new table with filtered rows
   auto new_table = arrow::Table::Make(merged_normalized.table()->schema(), new_columns);
 
-  // Create new index with aligned timestamps
-  auto new_index = epoch_frame::factory::index::make_datetime_index(aligned_timestamps);
+  // Create new index with aligned timestamps (always UTC)
+  auto new_index = epoch_frame::factory::index::make_datetime_index(aligned_timestamps, "", "UTC");
   auto reindexed_normalized = merged_normalized.from_base(new_index, new_table);
 
   // Step 6: Concat both DataFrames (no forward-fill needed!)
