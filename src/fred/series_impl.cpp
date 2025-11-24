@@ -167,7 +167,8 @@ SeriesImpl::fetchSeries(const std::string &series_id,
   q.emplace_back("limit", "100000");  // FRED default/max limit per request
 
   const std::string path = "/fred/series/observations";
-  auto bodyRes = httpGet(path, q);
+  constexpr int max_retries = 3; // Retry up to 3 times with exponential backoff
+  auto bodyRes = httpGetWithRetry(path, q, max_retries);
   if (!bodyRes)
     return std::unexpected(bodyRes.error());
 
@@ -206,7 +207,7 @@ SeriesImpl::fetchSeries(const std::string &series_id,
       page_q.emplace_back("offset", std::to_string(current_offset));
     }
 
-    auto page_body_res = httpGet(path, page_q);
+    auto page_body_res = httpGetWithRetry(path, page_q, max_retries);
     if (!page_body_res) {
       SPDLOG_WARN("FRED pagination failed at page {}: {}", page_count, page_body_res.error().message);
       break;
@@ -382,7 +383,8 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
   q.emplace_back("limit", "100000");  // FRED default/max limit per request
 
   const std::string path = "/fred/series/observations";
-  auto bodyRes = co_await httpAsyncGet(path, q);
+  constexpr int max_retries = 3; // Retry up to 3 times with exponential backoff
+  auto bodyRes = co_await httpAsyncGetWithRetry(path, q, max_retries);
   if (!bodyRes)
     co_return std::unexpected(bodyRes.error());
 
@@ -421,7 +423,7 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
       page_q.emplace_back("offset", std::to_string(current_offset));
     }
 
-    auto page_body_res = co_await httpAsyncGet(path, page_q);
+    auto page_body_res = co_await httpAsyncGetWithRetry(path, page_q, max_retries);
     if (!page_body_res) {
       SPDLOG_WARN("FRED pagination (async) failed at page {}: {}", page_count, page_body_res.error().message);
       break;
