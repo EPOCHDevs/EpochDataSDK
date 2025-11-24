@@ -54,8 +54,8 @@ SeriesImpl::fetchSeries(const std::string &series_id,
     constexpr int chunk_years = 3;
 
     if (year_span > chunk_years) {
-      SPDLOG_INFO("FRED realtime period chunking: {}-year span, splitting into {}-year chunks",
-                  year_span, chunk_years);
+      SPDLOG_DEBUG("FRED realtime period chunking: {}-year span, splitting into {}-year chunks",
+                   year_span, chunk_years);
 
       SeriesObservationsResponse result;
       result.observations.clear();
@@ -85,7 +85,7 @@ SeriesImpl::fetchSeries(const std::string &series_id,
 
         if (!chunk_result) {
           const auto& error = chunk_result.error();
-          SPDLOG_WARN("FRED chunk {} failed: {}", chunk_count, error.message);
+          SPDLOG_WARN("FRED chunk {} failed for series_id={}: {}", chunk_count, series_id, error.message);
 
           // Check for specific error types on first chunk
           if (chunk_count == 1) {
@@ -270,8 +270,8 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
     constexpr int chunk_years = 3;
 
     if (year_span > chunk_years) {
-      SPDLOG_INFO("FRED realtime period chunking (async): {}-year span, splitting into {}-year chunks",
-                  year_span, chunk_years);
+      SPDLOG_DEBUG("FRED realtime period chunking (async): {}-year span, splitting into {}-year chunks",
+                   year_span, chunk_years);
 
       SeriesObservationsResponse result;
       result.observations.clear();
@@ -301,7 +301,7 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
 
         if (!chunk_result) {
           const auto& error = chunk_result.error();
-          SPDLOG_WARN("FRED chunk {} (async) failed: {}", chunk_count, error.message);
+          SPDLOG_WARN("FRED chunk {} (async) failed for series_id={}: {}", chunk_count, series_id, error.message);
 
           // Check for specific error types on first chunk
           if (chunk_count == 1) {
