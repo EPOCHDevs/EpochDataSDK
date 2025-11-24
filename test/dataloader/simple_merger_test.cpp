@@ -21,15 +21,15 @@ TEST_CASE("SimpleMerger - Single Category Pass-Through", "[simple_merger]") {
 
   // Create a simple DailyBars DataFrame
   std::vector<DateTime> dates = {
-      DateTime::from_date_str("2024-01-01"),
-      DateTime::from_date_str("2024-01-02"),
-      DateTime::from_date_str("2024-01-03"),
+      DateTime::from_date_str("2024-01-01", "UTC"),
+      DateTime::from_date_str("2024-01-02", "UTC"),
+      DateTime::from_date_str("2024-01-03", "UTC"),
   };
 
   std::vector<double> opens = {100.0, 101.0, 102.0};
   std::vector<double> closes = {101.5, 102.5, 103.5};
 
-  auto index = make_datetime_index(dates);
+  auto index = make_datetime_index(dates, "", "UTC");
   auto expected = make_dataframe<double>(index, {opens, closes}, {"o", "c"});
 
   std::unordered_map<std::string, DataFrame> category_data = {
@@ -57,25 +57,25 @@ TEST_CASE("SimpleMerger - All Normalized (DailyBars + Dividends + Splits)", "[si
 
   // Create shared dates for all categories
   std::vector<DateTime> dates = {
-      DateTime::from_date_str("2024-01-01"),
-      DateTime::from_date_str("2024-01-02"),
-      DateTime::from_date_str("2024-01-03"),
+      DateTime::from_date_str("2024-01-01", "UTC"),
+      DateTime::from_date_str("2024-01-02", "UTC"),
+      DateTime::from_date_str("2024-01-03", "UTC"),
   };
 
   // Create DailyBars DataFrame
   std::vector<double> opens = {100.0, 101.0, 102.0};
   std::vector<double> closes = {101.5, 102.5, 103.5};
-  auto daily_index = make_datetime_index(dates);
+  auto daily_index = make_datetime_index(dates, "", "UTC");
   auto daily_df = make_dataframe<double>(daily_index, {opens, closes}, {"o", "c"});
 
   // Create Dividends DataFrame (prefixed columns) - same dates
   std::vector<double> div_amounts = {0.0, 2.50, 0.0};  // Only 01-02 has dividend
-  auto div_index = make_datetime_index(dates);
+  auto div_index = make_datetime_index(dates, "", "UTC");
   auto div_df = make_dataframe<double>(div_index, {div_amounts}, {"D:cash_amount"});
 
   // Create Splits DataFrame (prefixed columns) - same dates
   std::vector<double> split_ratios = {0.0, 0.0, 2.0};  // Only 01-03 has split
-  auto split_index = make_datetime_index(dates);
+  auto split_index = make_datetime_index(dates, "", "UTC");
   auto split_df = make_dataframe<double>(split_index, {split_ratios}, {"S:split_ratio"});
 
   // Merge all three categories
@@ -90,7 +90,7 @@ TEST_CASE("SimpleMerger - All Normalized (DailyBars + Dividends + Splits)", "[si
   REQUIRE(result.has_value());
 
   // Build expected merged DataFrame
-  auto expected_index = make_datetime_index(dates);
+  auto expected_index = make_datetime_index(dates, "", "UTC");
   auto expected = make_dataframe<double>(
       expected_index,
       {opens, closes, div_amounts, split_ratios},
@@ -108,7 +108,7 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with First-Timestamp Ali
   // This tests mixed merge with first-timestamp alignment (no forward-fill)
 
   // Create MinuteBars DataFrame with intraday timestamps
-  auto base_date = DateTime::from_date_str("2024-01-02");
+  auto base_date = DateTime::from_date_str("2024-01-02", "UTC");
   std::vector<DateTime> minute_times = {
       base_date + std::chrono::hours(9) + std::chrono::minutes(31),
       base_date + std::chrono::hours(9) + std::chrono::minutes(32),
@@ -117,16 +117,16 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with First-Timestamp Ali
   std::vector<double> opens = {100.0, 100.5, 101.0};
   std::vector<double> closes = {100.5, 101.0, 101.5};
 
-  auto minute_index = make_datetime_index(minute_times);
+  auto minute_index = make_datetime_index(minute_times, "", "UTC");
   auto minute_df = make_dataframe<double>(minute_index, {opens, closes}, {"o", "c"});
 
   // Create Dividends DataFrame (midnight UTC for 2024-01-02)
   std::vector<DateTime> div_dates = {
-      DateTime::from_date_str("2024-01-02"),  // midnight
+      DateTime::from_date_str("2024-01-02", "UTC"),  // midnight
   };
   std::vector<double> div_amounts = {2.50};
 
-  auto div_index = make_datetime_index(div_dates);
+  auto div_index = make_datetime_index(div_dates, "", "UTC");
   auto div_df = make_dataframe<double>(div_index, {div_amounts}, {"D:cash_amount"});
 
   // Merge MinuteBars (non-normalized) + Dividends (normalized)
@@ -147,7 +147,7 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with First-Timestamp Ali
       base_date + std::chrono::hours(9) + std::chrono::minutes(33),
   };
 
-  auto expected_index = make_datetime_index(expected_times);
+  auto expected_index = make_datetime_index(expected_times, "", "UTC");
   auto expected = make_dataframe<double>(
       expected_index,
       {
@@ -207,8 +207,8 @@ TEST_CASE("SimpleMerger - Verify IsSameNormalizationPolicy", "[simple_merger]") 
   SimpleMerger merger;
 
   // Create test data with different column names for each category
-  std::vector<DateTime> dates = {DateTime::from_date_str("2024-01-01")};
-  auto index = make_datetime_index(dates);
+  std::vector<DateTime> dates = {DateTime::from_date_str("2024-01-01", "UTC")};
+  auto index = make_datetime_index(dates, "", "UTC");
 
   auto df1 = make_dataframe<double>(index, {std::vector<double>{100.0}}, {"price"});
   auto df2 = make_dataframe<double>(index, {std::vector<double>{2.5}}, {"D:amount"});
@@ -248,8 +248,8 @@ TEST_CASE("SimpleMerger - Mixed Multi-Day First-Timestamp Alignment", "[simple_m
   // is aligned to the first intraday timestamp of that day
 
   // Create MinuteBars for multiple days
-  auto day1 = DateTime::from_date_str("2024-01-02");
-  auto day2 = DateTime::from_date_str("2024-01-03");
+  auto day1 = DateTime::from_date_str("2024-01-02", "UTC");
+  auto day2 = DateTime::from_date_str("2024-01-03", "UTC");
 
   std::vector<DateTime> minute_times = {
       // Day 1: First bar at 09:31
@@ -263,17 +263,17 @@ TEST_CASE("SimpleMerger - Mixed Multi-Day First-Timestamp Alignment", "[simple_m
   };
   std::vector<double> prices = {100.0, 100.5, 101.0, 102.0, 102.5, 103.0};
 
-  auto minute_index = make_datetime_index(minute_times);
+  auto minute_index = make_datetime_index(minute_times, "", "UTC");
   auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
 
   // Create DailyBars (normalized) for same days
   std::vector<DateTime> daily_dates = {
-      DateTime::from_date_str("2024-01-02"),
-      DateTime::from_date_str("2024-01-03"),
+      DateTime::from_date_str("2024-01-02", "UTC"),
+      DateTime::from_date_str("2024-01-03", "UTC"),
   };
   std::vector<double> daily_volumes = {1000000.0, 1100000.0};
 
-  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_index = make_datetime_index(daily_dates, "", "UTC");
   auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
 
   // Merge
@@ -286,7 +286,7 @@ TEST_CASE("SimpleMerger - Mixed Multi-Day First-Timestamp Alignment", "[simple_m
   REQUIRE(result.has_value());
 
   // Expected: Daily volume appears only at first minute bar of each day
-  auto expected_index = make_datetime_index(minute_times);
+  auto expected_index = make_datetime_index(minute_times, "", "UTC");
   auto expected = make_dataframe<double>(
       expected_index,
       {
@@ -306,26 +306,26 @@ TEST_CASE("SimpleMerger - Mixed with Non-Overlapping Dates", "[simple_merger]") 
   // Those dates should be filtered out
 
   // Create MinuteBars for 2024-01-02 only
-  auto day1 = DateTime::from_date_str("2024-01-02");
+  auto day1 = DateTime::from_date_str("2024-01-02", "UTC");
   std::vector<DateTime> minute_times = {
       day1 + std::chrono::hours(9) + std::chrono::minutes(31),
       day1 + std::chrono::hours(9) + std::chrono::minutes(32),
   };
   std::vector<double> prices = {100.0, 100.5};
 
-  auto minute_index = make_datetime_index(minute_times);
+  auto minute_index = make_datetime_index(minute_times, "", "UTC");
   auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
 
   // Create DailyBars for 2024-01-01, 2024-01-02, and 2024-01-03
   // Only 2024-01-02 overlaps with intraday data
   std::vector<DateTime> daily_dates = {
-      DateTime::from_date_str("2024-01-01"),  // No intraday data
-      DateTime::from_date_str("2024-01-02"),  // Has intraday data
-      DateTime::from_date_str("2024-01-03"),  // No intraday data
+      DateTime::from_date_str("2024-01-01", "UTC"),  // No intraday data
+      DateTime::from_date_str("2024-01-02", "UTC"),  // Has intraday data
+      DateTime::from_date_str("2024-01-03", "UTC"),  // No intraday data
   };
   std::vector<double> daily_volumes = {900000.0, 1000000.0, 1100000.0};
 
-  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_index = make_datetime_index(daily_dates, "", "UTC");
   auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
 
   // Merge
@@ -339,7 +339,7 @@ TEST_CASE("SimpleMerger - Mixed with Non-Overlapping Dates", "[simple_merger]") 
 
   // Expected: Only 2 rows (from intraday), volume only at first bar of 2024-01-02
   // 2024-01-01 and 2024-01-03 daily data are filtered out
-  auto expected_index = make_datetime_index(minute_times);
+  auto expected_index = make_datetime_index(minute_times, "", "UTC");
   auto expected = make_dataframe<double>(
       expected_index,
       {
@@ -359,24 +359,24 @@ TEST_CASE("SimpleMerger - Mixed with No Overlapping Dates", "[simple_merger]") {
   // Should return just the intraday data
 
   // Create MinuteBars for 2024-01-02
-  auto day1 = DateTime::from_date_str("2024-01-02");
+  auto day1 = DateTime::from_date_str("2024-01-02", "UTC");
   std::vector<DateTime> minute_times = {
       day1 + std::chrono::hours(9) + std::chrono::minutes(31),
       day1 + std::chrono::hours(9) + std::chrono::minutes(32),
   };
   std::vector<double> prices = {100.0, 100.5};
 
-  auto minute_index = make_datetime_index(minute_times);
+  auto minute_index = make_datetime_index(minute_times, "", "UTC");
   auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
 
   // Create DailyBars for completely different dates
   std::vector<DateTime> daily_dates = {
-      DateTime::from_date_str("2024-01-10"),
-      DateTime::from_date_str("2024-01-11"),
+      DateTime::from_date_str("2024-01-10", "UTC"),
+      DateTime::from_date_str("2024-01-11", "UTC"),
   };
   std::vector<double> daily_volumes = {1000000.0, 1100000.0};
 
-  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_index = make_datetime_index(daily_dates, "", "UTC");
   auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
 
   // Merge
