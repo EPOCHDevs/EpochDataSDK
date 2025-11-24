@@ -100,130 +100,7 @@ public:
           std::optional<std::string> from,
           std::optional<std::string> to,
           std::optional<int> limit) const {
-
-    std::vector<std::pair<std::string, std::string>> q;
-    if (ticker.has_value())
-      q.emplace_back("ticker", *ticker);
-    if (from.has_value())
-      q.emplace_back("published_utc.gte", *from);
-    if (to.has_value())
-      q.emplace_back("published_utc.lte", *to);
-    if (limit.has_value())
-      q.emplace_back("limit", std::to_string(*limit));
-
-    // Always sort by published_utc ascending for consistent backtesting
-    q.emplace_back("sort", "published_utc");
-    q.emplace_back("order", "asc");
-
-    const std::string path = "/v2/reference/news";
-    auto bodyRes = httpGet(path, q);
-    if (!bodyRes)
-      return std::unexpected(bodyRes.error());
-
-    NewsResponse parsed{};
-    if (auto ec = glz::read_json(parsed, std::string_view(*bodyRes)); ec) {
-      return makeError<epoch_frame::DataFrame>(
-          200, "Failed to parse news JSON response", nullptr);
-    }
-
-    const auto N = parsed.results.size();
-    std::vector<std::optional<std::string>> ids, titles, authors, urls, amp_urls, image_urls;
-    std::vector<std::optional<std::string>> publisher_names, publisher_homepages, publisher_logos, publisher_favicons;
-    std::vector<std::optional<std::string>> descriptions, tickers_str, keywords_str;
-    std::vector<std::string> published_times; // Still need strings for timestamp parsing
-
-    ids.reserve(N);
-    published_times.reserve(N);
-    titles.reserve(N);
-    authors.reserve(N);
-    urls.reserve(N);
-    amp_urls.reserve(N);
-    image_urls.reserve(N);
-    publisher_names.reserve(N);
-    publisher_homepages.reserve(N);
-    publisher_logos.reserve(N);
-    publisher_favicons.reserve(N);
-    descriptions.reserve(N);
-    tickers_str.reserve(N);
-    keywords_str.reserve(N);
-
-    for (const auto &r : parsed.results) {
-      ids.push_back(r.id);
-      published_times.push_back(r.published_utc.value_or(""));  // Need string for parsing
-      titles.push_back(r.title);
-      authors.push_back(r.author);
-      urls.push_back(r.article_url);
-      amp_urls.push_back(r.amp_url);
-      image_urls.push_back(r.image_url);
-      descriptions.push_back(r.description);
-
-      // Extract all publisher fields
-      std::optional<std::string> pub_name = std::nullopt;
-      std::optional<std::string> pub_homepage = std::nullopt;
-      std::optional<std::string> pub_logo = std::nullopt;
-      std::optional<std::string> pub_favicon = std::nullopt;
-      if (r.publisher.has_value()) {
-        if (r.publisher->name.has_value()) pub_name = *r.publisher->name;
-        if (r.publisher->homepage_url.has_value()) pub_homepage = *r.publisher->homepage_url;
-        if (r.publisher->logo_url.has_value()) pub_logo = *r.publisher->logo_url;
-        if (r.publisher->favicon_url.has_value()) pub_favicon = *r.publisher->favicon_url;
-      }
-      publisher_names.push_back(pub_name);
-      publisher_homepages.push_back(pub_homepage);
-      publisher_logos.push_back(pub_logo);
-      publisher_favicons.push_back(pub_favicon);
-
-      // Join tickers into comma-separated string, or nullopt if none
-      std::optional<std::string> tickers_joined = std::nullopt;
-      if (r.tickers.has_value() && !r.tickers->empty()) {
-        std::string joined = "";
-        for (size_t i = 0; i < r.tickers->size(); ++i) {
-          if (i > 0) joined += ",";
-          joined += (*r.tickers)[i];
-        }
-        tickers_joined = joined;
-      }
-      tickers_str.push_back(tickers_joined);
-
-      // Join keywords into comma-separated string, or nullopt if none
-      std::optional<std::string> keywords_joined = std::nullopt;
-      if (r.keywords.has_value() && !r.keywords->empty()) {
-        std::string joined = "";
-        for (size_t i = 0; i < r.keywords->size(); ++i) {
-          if (i > 0) joined += ",";
-          joined += (*r.keywords)[i];
-        }
-        keywords_joined = joined;
-      }
-      keywords_str.push_back(keywords_joined);
-    }
-
-    // Convert RFC3339 published_utc strings to nanosecond timestamps
-    auto timestamps = parseRFC3339ToNanoseconds(published_times);
-    auto index = epoch_frame::factory::index::make_datetime_index(
-        timestamps, "published_utc", "UTC");
-
-    std::vector<std::string> columns = {
-        "id", "title", "author", "description",
-        "article_url", "amp_url", "image_url",
-        "tickers", "keywords",
-        "publisher_name", "publisher_homepage", "publisher_logo", "publisher_favicon"};
-    std::vector<arrow::ChunkedArrayPtr> arrays{
-        makeNullableStringArray(ids),
-        makeNullableStringArray(titles),
-        makeNullableStringArray(authors),
-        makeNullableStringArray(descriptions),
-        makeNullableStringArray(urls),
-        makeNullableStringArray(amp_urls),
-        makeNullableStringArray(image_urls),
-        makeNullableStringArray(tickers_str),
-        makeNullableStringArray(keywords_str),
-        makeNullableStringArray(publisher_names),
-        makeNullableStringArray(publisher_homepages),
-        makeNullableStringArray(publisher_logos),
-        makeNullableStringArray(publisher_favicons)};
-
-    return epoch_frame::make_dataframe(index, arrays, columns);
+    return drogon::sync_wait(getNewsAsync(ticker, from, to, limit));
   }
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
@@ -329,8 +206,21 @@ public:
       keywords_str.push_back(keywords_joined);
     }
 
-    // Convert RFC3339 published_utc strings to nanosecond timestamps
-    auto timestamps = parseRFC3339ToNanoseconds(published_times);
+    // Normalize published_utc timestamps to midnight UTC (date-only)
+    // Extract date portion (YYYY-MM-DD) from RFC3339 timestamps
+    std::vector<std::string> published_dates;
+    published_dates.reserve(published_times.size());
+    for (const auto& ts_str : published_times) {
+      if (ts_str.size() >= 10) {
+        // Extract "YYYY-MM-DD" from "YYYY-MM-DDTHH:MM:SSZ"
+        published_dates.push_back(ts_str.substr(0, 10));
+      } else {
+        published_dates.push_back("");
+      }
+    }
+
+    // Convert to midnight UTC timestamps (normalized index)
+    auto timestamps = parseDateStringsToMidnightUTC(published_dates);
     auto index = epoch_frame::factory::index::make_datetime_index(
         timestamps, "published_utc", "UTC");
 
@@ -354,7 +244,13 @@ public:
         makeNullableStringArray(publisher_logos),
         makeNullableStringArray(publisher_favicons)};
 
-    co_return epoch_frame::make_dataframe(index, arrays, columns);
+    auto df = epoch_frame::make_dataframe(index, arrays, columns);
+
+    // Drop duplicates: if multiple news articles on same day, keep the last one
+    // (API returns sorted by published_utc ascending, so last = most recent)
+    auto df_deduped = df.drop_duplicates(epoch_frame::DropDuplicatesKeepPolicy::Last);
+
+    co_return df_deduped;
   }
 };
 
@@ -385,7 +281,7 @@ DataFrameMetadata NewsClient::getMetadata() {
       .data_type = "news",
       .description = "Retrieve the most recent news articles related to a specified ticker, along with summaries, source details, and sentiment analysis. This endpoint consolidates relevant financial news in one place, extracting associated tickers, assigning sentiment, and providing direct links to the original sources. By incorporating publisher information, article metadata, and sentiment reasoning, users can quickly gauge market sentiment, stay informed on company developments, and integrate news insights into their trading or research workflows. Use Cases: Market sentiment analysis, investment research, automated monitoring, and portfolio strategy refinement.",
       .asset_class = AssetClass::Stocks,
-      .index_normalized = false,
+      .index_normalized = true,  // News index normalized to midnight UTC (date-only); if multiple articles per day, keeps last (most recent)
       .category_prefix = "N:",
       .columns = {
           {.id = "id",

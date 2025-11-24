@@ -197,7 +197,7 @@ TEST_CASE("SimpleMerger - Mixed Normalized Status Check", "[simple_merger]") {
 
   // Verify News is non-normalized (timestamped events)
   auto news_metadata = MetadataRegistry::GetMetadataForCategory(DataCategory::News);
-  REQUIRE(news_metadata.index_normalized == false);
+  REQUIRE(news_metadata.index_normalized == true);
 
   // Verify Dividends is normalized (date-based events)
   auto div_metadata = MetadataRegistry::GetMetadataForCategory(DataCategory::Dividends);
