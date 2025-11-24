@@ -2,6 +2,8 @@
 #include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <spdlog/spdlog.h>
 #include <epoch_frame/common.h>
+#include <epoch_frame/factory/index_factory.h>
+#include <arrow/compute/api.h>
 
 namespace data_sdk::dataloader {
 
@@ -162,20 +164,108 @@ SimpleMerger::MergeMixedData(
   }
   auto merged_normalized = *merged_normalized_result;
 
-  // Step 3: Concat both DataFrames with outer join (keeps all timestamps)
+  // Step 3: Build mapping from date -> first intraday timestamp of that day
+  auto intraday_ts_array = merged_intraday.index()->array().to_timestamp_view();
+
+  // Map: normalized date (midnight UTC nanoseconds) -> first intraday timestamp (nanoseconds)
+  std::unordered_map<int64_t, int64_t> date_to_first_ts;
+
+  constexpr int64_t NANOS_PER_DAY = 86400000000000LL;  // 24 * 60 * 60 * 1e9
+
+  for (int64_t i = 0; i < intraday_ts_array->length(); ++i) {
+    if (!intraday_ts_array->IsNull(i)) {
+      int64_t ts_nanos = intraday_ts_array->Value(i);
+      // Normalize to midnight UTC (date) by truncating to day boundary
+      int64_t date_nanos = (ts_nanos / NANOS_PER_DAY) * NANOS_PER_DAY;
+
+      // Keep only the first timestamp for each date
+      if (date_to_first_ts.find(date_nanos) == date_to_first_ts.end()) {
+        date_to_first_ts[date_nanos] = ts_nanos;
+      }
+    }
+  }
+
+  SPDLOG_DEBUG("SimpleMerger: Found {} unique days in intraday data", date_to_first_ts.size());
+
+  // Step 4: Reindex normalized data to use first intraday timestamp per day
+  // Build a map from old timestamp to new timestamp for all matching dates
+  auto normalized_ts_array = merged_normalized.index()->array().to_timestamp_view();
+
+  std::vector<int64_t> aligned_timestamps;
+  std::vector<int64_t> rows_to_keep;
+
+  for (int64_t i = 0; i < normalized_ts_array->length(); ++i) {
+    if (!normalized_ts_array->IsNull(i)) {
+      int64_t date_nanos = normalized_ts_array->Value(i);  // Already normalized to midnight
+
+      // Check if this date has intraday data
+      auto it = date_to_first_ts.find(date_nanos);
+      if (it != date_to_first_ts.end()) {
+        aligned_timestamps.push_back(it->second);  // Use first intraday timestamp
+        rows_to_keep.push_back(i);
+      }
+      // Skip dates without intraday data
+    }
+  }
+
+  if (rows_to_keep.empty()) {
+    SPDLOG_WARN("SimpleMerger: No date overlap between normalized and intraday data");
+    // Return just the intraday data if there's no overlap
+    return merged_intraday;
+  }
+
+  SPDLOG_DEBUG("SimpleMerger: Aligning {} normalized dates to first intraday timestamps",
+               rows_to_keep.size());
+
+  // Step 5: Use Arrow's Take to select specific rows from the table
+  arrow::Int64Builder indices_builder;
+  auto append_status = indices_builder.AppendValues(rows_to_keep);
+  if (!append_status.ok()) {
+    return std::unexpected("Failed to append indices: " + append_status.ToString());
+  }
+
+  auto indices_result = indices_builder.Finish();
+  if (!indices_result.ok()) {
+    return std::unexpected("Failed to build indices array: " + indices_result.status().ToString());
+  }
+
+  // Take columns from the normalized table using the indices
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> new_columns;
+  for (int col_idx = 0; col_idx < merged_normalized.table()->num_columns(); ++col_idx) {
+    auto column = merged_normalized.table()->column(col_idx);
+
+    // Take from each chunk
+    std::vector<std::shared_ptr<arrow::Array>> taken_chunks;
+    for (int chunk_idx = 0; chunk_idx < column->num_chunks(); ++chunk_idx) {
+      auto take_result = arrow::compute::Take(column->chunk(chunk_idx), *indices_result);
+      if (!take_result.ok()) {
+        return std::unexpected("Failed to take rows: " + take_result.status().ToString());
+      }
+      taken_chunks.push_back(take_result.ValueOrDie().make_array());
+    }
+
+    new_columns.push_back(std::make_shared<arrow::ChunkedArray>(taken_chunks));
+  }
+
+  // Create new table with filtered rows
+  auto new_table = arrow::Table::Make(merged_normalized.table()->schema(), new_columns);
+
+  // Create new index with aligned timestamps
+  auto new_index = epoch_frame::factory::index::make_datetime_index(aligned_timestamps);
+  auto reindexed_normalized = merged_normalized.from_base(new_index, new_table);
+
+  // Step 6: Concat both DataFrames (no forward-fill needed!)
   std::vector<epoch_frame::FrameOrSeries> frames;
   frames.push_back(merged_intraday);
-  frames.push_back(merged_normalized);
+  frames.push_back(reindexed_normalized);
+
   epoch_frame::ConcatOptions options;
   options.frames = std::move(frames);
   options.joinType = epoch_frame::JoinType::Outer;
   options.axis = epoch_frame::AxisType::Column;
   options.sort = true;
 
-  auto concat_result = epoch_frame::concat(options);
-
-  // Step 4: Forward-fill to propagate normalized values to intraday timestamps
-  auto result = concat_result.ffill();
+  auto result = epoch_frame::concat(options);
 
   SPDLOG_DEBUG("SimpleMerger: Merged mixed data into {} rows × {} columns",
                result.num_rows(), result.num_cols());

@@ -14,6 +14,7 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <epoch_frame/datetime.h>
 
 #include "error.hpp"
 #include "options.hpp"
@@ -75,8 +76,27 @@ private:
 };
 
 // Helper function for FRED timestamp conversion
-// Convert date strings ("YYYY-MM-DD") to nanoseconds since epoch (UTC midnight)
-// Returns vector of int64_t timestamps using Arrow's strptime
+// Convert date strings ("YYYY-MM-DD") to DateTime objects with UTC timezone
+// Returns vector of DateTime objects, ensuring proper UTC timezone handling
+inline std::vector<epoch_frame::DateTime> parseDateStringsToDateTimes(
+    const std::vector<std::string>& date_strings) {
+
+  std::vector<epoch_frame::DateTime> datetimes;
+  datetimes.reserve(date_strings.size());
+
+  for (const auto& date_str : date_strings) {
+    if (date_str.empty()) {
+      // For null dates, use epoch as placeholder
+      datetimes.push_back(epoch_frame::DateTime::fromtimestamp(0, "UTC"));
+    } else {
+      // Parse date string as UTC midnight
+      datetimes.push_back(epoch_frame::DateTime::from_date_str(date_str, "UTC"));
+    }
+  }
+
+  return datetimes;
+}
+
 inline std::vector<int64_t> parseDateStringsToNanoseconds(
     const std::vector<std::string>& date_strings) {
 
@@ -86,7 +106,6 @@ inline std::vector<int64_t> parseDateStringsToNanoseconds(
   if (!status.ok()) {
     throw std::runtime_error("Failed to reserve string builder: " + status.ToString());
   }
-
   for (const auto& date_str : date_strings) {
     if (date_str.empty()) {
       auto append_status = string_builder.AppendNull();
@@ -110,12 +129,21 @@ inline std::vector<int64_t> parseDateStringsToNanoseconds(
   arrow::compute::StrptimeOptions options("%Y-%m-%d", arrow::TimeUnit::NANO, false);
   options.error_is_null = true;  // Invalid dates become null instead of throwing error
 
-  auto maybe_result = arrow::compute::CallFunction("strptime", {*string_array_result}, &options);
+  auto maybe_result = arrow::compute::Strptime({*string_array_result}, options);
   if (!maybe_result.ok()) {
     throw std::runtime_error("Failed to parse dates with strptime: " + maybe_result.status().ToString());
   }
 
-  auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>((*maybe_result).make_array());
+  auto timestamp_array_no_tz = (*maybe_result).make_array();
+
+  // Localize to UTC using AssumeTimezone
+  arrow::compute::AssumeTimezoneOptions tz_opts("UTC");
+  auto localize_result = arrow::compute::AssumeTimezone(timestamp_array_no_tz, tz_opts);
+  if (!localize_result.ok()) {
+    throw std::runtime_error("Failed to localize to UTC: " + localize_result.status().ToString());
+  }
+
+  auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>((*localize_result).make_array());
 
   // Extract timestamps into vector
   std::vector<int64_t> timestamps;

@@ -100,12 +100,12 @@ TEST_CASE("SimpleMerger - All Normalized (DailyBars + Dividends + Splits)", "[si
   REQUIRE(result->equals(expected));
 }
 
-TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with Forward-Fill)", "[simple_merger]") {
+TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with First-Timestamp Alignment)", "[simple_merger]") {
   SimpleMerger merger;
 
   // MinuteBars is non-normalized (intraday timestamps)
   // Dividends is normalized (midnight UTC)
-  // This tests mixed merge with forward-fill
+  // This tests mixed merge with first-timestamp alignment (no forward-fill)
 
   // Create MinuteBars DataFrame with intraday timestamps
   auto base_date = DateTime::from_date_str("2024-01-02");
@@ -139,11 +139,10 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with Forward-Fill)", "[s
 
   REQUIRE(result.has_value());
 
-  // Build expected: outer join creates 4 rows (midnight + 3 intraday)
-  // Forward-fill propagates dividend value from midnight to all intraday bars
+  // Build expected: 3 rows (only intraday bars, no midnight row)
+  // Dividend value appears ONLY at first intraday timestamp (09:31), NaN elsewhere
   std::vector<DateTime> expected_times = {
-      base_date,  // midnight (dividend only)
-      base_date + std::chrono::hours(9) + std::chrono::minutes(31),
+      base_date + std::chrono::hours(9) + std::chrono::minutes(31),  // dividend aligned here
       base_date + std::chrono::hours(9) + std::chrono::minutes(32),
       base_date + std::chrono::hours(9) + std::chrono::minutes(33),
   };
@@ -152,9 +151,9 @@ TEST_CASE("SimpleMerger - Mixed (MinuteBars + Dividends with Forward-Fill)", "[s
   auto expected = make_dataframe<double>(
       expected_index,
       {
-          {std::nan(""), 100.0, 100.5, 101.0},     // o (NaN at midnight)
-          {std::nan(""), 100.5, 101.0, 101.5},     // c (NaN at midnight)
-          {2.50, 2.50, 2.50, 2.50}                 // D:cash_amount (forward-filled)
+          {100.0, 100.5, 101.0},                        // o
+          {100.5, 101.0, 101.5},                        // c
+          {2.50, std::nan(""), std::nan("")}            // D:cash_amount (only at first timestamp)
       },
       {"o", "c", "D:cash_amount"}
   );
@@ -240,4 +239,155 @@ TEST_CASE("SimpleMerger - Verify IsSameNormalizationPolicy", "[simple_merger]") 
   result = merger.Merge(single_cat);
   REQUIRE(result.has_value());
   REQUIRE(result->equals(df1));
+}
+
+TEST_CASE("SimpleMerger - Mixed Multi-Day First-Timestamp Alignment", "[simple_merger]") {
+  SimpleMerger merger;
+
+  // Test alignment across multiple days to ensure each day's normalized data
+  // is aligned to the first intraday timestamp of that day
+
+  // Create MinuteBars for multiple days
+  auto day1 = DateTime::from_date_str("2024-01-02");
+  auto day2 = DateTime::from_date_str("2024-01-03");
+
+  std::vector<DateTime> minute_times = {
+      // Day 1: First bar at 09:31
+      day1 + std::chrono::hours(9) + std::chrono::minutes(31),
+      day1 + std::chrono::hours(9) + std::chrono::minutes(32),
+      day1 + std::chrono::hours(10) + std::chrono::minutes(0),
+      // Day 2: First bar at 09:30 (different from day 1)
+      day2 + std::chrono::hours(9) + std::chrono::minutes(30),
+      day2 + std::chrono::hours(9) + std::chrono::minutes(35),
+      day2 + std::chrono::hours(10) + std::chrono::minutes(0),
+  };
+  std::vector<double> prices = {100.0, 100.5, 101.0, 102.0, 102.5, 103.0};
+
+  auto minute_index = make_datetime_index(minute_times);
+  auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
+
+  // Create DailyBars (normalized) for same days
+  std::vector<DateTime> daily_dates = {
+      DateTime::from_date_str("2024-01-02"),
+      DateTime::from_date_str("2024-01-03"),
+  };
+  std::vector<double> daily_volumes = {1000000.0, 1100000.0};
+
+  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
+
+  // Merge
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::MinuteBars), minute_df},
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), daily_df},
+  };
+
+  auto result = merger.Merge(category_data);
+  REQUIRE(result.has_value());
+
+  // Expected: Daily volume appears only at first minute bar of each day
+  auto expected_index = make_datetime_index(minute_times);
+  auto expected = make_dataframe<double>(
+      expected_index,
+      {
+          {100.0, 100.5, 101.0, 102.0, 102.5, 103.0},                                        // close
+          {1000000.0, std::nan(""), std::nan(""), 1100000.0, std::nan(""), std::nan("")}     // volume (only at first bars)
+      },
+      {"close", "volume"}
+  );
+
+  REQUIRE(result->equals(expected));
+}
+
+TEST_CASE("SimpleMerger - Mixed with Non-Overlapping Dates", "[simple_merger]") {
+  SimpleMerger merger;
+
+  // Test when normalized data has dates without intraday data
+  // Those dates should be filtered out
+
+  // Create MinuteBars for 2024-01-02 only
+  auto day1 = DateTime::from_date_str("2024-01-02");
+  std::vector<DateTime> minute_times = {
+      day1 + std::chrono::hours(9) + std::chrono::minutes(31),
+      day1 + std::chrono::hours(9) + std::chrono::minutes(32),
+  };
+  std::vector<double> prices = {100.0, 100.5};
+
+  auto minute_index = make_datetime_index(minute_times);
+  auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
+
+  // Create DailyBars for 2024-01-01, 2024-01-02, and 2024-01-03
+  // Only 2024-01-02 overlaps with intraday data
+  std::vector<DateTime> daily_dates = {
+      DateTime::from_date_str("2024-01-01"),  // No intraday data
+      DateTime::from_date_str("2024-01-02"),  // Has intraday data
+      DateTime::from_date_str("2024-01-03"),  // No intraday data
+  };
+  std::vector<double> daily_volumes = {900000.0, 1000000.0, 1100000.0};
+
+  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
+
+  // Merge
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::MinuteBars), minute_df},
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), daily_df},
+  };
+
+  auto result = merger.Merge(category_data);
+  REQUIRE(result.has_value());
+
+  // Expected: Only 2 rows (from intraday), volume only at first bar of 2024-01-02
+  // 2024-01-01 and 2024-01-03 daily data are filtered out
+  auto expected_index = make_datetime_index(minute_times);
+  auto expected = make_dataframe<double>(
+      expected_index,
+      {
+          {100.0, 100.5},                        // close
+          {1000000.0, std::nan("")}              // volume (only at first bar)
+      },
+      {"close", "volume"}
+  );
+
+  REQUIRE(result->equals(expected));
+}
+
+TEST_CASE("SimpleMerger - Mixed with No Overlapping Dates", "[simple_merger]") {
+  SimpleMerger merger;
+
+  // Test when normalized data has NO dates with intraday data
+  // Should return just the intraday data
+
+  // Create MinuteBars for 2024-01-02
+  auto day1 = DateTime::from_date_str("2024-01-02");
+  std::vector<DateTime> minute_times = {
+      day1 + std::chrono::hours(9) + std::chrono::minutes(31),
+      day1 + std::chrono::hours(9) + std::chrono::minutes(32),
+  };
+  std::vector<double> prices = {100.0, 100.5};
+
+  auto minute_index = make_datetime_index(minute_times);
+  auto minute_df = make_dataframe<double>(minute_index, {prices}, {"close"});
+
+  // Create DailyBars for completely different dates
+  std::vector<DateTime> daily_dates = {
+      DateTime::from_date_str("2024-01-10"),
+      DateTime::from_date_str("2024-01-11"),
+  };
+  std::vector<double> daily_volumes = {1000000.0, 1100000.0};
+
+  auto daily_index = make_datetime_index(daily_dates);
+  auto daily_df = make_dataframe<double>(daily_index, {daily_volumes}, {"volume"});
+
+  // Merge
+  std::unordered_map<std::string, DataFrame> category_data = {
+      {DataCategoryWrapper::ToString(DataCategory::MinuteBars), minute_df},
+      {DataCategoryWrapper::ToString(DataCategory::DailyBars), daily_df},
+  };
+
+  auto result = merger.Merge(category_data);
+  REQUIRE(result.has_value());
+
+  // Expected: Just the intraday data (no daily columns since no overlap)
+  REQUIRE(result->equals(minute_df));
 }
