@@ -147,6 +147,7 @@ data_sdk::DataFrameMetadata FredClient::getMetadata() {
       .description = "Federal Reserve Economic Data (FRED) provides 'the most accurate information about the past that is available today.' This client retrieves current, fully-revised economic time series data indexed by observation date. FRED automatically sets the real-time period to today's date, returning the latest published values for each observation period. Economic statistics are frequently revised as more complete information becomes available—FRED always provides the most recent revision. The DataFrame contains one row per observation date (e.g., one value per month for monthly data). Index: observation_date (the economic measurement period). Column: value (the latest revised data point). Ideal for current economic analysis, visualization, policy research, and applications that need today's best understanding of historical economic conditions. For backtesting or studying how data was known at specific historical moments (before later revisions), use AlfredClient to access vintage data and avoid lookahead bias.",
       .asset_class = std::nullopt,  // Economic data doesn't fit into asset classes
       .index_normalized = true,
+      .category_prefix = "ECON:",  // prefix for timeseries data
       .columns = {
           {.id = "value",
            .name = "Value",
