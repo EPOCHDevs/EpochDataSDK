@@ -58,7 +58,11 @@ BaseClient::parseIntHeader(const drogon::HttpResponsePtr &resp,
     return std::nullopt;
   try {
     return std::stoi(v);
-  } catch (...) {
+  } catch (const std::invalid_argument& e) {
+    SPDLOG_DEBUG("Invalid integer in header '{}': '{}' - {}", key, v, e.what());
+    return std::nullopt;
+  } catch (const std::out_of_range& e) {
+    SPDLOG_WARN("Integer overflow in header '{}': '{}' - {}", key, v, e.what());
     return std::nullopt;
   }
 }
@@ -268,13 +272,15 @@ Expected<T> BaseClient::makeError(int status, std::string_view message,
     if (!rem.empty()) {
       try {
         e.rate_limit_remaining = std::stoi(rem);
-      } catch (...) {
+      } catch (const std::exception& ex) {
+        SPDLOG_DEBUG("Failed to parse rate limit remaining header '{}': {}", rem, ex.what());
       }
     }
     if (!lim.empty()) {
       try {
         e.rate_limit_limit = std::stoi(lim);
-      } catch (...) {
+      } catch (const std::exception& ex) {
+        SPDLOG_DEBUG("Failed to parse rate limit limit header '{}': {}", lim, ex.what());
       }
     }
   }

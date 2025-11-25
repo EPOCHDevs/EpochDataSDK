@@ -87,9 +87,9 @@ AssetSpecification
 AssetSpecificationDatabase::GetAssetSpecification(data_sdk::Symbol const &id) const {
   try {
     return m_storage.at(id.get());
-  } catch (std::out_of_range const &) {
-    std::cerr << "AssetNotFound: id is " << id;
-    throw;
+  } catch (const std::out_of_range&) {
+    SPDLOG_ERROR("Asset not found in database: id={}", id.get());
+    throw std::runtime_error("Asset not found: " + id.get());
   }
 }
 

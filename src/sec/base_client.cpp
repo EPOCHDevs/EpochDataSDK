@@ -56,7 +56,11 @@ BaseClient::parseIntHeader(const drogon::HttpResponsePtr &resp,
     return std::nullopt;
   try {
     return std::stoi(v);
-  } catch (...) {
+  } catch (const std::invalid_argument& e) {
+    SPDLOG_DEBUG("Invalid integer in header '{}': '{}' - {}", key, v, e.what());
+    return std::nullopt;
+  } catch (const std::out_of_range& e) {
+    SPDLOG_WARN("Integer overflow in header '{}': '{}' - {}", key, v, e.what());
     return std::nullopt;
   }
 }

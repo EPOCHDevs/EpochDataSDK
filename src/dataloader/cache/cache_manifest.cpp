@@ -158,7 +158,8 @@ void CacheManifest::load() {
     SPDLOG_INFO("Loaded {} entries from manifest", m_entries.size());
 
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Failed to load manifest: {}", e.what());
+    SPDLOG_ERROR("Failed to load manifest from '{}': {} - starting with empty manifest",
+                 m_manifestPath.string(), e.what());
     m_entries.clear();
   }
 }
@@ -200,7 +201,8 @@ void CacheManifest::save() const {
     SPDLOG_DEBUG("Saved {} entries to manifest", m_entries.size());
 
   } catch (const std::exception& e) {
-    SPDLOG_ERROR("Failed to save manifest: {}", e.what());
+    SPDLOG_CRITICAL("Failed to save manifest to '{}': {} - cache metadata will be lost on restart",
+                    m_manifestPath.string(), e.what());
   }
 }
 

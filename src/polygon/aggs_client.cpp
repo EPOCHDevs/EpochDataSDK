@@ -56,7 +56,8 @@ inline std::int64_t etMsToUtcNs(std::int64_t ts_ms) {
     const sys_time<milliseconds> sys = zt.get_sys_time();
     auto ttc = sys.time_since_epoch().count();
     return static_cast<int64_t>(ttc * 1'000'000LL);
-  } catch (...) {
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Timezone database error for ET->UTC conversion (falling back to UTC): {} - timestamp: {}", e.what(), ts_ms);
     // Fallback if timezone database is unavailable: treat as UTC ms
     return ts_ms * 1'000'000LL;
   }
@@ -83,7 +84,8 @@ inline bool isWithinNYRth(std::int64_t ts_utc_ns) {
     const auto start = hours{9} + minutes{31};
     const auto end = hours{16};
     return tod >= start && tod <= end;
-  } catch (...) {
+  } catch (const std::exception& e) {
+    SPDLOG_WARN("Timezone check failed for NY RTH filtering (including bar): {} - timestamp: {}", e.what(), ts_utc_ns);
     // If tz DB unavailable, do not filter out
     return true;
   }

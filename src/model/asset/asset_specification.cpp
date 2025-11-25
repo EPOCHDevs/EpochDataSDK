@@ -75,7 +75,9 @@ AssetSpecification::AssetSpecification(AssetSpecificationData data)
     } else if (m_data.asset_class == AssetClass::FX) {
       m_currencyPair = GetFXPair(m_data.ticker);
     }
-  } catch (...) {
+  } catch (const std::exception& e) {
+    SPDLOG_WARN("Failed to parse currency pair for ticker '{}' (asset_class {}): {}",
+                m_data.ticker.get(), AssetClassWrapper::ToString(m_data.asset_class), e.what());
   }
 }
 

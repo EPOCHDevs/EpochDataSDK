@@ -54,6 +54,44 @@ std::vector<std::int64_t> parseDatesToNs(const std::vector<std::string> &date_st
 
   return result;
 }
+
+// Helper to convert nanoseconds vector to timestamp ChunkedArrayPtr
+arrow::ChunkedArrayPtr makeTimestampArrayFromNs(const std::vector<std::int64_t> &ns_values) {
+  if (ns_values.empty()) {
+    return std::make_shared<arrow::ChunkedArray>(
+        std::vector<arrow::ArrayPtr>{},
+        arrow::timestamp(arrow::TimeUnit::NANO, "UTC"));
+  }
+
+  arrow::TimestampBuilder builder{arrow::timestamp(arrow::TimeUnit::NANO, "UTC"),
+                                  arrow::default_memory_pool()};
+  auto status = builder.Reserve(static_cast<int64_t>(ns_values.size()));
+  if (!status.ok()) {
+    SPDLOG_ERROR("Failed to reserve timestamp builder: {}", status.message());
+    return nullptr;
+  }
+
+  for (auto val : ns_values) {
+    // Treat 0 as null (from failed parse or empty string)
+    if (val == 0) {
+      status = builder.AppendNull();
+    } else {
+      status = builder.Append(val);
+    }
+    if (!status.ok()) {
+      SPDLOG_ERROR("Failed to append to timestamp builder: {}", status.message());
+      return nullptr;
+    }
+  }
+
+  auto maybe_array = builder.Finish();
+  if (!maybe_array.ok()) {
+    SPDLOG_ERROR("Failed to finish timestamp array: {}", maybe_array.status().message());
+    return nullptr;
+  }
+
+  return std::make_shared<arrow::ChunkedArray>(maybe_array.ValueOrDie());
+}
 } // namespace
 
 // Private implementation
@@ -174,6 +212,8 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
@@ -181,8 +221,8 @@ public:
                                         "inventories", "lt_debt", "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),
@@ -313,6 +353,8 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
@@ -320,8 +362,8 @@ public:
                                         "ncf_operating", "net_income", "capex"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),
@@ -446,14 +488,16 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
                                         "operating_income", "net_income", "rd", "sga"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),
@@ -583,6 +627,8 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "accounts_payable", "accrued_liabilities", "aoci", "cash",
@@ -590,8 +636,8 @@ public:
                                         "inventories", "lt_debt", "ppe_net", "receivables", "retained_earnings"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),
@@ -722,6 +768,8 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "cfo", "change_cash", "change_assets", "dda", "dividends",
@@ -729,8 +777,8 @@ public:
                                         "ncf_operating", "net_income", "capex"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),
@@ -855,14 +903,16 @@ public:
 
     // Parse all date strings to nanoseconds using Arrow strptime
     auto dates = parseDatesToNs(date_strings);
+    auto filing_dates_ns = parseDatesToNs(filing_dates);
+    auto period_ends_ns = parseDatesToNs(period_ends);
     auto index = epoch_frame::factory::index::make_datetime_index(dates, "", "UTC");
     std::vector<std::string> columns = {"ticker", "filing_date", "period_end", "fiscal_year", "fiscal_quarter", "timeframe",
                                         "basic_eps", "diluted_eps", "revenue", "cogs", "gross_profit",
                                         "operating_income", "net_income", "rd", "sga"};
     std::vector<arrow::ChunkedArrayPtr> data{
         epoch_frame::factory::array::make_array(tickers_col),
-        epoch_frame::factory::array::make_array(filing_dates),
-        epoch_frame::factory::array::make_array(period_ends),
+        makeTimestampArrayFromNs(filing_dates_ns),
+        makeTimestampArrayFromNs(period_ends_ns),
         epoch_frame::factory::array::make_array(fiscal_years),
         epoch_frame::factory::array::make_array(fiscal_quarters),
         epoch_frame::factory::array::make_array(timeframes),

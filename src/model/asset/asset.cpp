@@ -61,11 +61,11 @@ decimal::Decimal Asset::Quantize(const decimal::Decimal &value) const {
 
   try {
     return value.quantize(m_spec.GetMinTick());
-  } catch (...) {
-    SPDLOG_WARN("Could not quantize {} to tickSize {}.", fromDecimal(value),
-                fromDecimal(m_spec.GetMinTick()));
+  } catch (const std::exception& e) {
+    SPDLOG_ERROR("Quantization failed for value {} with tick size {}: {} - returning original value",
+                 fromDecimal(value), fromDecimal(m_spec.GetMinTick()), e.what());
+    return value;
   }
-  return value;
 }
 
 ContractInfo Asset::GetContractInfo() const {

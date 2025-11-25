@@ -36,7 +36,9 @@ public:
         if (value.empty()) return defaultValue;
         try {
             return std::stoi(value);
-        } catch (...) {
+        } catch (const std::exception& e) {
+            SPDLOG_WARN("Invalid integer in environment variable '{}': '{}' - {} - using default {}",
+                        key, value, e.what(), defaultValue);
             return defaultValue;
         }
     }

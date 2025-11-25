@@ -35,7 +35,8 @@ SeriesImpl::fetchSeries(const std::string &series_id,
     if (dateStr.size() >= 4 && dateStr != "9999-12-31") {
       try {
         return std::stoi(dateStr.substr(0, 4));
-      } catch (...) {
+      } catch (const std::exception& e) {
+        SPDLOG_WARN("Failed to parse year from date '{}' for FRED chunking: {} - skipping chunking", dateStr, e.what());
         return std::nullopt;
       }
     }
@@ -251,7 +252,8 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
     if (dateStr.size() >= 4 && dateStr != "9999-12-31") {
       try {
         return std::stoi(dateStr.substr(0, 4));
-      } catch (...) {
+      } catch (const std::exception& e) {
+        SPDLOG_WARN("Failed to parse year from date '{}' for FRED chunking: {} - skipping chunking", dateStr, e.what());
         return std::nullopt;
       }
     }

@@ -34,7 +34,9 @@ private:
         if (val_str != "." && !val_str.empty()) {
           try {
             val = std::stod(val_str);
-          } catch (...) {
+          } catch (const std::exception& e) {
+            SPDLOG_DEBUG("Cannot parse FRED value '{}' for observation {}: {} - using NaN",
+                         val_str, obs.date.value_or("unknown"), e.what());
             // Keep as NaN if parsing fails
           }
         }

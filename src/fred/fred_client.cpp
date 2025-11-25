@@ -70,7 +70,9 @@ FredClient::getSeries(const std::string &series_id,
       if (val_str != "." && !val_str.empty()) {
         try {
           val = std::stod(val_str);
-        } catch (...) {
+        } catch (const std::exception& e) {
+          SPDLOG_DEBUG("Cannot parse FRED value '{}' for series {} observation {}: {} - using NaN",
+                       val_str, series_id, obs.date.value_or("unknown"), e.what());
           // Keep as NaN if parsing fails
         }
       }
@@ -120,7 +122,9 @@ FredClient::getSeriesAsync(std::string series_id,
       if (val_str != "." && !val_str.empty()) {
         try {
           val = std::stod(val_str);
-        } catch (...) {
+        } catch (const std::exception& e) {
+          SPDLOG_DEBUG("Cannot parse FRED value '{}' for series {} observation {}: {} - using NaN",
+                       val_str, series_id, obs.date.value_or("unknown"), e.what());
           // Keep as NaN if parsing fails
         }
       }
