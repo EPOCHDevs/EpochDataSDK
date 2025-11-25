@@ -96,7 +96,7 @@ SimpleMerger::MergeNormalizedData(
 
   auto result = epoch_frame::concat(options);
   SPDLOG_DEBUG("SimpleMerger: Merged {} normalized categories into {} rows × {} columns",
-               normalized_data.size(), result.num_rows(), result.num_columns());
+               normalized_data.size(), result.num_rows(), result.num_cols());
 
   return result;
 }
