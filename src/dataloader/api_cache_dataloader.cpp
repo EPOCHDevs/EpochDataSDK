@@ -842,12 +842,12 @@ ApiCacheDataloader::LoadIndexDataAsync(const std::string& ticker,
 
 // Generic reference aggregate loading (Stocks, FX, Crypto, Indices)
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs) const {
-  co_return co_await LoadReferenceAggDataAsync(kwargs, m_option.GetStartDate(), m_option.GetEndDate());
+ApiCacheDataloader::LoadReferenceAggDataAsync(ReferenceAggKwargs kwargs) const {
+  co_return co_await LoadReferenceAggDataAsync(std::move(kwargs), m_option.GetStartDate(), m_option.GetEndDate());
 }
 
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs,
+ApiCacheDataloader::LoadReferenceAggDataAsync(ReferenceAggKwargs kwargs,
                                                const epoch_frame::Date& fromDate,
                                                const epoch_frame::Date& toDate) const {
   SPDLOG_DEBUG("LoadReferenceAggDataAsync: Starting for {} {} ({})",

@@ -79,11 +79,12 @@ public:
                      bool is_eod = true) const final;
 
   // Load reference aggregate data (Stocks, FX, Crypto, Indices)
+  // Note: kwargs passed by value to avoid dangling reference in coroutines
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs) const;
+  LoadReferenceAggDataAsync(ReferenceAggKwargs kwargs) const;
 
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs,
+  LoadReferenceAggDataAsync(ReferenceAggKwargs kwargs,
                             const epoch_frame::Date& fromDate,
                             const epoch_frame::Date& toDate) const;
 
