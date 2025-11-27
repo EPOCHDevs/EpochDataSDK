@@ -341,6 +341,8 @@ TEST_CASE("ApiCacheDataloader with different data categories",
   const auto &assets = data_sdk::asset::AssetConstants::instance();
 
   SECTION("handles minute bars") {
+    // Clear default DailyBars before adding MinuteBars (can't mix them)
+    fixture.option.requests.clear();
     fixture.option.AddRequest(DataCategory::MinuteBars);
     auto asset = assets.AMZN;
     auto testDf = fixture.createTestDataFrame(390); // Full trading day
@@ -414,6 +416,8 @@ TEST_CASE("ApiCacheDataloader with different asset types",
                  AppendWrite(_, asset, DataCategory::MinuteBars, _, _, _, _))
         .RETURN(testDf);
 
+    // Clear default DailyBars before adding MinuteBars (can't mix them)
+    fixture.option.requests.clear();
     fixture.option.AddRequest(DataCategory::MinuteBars);
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);

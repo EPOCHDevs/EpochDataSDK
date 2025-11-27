@@ -29,7 +29,7 @@ template <typename T> using Expected = std::expected<T, HttpError>;
 //   - published_at=2020-03-11, observation_date=2020-01-01, value=258.1, revision=2
 //   - published_at=2020-04-10, observation_date=2020-01-01, value=258.0, revision=3
 //
-// For current/latest data without revisions, use FredClient instead
+// For series not available in ALFRED, this client automatically falls back to FRED mode
 class AlfredClient {
 public:
   explicit AlfredClient(Options options);

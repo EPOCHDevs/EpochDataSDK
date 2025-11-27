@@ -13,7 +13,7 @@
 #include "polygon/ratios_client.hpp"
 #include "polygon/short_interest_client.hpp"
 #include "polygon/short_volume_client.hpp"
-#include "fred/series_client.hpp"
+#include "fred/alfred_client.hpp"
 #include "fred/options.hpp"
 #include <epoch_frame/common.h>
 #include <spdlog/spdlog.h>
@@ -178,7 +178,7 @@ public:
       }
 
       case DataCategory::EconomicIndicator:
-      case DataCategory::Indices:
+      case DataCategory::ReferenceAgg:
         // These categories require asset-less fetch - delegate to the overload
         co_return co_await FetchAsync(category, fromDate, toDate, kwargs);
 
@@ -209,41 +209,33 @@ public:
 
     switch (category) {
       case DataCategory::EconomicIndicator: {
-        // Extract indicator enum and use_alfred from kwargs
+        // Extract indicator enum from kwargs
         auto econ_kwargs = getKwargsOr<DataCategory::EconomicIndicator>(kwargs);
         // Get series ID from enum mapping
         std::string series_id = econ_kwargs.getSeriesId();
-        auto result = co_await m_fred_client->getSeriesAsync(
-            series_id, from_str, to_str, econ_kwargs.use_alfred);
+        // AlfredClient handles ALFRED with fallback to FRED, chunking, pagination
+        auto result = co_await m_alfred_client->getSeriesAsync(
+            series_id, from_str, to_str);
         if (!result) {
           co_return std::unexpected(result.error().message);
         }
         co_return *result;
       }
 
-      case DataCategory::Indices: {
-        // Extract ticker and is_eod from kwargs
-        auto idx_kwargs = getKwargsOr<DataCategory::Indices>(kwargs);
-        if (idx_kwargs.ticker.empty()) {
-          co_return std::unexpected("Indices requires ticker in kwargs");
+      case DataCategory::ReferenceAgg: {
+        // Extract kwargs and use asset-less fetch
+        auto ref_kwargs = getKwargsOr<DataCategory::ReferenceAgg>(kwargs);
+        if (ref_kwargs.ticker.empty()) {
+          co_return std::unexpected("ReferenceAgg requires ticker in kwargs");
         }
-        // Add "I:" prefix for Polygon indices API
-        std::string full_ticker = "I:" + idx_kwargs.ticker;
+        // Add appropriate prefix based on asset class
+        std::string full_ticker = ref_kwargs.getPolygonTicker();
         auto result = co_await m_aggs_client->getAggregatesAsync(
-            full_ticker, from_str, to_str, idx_kwargs.is_eod);
+            full_ticker, from_str, to_str, ref_kwargs.is_eod);
         if (!result) {
           co_return std::unexpected(result.error().message);
         }
-        // Remove volume columns - indices don't have volume data
-        auto df = *result;
-        std::vector<std::string> cols_to_drop;
-        if (df.contains("v")) cols_to_drop.push_back("v");
-        if (df.contains("vw")) cols_to_drop.push_back("vw");
-        if (df.contains("n")) cols_to_drop.push_back("n");
-        if (!cols_to_drop.empty()) {
-          df = df.drop(cols_to_drop);
-        }
-        co_return df;
+        co_return *result;
       }
 
       default:
@@ -294,8 +286,8 @@ private:
     m_short_interest_client = ClientFactory::createShortInterestClient(m_polygon_options);
     m_short_volume_client = ClientFactory::createShortVolumeClient(m_polygon_options);
 
-    // FRED client for economic indicators
-    m_fred_client = std::make_unique<data_sdk::fred::SeriesClient>(m_fred_options);
+    // ALFRED client for economic indicators (with fallback to FRED)
+    m_alfred_client = std::make_unique<data_sdk::fred::AlfredClient>(m_fred_options);
   }
 
   data_sdk::polygon::Options m_polygon_options;
@@ -309,7 +301,7 @@ private:
   std::unique_ptr<data_sdk::polygon::RatiosClient> m_ratios_client;
   std::unique_ptr<data_sdk::polygon::ShortInterestClient> m_short_interest_client;
   std::unique_ptr<data_sdk::polygon::ShortVolumeClient> m_short_volume_client;
-  std::unique_ptr<data_sdk::fred::SeriesClient> m_fred_client;
+  std::unique_ptr<data_sdk::fred::AlfredClient> m_alfred_client;
 };
 
 } // namespace data_sdk::dataloader

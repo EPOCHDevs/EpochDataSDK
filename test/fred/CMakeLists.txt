@@ -1,6 +1,5 @@
 target_sources(epoch_data_sdk_test PRIVATE
-        # FredClient & AlfredClient tests
-        fred_client_tests.cpp
+        # AlfredClient tests (includes fallback to FRED mode)
         alfred_client_tests.cpp
         cross_sectional_tests.cpp
 )

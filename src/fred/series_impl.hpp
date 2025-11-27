@@ -11,7 +11,7 @@
 namespace data_sdk::fred {
 
 // Shared implementation for fetching FRED series data
-// Used by both FredClient and AlfredClient to avoid code duplication (DRY)
+// Provides chunking for long date ranges, fallback to FRED mode, and pagination
 class SeriesImpl : public BaseClient {
 public:
   explicit SeriesImpl(Options options) : BaseClient(std::move(options)) {}

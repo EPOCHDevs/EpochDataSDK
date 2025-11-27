@@ -178,7 +178,7 @@ data_sdk::DataFrameMetadata AlfredClient::getMetadata() {
       .data_type = "alfred_series",
       .description = "Archival Federal Reserve Economic Data (ALFRED) preserves 'what information was known on some past date in history.' This client retrieves complete revision history (vintages) of economic data series, indexed by publication date (real-time period). ALFRED archives when values were originally released and subsequently revised, enabling analysis of economic understanding as it evolved. The DataFrame contains multiple rows per observation date—each row represents a data vintage from a specific publication date. Index: published_at (real-time period when this vintage became available). Columns: observation_date (economic measurement period), value (data as published on that real-time date), revision (sequential revision number per observation). Example: January 1990 unemployment was initially reported as 5.3% in February 1990, then revised to 5.4% in March 1996—ALFRED preserves both vintages. Critical for backtesting: filter by published_at <= your_backtest_date to reconstruct what economists actually knew at that historical moment, avoiding lookahead bias. FRED shows what we know now; ALFRED shows what we knew then.",
       .asset_class = std::nullopt,  // Economic data doesn't fit into asset classes
-      .index_normalized = true,
+      .index_normalized = true,     // Normalized to midnight UTC (no time-of-day component)
        .category_prefix = "ECON:",  // prefix for timeseries data
       .columns = {
           {.id = "observation_date",

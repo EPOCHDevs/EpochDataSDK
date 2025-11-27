@@ -65,7 +65,7 @@ public:
                              const epoch_frame::Date& toDate,
                              bool use_alfred = true) const final;
 
-  // Load market index data (Polygon indices like SPX, VIX, NDX)
+  // Load market index data (backward compat - delegates to LoadReferenceAggDataAsync)
   std::expected<epoch_frame::DataFrame, std::string>
   LoadIndexData(const std::string& ticker,
                 const epoch_frame::Date& fromDate,
@@ -77,6 +77,15 @@ public:
                      const epoch_frame::Date& fromDate,
                      const epoch_frame::Date& toDate,
                      bool is_eod = true) const final;
+
+  // Load reference aggregate data (Stocks, FX, Crypto, Indices)
+  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs) const;
+
+  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs,
+                            const epoch_frame::Date& fromDate,
+                            const epoch_frame::Date& toDate) const;
 
   // Build cache load parameters from options
   cache::CacheLoadParams buildCacheParams(const asset::Asset& asset,

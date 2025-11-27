@@ -3,9 +3,21 @@
 #include <spdlog/spdlog.h>
 #include <epoch_frame/common.h>
 #include <epoch_frame/factory/index_factory.h>
+#include <epoch_frame/serialization.h>
 #include <arrow/compute/api.h>
 
 namespace data_sdk::dataloader {
+
+// Debug helper: write DataFrame to CSV for inspection
+static void debug_write_csv(const epoch_frame::DataFrame& df, const std::string& filename) {
+  std::string filepath = "/tmp/" + filename;
+  auto status = epoch_frame::write_csv_file(df, filepath);
+  if (!status.ok()) {
+    SPDLOG_ERROR("Failed to write CSV to {}: {}", filepath, status.ToString());
+  } else {
+    SPDLOG_INFO("DEBUG: Wrote {} rows x {} cols to {}", df.num_rows(), df.num_cols(), filepath);
+  }
+}
 
 std::expected<epoch_frame::DataFrame, std::string>
 SimpleMerger::Merge(const std::unordered_map<std::string, epoch_frame::DataFrame>& data_map) {

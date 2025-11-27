@@ -109,12 +109,16 @@ struct DataLoaderOptions {
     });
   }
 
-  // Add a market index request
-  void AddIndex(const std::string& ticker, bool is_eod = true) {
-    requests.push_back({
-      DataCategory::Indices,
-      dataloader::IndicesKwargs{ticker, is_eod}
-    });
+  // Add a reference aggregate request (Stocks, FX, Crypto, Indices)
+  void AddReferenceAgg(const std::string& ticker, epoch_core::AssetClass asset_class) {
+    dataloader::ReferenceAggKwargs kwargs{ticker, asset_class};
+    kwargs.validate();  // Throws if asset_class not supported
+    requests.push_back({DataCategory::ReferenceAgg, kwargs});
+  }
+
+  // Add a market index request (convenience wrapper for AddReferenceAgg)
+  void AddIndex(const std::string& ticker) {
+    AddReferenceAgg(ticker, epoch_core::AssetClass::Indices);
   }
 
   // ============================================================
@@ -128,7 +132,7 @@ struct DataLoaderOptions {
 
   // Add index ticker (deprecated, maps to AddIndex)
   void AddIndexTicker(const std::string& ticker) {
-    AddIndex(ticker, true);  // Default to EOD
+    AddIndex(ticker);  // Maps to ReferenceAgg with Indices asset class
   }
 
   // Get count of cross-sectional categories (deprecated)
@@ -137,13 +141,28 @@ struct DataLoaderOptions {
     return {};
   }
 
-  // Get indices tickers (deprecated)
+  // Get reference agg requests
+  std::vector<dataloader::ReferenceAggKwargs> GetReferenceAggRequests() const {
+    std::vector<dataloader::ReferenceAggKwargs> results;
+    for (const auto& req : requests) {
+      if (req.category == DataCategory::ReferenceAgg) {
+        if (const auto* kw = std::get_if<dataloader::ReferenceAggKwargs>(&req.kwargs)) {
+          results.push_back(*kw);
+        }
+      }
+    }
+    return results;
+  }
+
+  // Get indices tickers (deprecated, use GetReferenceAggRequests)
   std::set<std::string> GetIndicesTickers() const {
     std::set<std::string> tickers;
     for (const auto& req : requests) {
-      if (req.category == DataCategory::Indices) {
-        if (const auto* kw = std::get_if<dataloader::IndicesKwargs>(&req.kwargs)) {
-          tickers.insert(kw->ticker);
+      if (req.category == DataCategory::ReferenceAgg) {
+        if (const auto* kw = std::get_if<dataloader::ReferenceAggKwargs>(&req.kwargs)) {
+          if (kw->asset_class == epoch_core::AssetClass::Indices) {
+            tickers.insert(kw->ticker);
+          }
         }
       }
     }
@@ -159,24 +178,24 @@ struct DataLoaderOptions {
     return requests;
   }
 
-  // Get only per-asset requests (excludes EconomicIndicator and Indices)
+  // Get only per-asset requests (excludes EconomicIndicator and ReferenceAgg)
   std::vector<dataloader::DataRequest> GetAssetRequests() const {
     std::vector<dataloader::DataRequest> asset_requests;
     for (const auto& req : requests) {
       if (req.category != DataCategory::EconomicIndicator &&
-          req.category != DataCategory::Indices) {
+          req.category != DataCategory::ReferenceAgg) {
         asset_requests.push_back(req);
       }
     }
     return asset_requests;
   }
 
-  // Get only cross-sectional requests (EconomicIndicator and Indices)
+  // Get only cross-sectional requests (EconomicIndicator and ReferenceAgg)
   std::vector<dataloader::DataRequest> GetCrossSectionalRequests() const {
     std::vector<dataloader::DataRequest> cs_requests;
     for (const auto& req : requests) {
       if (req.category == DataCategory::EconomicIndicator ||
-          req.category == DataCategory::Indices) {
+          req.category == DataCategory::ReferenceAgg) {
         cs_requests.push_back(req);
       }
     }
@@ -207,7 +226,7 @@ struct DataLoaderOptions {
   DataCategory GetPrimaryCategory() const {
     for (const auto& req : requests) {
       if (req.category != DataCategory::EconomicIndicator &&
-          req.category != DataCategory::Indices) {
+          req.category != DataCategory::ReferenceAgg) {
         return req.category;
       }
     }

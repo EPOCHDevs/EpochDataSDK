@@ -3,15 +3,9 @@ target_sources(epoch_data_sdk
         # Base infrastructure
         base_client.cpp
 
-        # Shared series implementation (DRY)
+        # Shared series implementation (chunking, fallback, pagination)
         series_impl.cpp
 
-        # Simple FRED client (current/latest data only)
-        fred_client.cpp
-
-        # ALFRED client (revision tracking for backtesting)
+        # ALFRED client (with fallback to FRED mode)
         alfred_client.cpp
-
-        # Unified series client (combines FRED and ALFRED)
-        series_client.cpp
 )

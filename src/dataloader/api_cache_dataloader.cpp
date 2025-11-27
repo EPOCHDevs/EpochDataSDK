@@ -529,21 +529,21 @@ void ApiCacheDataloader::LoadData() {
   LogCampaignViability();
 #endif
 
-  // Load cross-sectional data (EconomicIndicator and Indices) if requested
+  // Load cross-sectional data (EconomicIndicator and ReferenceAgg) if requested
   const auto crossSectionalRequests = m_option.GetCrossSectionalRequests();
   if (!crossSectionalRequests.empty() && !m_loadedData.empty()) {
     SPDLOG_INFO("Loading {} cross-sectional data requests to merge with {} assets",
                 crossSectionalRequests.size(), m_loadedData.size());
 
-    // Separate economic indicators and indices
+    // Separate economic indicators and reference aggs
     std::vector<DataRequest> economicRequests;
-    std::vector<DataRequest> indicesRequests;
+    std::vector<DataRequest> refAggRequests;
 
     for (const auto& req : crossSectionalRequests) {
       if (req.category == DataCategory::EconomicIndicator) {
         economicRequests.push_back(req);
-      } else if (req.category == DataCategory::Indices) {
-        indicesRequests.push_back(req);
+      } else if (req.category == DataCategory::ReferenceAgg) {
+        refAggRequests.push_back(req);
       }
     }
 
@@ -583,45 +583,53 @@ void ApiCacheDataloader::LoadData() {
       }
     }
 
-    // Load indices
-    std::unordered_map<std::string, epoch_frame::DataFrame> indices;
-    if (!indicesRequests.empty()) {
-      std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> idx_tasks;
-      idx_tasks.reserve(indicesRequests.size());
+    // Load reference aggregates (Stocks, FX, Crypto, Indices)
+    // Determine is_eod from primary category
+    bool is_eod = (m_option.GetPrimaryCategory() != DataCategory::MinuteBars);
+    std::unordered_map<std::string, std::pair<epoch_frame::DataFrame, ReferenceAggKwargs>> refAggs;
+    if (!refAggRequests.empty()) {
+      std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> ref_tasks;
+      ref_tasks.reserve(refAggRequests.size());
 
-      for (const auto& req : indicesRequests) {
-        const auto* kw = std::get_if<IndicesKwargs>(&req.kwargs);
+      for (const auto& req : refAggRequests) {
+        const auto* kw = std::get_if<ReferenceAggKwargs>(&req.kwargs);
         if (kw) {
-          idx_tasks.push_back(LoadIndexDataAsync(
-              kw->ticker, m_option.GetStartDate(), m_option.GetEndDate(), kw->is_eod));
+          // Create kwargs with is_eod set from primary category
+          ReferenceAggKwargs fetch_kwargs = *kw;
+          fetch_kwargs.is_eod = is_eod;
+          ref_tasks.push_back(LoadReferenceAggDataAsync(fetch_kwargs));
         }
       }
 
-      auto idx_results = data_sdk::common::syncWhenAll(std::move(idx_tasks));
+      auto ref_results = data_sdk::common::syncWhenAll(std::move(ref_tasks));
 
-      for (size_t i = 0; i < indicesRequests.size(); ++i) {
-        const auto* kw = std::get_if<IndicesKwargs>(&indicesRequests[i].kwargs);
+      for (size_t i = 0; i < refAggRequests.size(); ++i) {
+        const auto* kw = std::get_if<ReferenceAggKwargs>(&refAggRequests[i].kwargs);
         if (!kw) continue;
 
-        const auto& result = idx_results[i];
+        const auto& result = ref_results[i];
         if (!result.has_value()) {
-          SPDLOG_ERROR("Failed to load index {}: {}", kw->ticker, result.error());
+          SPDLOG_ERROR("Failed to load reference agg {}: {}", kw->ticker, result.error());
           continue;
         }
         if (result->empty()) {
-          SPDLOG_WARN("No data found for index {} in date range", kw->ticker);
+          SPDLOG_WARN("No data found for reference agg {} in date range", kw->ticker);
           continue;
         }
 
-        SPDLOG_INFO("Loaded {} rows for market index: {}", result->num_rows(), kw->ticker);
-        indices[kw->ticker] = *result;
+        SPDLOG_INFO("Loaded {} rows for reference agg: {} ({})",
+                    result->num_rows(), kw->ticker,
+                    epoch_core::AssetClassWrapper::ToString(kw->asset_class));
+        // Store both DataFrame and kwargs for column prefix generation
+        std::string ref_key = kw->getColumnPrefix() + kw->ticker;
+        refAggs[ref_key] = {*result, *kw};
       }
     }
 
-    // Merge indicators and indices into each asset's DataFrame
-    if (!indicators.empty() || !indices.empty()) {
-      SPDLOG_INFO("Merging {} indicators and {} indices into {} assets",
-                  indicators.size(), indices.size(), m_loadedData.size());
+    // Merge indicators and reference aggs into each asset's DataFrame
+    if (!indicators.empty() || !refAggs.empty()) {
+      SPDLOG_INFO("Merging {} indicators and {} reference aggs into {} assets",
+                  indicators.size(), refAggs.size(), m_loadedData.size());
 
       for (auto& [asset, asset_df] : m_loadedData) {
         std::unordered_map<std::string, epoch_frame::DataFrame> merge_map;
@@ -634,15 +642,24 @@ void ApiCacheDataloader::LoadData() {
         // Add economic indicators with prefix
         for (const auto& [series_id, indicator_df] : indicators) {
           std::string prefix = "ECON:" + series_id + ":";
+          SPDLOG_DEBUG("Indicator {} before add_prefix: {} rows, {} cols, index size {}",
+                      series_id, indicator_df.num_rows(), indicator_df.num_cols(),
+                      indicator_df.index()->size());
           auto prefixed_df = indicator_df.add_prefix(prefix);
+          SPDLOG_DEBUG("Indicator {} after add_prefix: {} rows, {} cols, index size {}",
+                      series_id, prefixed_df.num_rows(), prefixed_df.num_cols(),
+                      prefixed_df.index()->size());
           merge_map[series_id] = prefixed_df;
         }
 
-        // Add indices with prefix
-        for (const auto& [ticker, index_df] : indices) {
-          std::string prefix = "IDX:" + ticker + ":";
-          auto prefixed_df = index_df.add_prefix(prefix);
-          merge_map[ticker] = prefixed_df;
+        // Add reference aggs with asset class specific prefix
+        for (const auto& [key, ref_pair] : refAggs) {
+          const auto& [ref_df, ref_kwargs] = ref_pair;
+          // key is already "IDX:SPX" or "FX:EURUSD" etc.
+          // Column prefix should be "IDX:SPX:" so columns become "IDX:SPX:c"
+          std::string prefix = key + ":";
+          auto prefixed_df = ref_df.add_prefix(prefix);
+          merge_map[key] = prefixed_df;
         }
 
         // Merge all data
@@ -804,7 +821,7 @@ ApiCacheDataloader::LoadEconomicIndicatorAsync(CrossSectionalDataCategory indica
   co_return result;
 }
 
-// Market index methods
+// Market index methods (backward compat - delegates to LoadReferenceAggDataAsync)
 std::expected<epoch_frame::DataFrame, std::string>
 ApiCacheDataloader::LoadIndexData(const std::string& ticker,
                                   const epoch_frame::Date& fromDate,
@@ -818,27 +835,46 @@ ApiCacheDataloader::LoadIndexDataAsync(const std::string& ticker,
                                        const epoch_frame::Date& fromDate,
                                        const epoch_frame::Date& toDate,
                                        bool is_eod) const {
-  SPDLOG_DEBUG("LoadIndexDataAsync: Starting for index {} ({})", ticker, is_eod ? "daily" : "minute");
+  // Delegate to ReferenceAgg with Indices asset class
+  ReferenceAggKwargs kwargs{ticker, epoch_core::AssetClass::Indices, is_eod};
+  co_return co_await LoadReferenceAggDataAsync(kwargs, fromDate, toDate);
+}
+
+// Generic reference aggregate loading (Stocks, FX, Crypto, Indices)
+drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+ApiCacheDataloader::LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs) const {
+  co_return co_await LoadReferenceAggDataAsync(kwargs, m_option.GetStartDate(), m_option.GetEndDate());
+}
+
+drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+ApiCacheDataloader::LoadReferenceAggDataAsync(const ReferenceAggKwargs& kwargs,
+                                               const epoch_frame::Date& fromDate,
+                                               const epoch_frame::Date& toDate) const {
+  SPDLOG_DEBUG("LoadReferenceAggDataAsync: Starting for {} {} ({})",
+               epoch_core::AssetClassWrapper::ToString(kwargs.asset_class),
+               kwargs.ticker, kwargs.is_eod ? "daily" : "minute");
 
   const auto start_time = std::chrono::high_resolution_clock::now();
 
-  // Use the unified fetcher with Indices category
-  auto& fetcher = m_fetcherProvider->Get(DataCategory::Indices);
-  IndicesKwargs kwargs{ticker, is_eod};
+  // Use the unified fetcher with ReferenceAgg category
+  auto& fetcher = m_fetcherProvider->Get(DataCategory::ReferenceAgg);
 
   // Use asset-less fetch for cross-sectional data
   auto result = co_await fetcher.FetchAsync(
-      DataCategory::Indices, fromDate, toDate, kwargs);
+      DataCategory::ReferenceAgg, fromDate, toDate, kwargs);
 
   const auto end_time = std::chrono::high_resolution_clock::now();
   const auto total_duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
   if (result.has_value()) {
-    SPDLOG_INFO("LoadIndexDataAsync: Successfully loaded {} ({} rows) in {}ms",
-                ticker, result->num_rows(), total_duration.count());
+    SPDLOG_INFO("LoadReferenceAggDataAsync: Successfully loaded {} {} ({} rows) in {}ms",
+                epoch_core::AssetClassWrapper::ToString(kwargs.asset_class),
+                kwargs.ticker, result->num_rows(), total_duration.count());
   } else {
-    SPDLOG_ERROR("LoadIndexDataAsync: Failed to load {}: {}", ticker, result.error());
+    SPDLOG_ERROR("LoadReferenceAggDataAsync: Failed to load {} {}: {}",
+                 epoch_core::AssetClassWrapper::ToString(kwargs.asset_class),
+                 kwargs.ticker, result.error());
   }
 
   co_return result;

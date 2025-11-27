@@ -14,7 +14,7 @@ CREATE_ENUM(DataCategory,
             ShortInterest, ShortVolume,
             // Cross-sectional / Market-wide data
             EconomicIndicator,  // FRED data via series_id
-            Indices             // Market indices (SPX, VIX, etc.)
+            ReferenceAgg        // Reference aggregates (Stocks, FX, Crypto, Indices)
             );
 
 CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);

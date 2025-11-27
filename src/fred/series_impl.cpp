@@ -166,6 +166,9 @@ SeriesImpl::fetchSeries(const std::string &series_id,
   q.emplace_back("realtime_end", realtime_end);
   q.emplace_back("sort_order", "asc");
   q.emplace_back("limit", "100000");  // FRED default/max limit per request
+  // output_type=4: Return vintage data with actual realtime publication dates
+  // This is required for proper ALFRED behavior - without it, all rows have the same realtime_start
+  q.emplace_back("output_type", "4");
 
   const std::string path = "/fred/series/observations";
   constexpr int max_retries = 3; // Retry up to 3 times with exponential backoff
@@ -383,6 +386,9 @@ SeriesImpl::fetchSeriesAsync(std::string series_id,
   q.emplace_back("realtime_end", realtime_end);
   q.emplace_back("sort_order", "asc");
   q.emplace_back("limit", "100000");  // FRED default/max limit per request
+  // output_type=4: Return vintage data with actual realtime publication dates
+  // This is required for proper ALFRED behavior - without it, all rows have the same realtime_start
+  q.emplace_back("output_type", "4");
 
   const std::string path = "/fred/series/observations";
   constexpr int max_retries = 3; // Retry up to 3 times with exponential backoff

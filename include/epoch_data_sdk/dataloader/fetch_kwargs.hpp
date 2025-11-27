@@ -1,11 +1,15 @@
 #pragma once
 #include <epoch_data_sdk/common/enums.hpp>
+#include <epoch_data_sdk/model/asset/asset_specification.hpp>
 #include <string>
 #include <variant>
 #include <optional>
 #include <functional>
+#include <stdexcept>
 
 namespace data_sdk::dataloader {
+
+using epoch_core::AssetClass;
 
 // Timeframe enum for financial statements
 enum class FinancialsTimeframe {
@@ -87,15 +91,60 @@ struct EconomicIndicatorKwargs {
   }
 };
 
-// Indices kwargs (market indices like SPX, VIX)
-struct IndicesKwargs {
-  std::string ticker;         // Required: Index ticker (e.g., "SPX", "VIX", "DJI")
-  bool is_eod = true;         // Daily bars (true) or minute bars (false)
+// Reference aggregates kwargs - load OHLCV for any Polygon ticker
+// Supports: Stocks, FX, Crypto, Indices (NOT Futures)
+// Timeframe is inherited from primary category (DailyBars/MinuteBars)
+struct ReferenceAggKwargs {
+  std::string ticker;         // Required: Ticker symbol (e.g., "SPX", "AAPL", "EURUSD", "BTCUSD")
+  AssetClass asset_class;     // Required: Stocks, FX, Crypto, or Indices
+  bool is_eod = true;         // true = daily bars, false = minute bars (set by dataloader from primary category)
 
-  bool operator==(const IndicesKwargs& other) const {
-    return ticker == other.ticker && is_eod == other.is_eod;
+  bool operator==(const ReferenceAggKwargs& other) const {
+    return ticker == other.ticker && asset_class == other.asset_class && is_eod == other.is_eod;
+  }
+
+  // Validate asset class is supported (throws if not)
+  void validate() const {
+    if (asset_class != AssetClass::Stocks &&
+        asset_class != AssetClass::FX &&
+        asset_class != AssetClass::Crypto &&
+        asset_class != AssetClass::Indices) {
+      throw std::invalid_argument(
+          "ReferenceAgg only supports Stocks, FX, Crypto, Indices. Got: " +
+          std::string(epoch_core::AssetClassWrapper::ToString(asset_class)));
+    }
+  }
+
+  // Get Polygon ticker prefix for this asset class
+  std::string getPolygonPrefix() const {
+    switch (asset_class) {
+      case AssetClass::Indices: return "I:";
+      case AssetClass::FX:      return "C:";
+      case AssetClass::Crypto:  return "X:";
+      default:                  return "";  // Stocks have no prefix
+    }
+  }
+
+  // Get column prefix for this asset class
+  std::string getColumnPrefix() const {
+    switch (asset_class) {
+      case AssetClass::Indices: return "IDX:";
+      case AssetClass::Stocks:  return "STK:";
+      case AssetClass::FX:      return "FX:";
+      case AssetClass::Crypto:  return "CRYPTO:";
+      default:
+        throw std::invalid_argument("Unsupported asset class for column prefix");
+    }
+  }
+
+  // Get full Polygon ticker (with prefix)
+  std::string getPolygonTicker() const {
+    return getPolygonPrefix() + ticker;
   }
 };
+
+// Backward compatibility alias
+using IndicesKwargs = ReferenceAggKwargs;
 
 // ============================================================
 // Variant for Runtime Dispatch
@@ -105,7 +154,7 @@ using FetchKwargs = std::variant<
   NoKwargs,
   FinancialsKwargs,
   EconomicIndicatorKwargs,
-  IndicesKwargs
+  ReferenceAggKwargs
 >;
 
 // ============================================================
@@ -139,8 +188,8 @@ struct KwargsTraits<DataCategory::EconomicIndicator> {
 };
 
 template <>
-struct KwargsTraits<DataCategory::Indices> {
-  using type = IndicesKwargs;
+struct KwargsTraits<DataCategory::ReferenceAgg> {
+  using type = ReferenceAggKwargs;
 };
 
 // Convenience alias
@@ -191,9 +240,9 @@ inline std::size_t hashKwargs(const FetchKwargs& kwargs) {
       h ^= std::hash<bool>{}(k.use_alfred) << 1;
       return h;
     }
-    else if constexpr (std::is_same_v<T, IndicesKwargs>) {
+    else if constexpr (std::is_same_v<T, ReferenceAggKwargs>) {
       std::size_t h = std::hash<std::string>{}(k.ticker);
-      h ^= std::hash<bool>{}(k.is_eod) << 1;
+      h ^= std::hash<int>{}(static_cast<int>(k.asset_class)) << 1;
       return h;
     }
     else {
