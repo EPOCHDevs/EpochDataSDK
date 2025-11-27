@@ -254,7 +254,7 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-31").date();
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
     opt.cacheDir = "/tmp/epoch_test_cache";  // Provide cache directory
     opt.enableCache = true;  // Enable cache
@@ -319,7 +319,7 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-15").date();
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {
         asset::AssetConstants::instance().SPY,
         asset::AssetConstants::instance().QQQ
@@ -368,7 +368,7 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day for speed
-    opt.categories = {DataCategory::MinuteBars};
+    opt.AddRequest(DataCategory::MinuteBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
     opt.cacheDir = "/tmp/epoch_test_cache";
     opt.enableCache = true;
@@ -426,7 +426,7 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();  // Single day for speed
-    opt.categories = {DataCategory::MinuteBars};
+    opt.AddRequest(DataCategory::MinuteBars);
     opt.dataloaderAssets = {
         asset::AssetConstants::instance().SPY,
         asset::AssetConstants::instance().QQQ
@@ -485,7 +485,7 @@ TEST_CASE("DataLoader - Direct indices loading", "[polygon][indices][dataloader]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-31").date();
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
 
     auto dataloader = CreateApiCacheDataLoader(opt);
@@ -517,7 +517,7 @@ TEST_CASE("DataLoader - Direct indices loading", "[polygon][indices][dataloader]
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-01-31").date();
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
 
     auto dataloader = CreateApiCacheDataLoader(opt);

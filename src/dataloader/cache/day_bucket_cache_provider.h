@@ -1,5 +1,6 @@
 #pragma once
 #include <epoch_data_sdk/dataloader/cache/provider.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include "cache_orchestrator.h"
 #include "cache_manifest.h"
 #include <memory>
@@ -83,8 +84,9 @@ private:
     FetchResult Fetch([[maybe_unused]] const asset::Asset &asset,
                      [[maybe_unused]] DataCategory category,
                      const epoch_frame::Date &fromDate,
-                     const epoch_frame::Date &toDate) const override {
-      // Ignore passed asset/category and use the ones from constructor
+                     const epoch_frame::Date &toDate,
+                     [[maybe_unused]] const FetchKwargs &kwargs = NoKwargs{}) const override {
+      // Ignore passed asset/category/kwargs and use the ones from constructor
       return m_fetchFn(fromDate, toDate);
     }
 
@@ -92,7 +94,8 @@ private:
     drogon::Task<FetchResult> FetchAsync([[maybe_unused]] const asset::Asset &asset,
                                         [[maybe_unused]] DataCategory category,
                                         const epoch_frame::Date &fromDate,
-                                        const epoch_frame::Date &toDate) const override {
+                                        const epoch_frame::Date &toDate,
+                                        [[maybe_unused]] const FetchKwargs &kwargs = NoKwargs{}) const override {
       // Call the wrapped function directly
       co_return m_fetchFn(fromDate, toDate);
     }
@@ -116,7 +119,8 @@ private:
     FetchResult Fetch([[maybe_unused]] const asset::Asset &asset,
                      [[maybe_unused]] DataCategory category,
                      [[maybe_unused]] const epoch_frame::Date &fromDate,
-                     [[maybe_unused]] const epoch_frame::Date &toDate) const override {
+                     [[maybe_unused]] const epoch_frame::Date &toDate,
+                     [[maybe_unused]] const FetchKwargs &kwargs = NoKwargs{}) const override {
       throw std::runtime_error("Sync Fetch() not supported on AsyncFetchFunctionAdapter");
     }
 
@@ -124,7 +128,8 @@ private:
     drogon::Task<FetchResult> FetchAsync([[maybe_unused]] const asset::Asset &asset,
                                         [[maybe_unused]] DataCategory category,
                                         const epoch_frame::Date &fromDate,
-                                        const epoch_frame::Date &toDate) const override {
+                                        const epoch_frame::Date &toDate,
+                                        [[maybe_unused]] const FetchKwargs &kwargs = NoKwargs{}) const override {
       co_return co_await m_asyncFetchFn(fromDate, toDate);
     }
 

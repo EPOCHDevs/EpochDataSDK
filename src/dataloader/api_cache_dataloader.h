@@ -6,8 +6,7 @@
 #include <epoch_data_sdk/dataloader/cache/provider.hpp>
 #include <epoch_data_sdk/dataloader/dataloader.hpp>
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
-#include <epoch_data_sdk/dataloader/cross_sectional_fetcher.hpp>
-#include <epoch_data_sdk/dataloader/indices_fetcher.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
@@ -31,7 +30,7 @@ public:
   }
 
   DataCategory GetDataCategory() const final {
-    return m_option.GetDataCategory();
+    return m_option.GetPrimaryCategory();
   }
   asset::AssetHashSet GetStrategyAssets() const final {
     return m_option.GetStrategyAssets();
@@ -45,37 +44,39 @@ public:
   std::expected<epoch_frame::DataFrame, std::string>
   LoadAssetBars(const asset::Asset &asset,
                 DataCategory category,
-                const std::unordered_map<std::string, std::string>& parameters = {}) const final;
+                const FetchKwargs& kwargs = NoKwargs{}) const final;
 
   // Async version - load bars for a specific asset and category
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
   LoadAssetBarsAsync(const asset::Asset &asset,
                      DataCategory category,
-                     std::unordered_map<std::string, std::string> parameters = {}) const final;
+                     FetchKwargs kwargs = NoKwargs{}) const final;
 
-  // Cross-sectional economic data methods (FRED indicators)
+  // Load economic indicator data (FRED series)
   std::expected<epoch_frame::DataFrame, std::string>
-  LoadCrossSectionalData(CrossSectionalDataCategory category,
-                         const epoch_frame::Date& fromDate,
-                         const epoch_frame::Date& toDate) const final;
+  LoadEconomicIndicator(CrossSectionalDataCategory indicator,
+                        const epoch_frame::Date& fromDate,
+                        const epoch_frame::Date& toDate,
+                        bool use_alfred = true) const final;
 
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
-                              const epoch_frame::Date& fromDate,
-                              const epoch_frame::Date& toDate) const final;
+  LoadEconomicIndicatorAsync(CrossSectionalDataCategory indicator,
+                             const epoch_frame::Date& fromDate,
+                             const epoch_frame::Date& toDate,
+                             bool use_alfred = true) const final;
 
-  // Market indices data methods (Polygon indices like SPX, VIX, NDX)
+  // Load market index data (Polygon indices like SPX, VIX, NDX)
   std::expected<epoch_frame::DataFrame, std::string>
-  LoadIndicesData(const std::string& indexTicker,
-                  const epoch_frame::Date& fromDate,
-                  const epoch_frame::Date& toDate,
-                  bool is_eod = true) const final;
+  LoadIndexData(const std::string& ticker,
+                const epoch_frame::Date& fromDate,
+                const epoch_frame::Date& toDate,
+                bool is_eod = true) const final;
 
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadIndicesDataAsync(const std::string& indexTicker,
-                       const epoch_frame::Date& fromDate,
-                       const epoch_frame::Date& toDate,
-                       bool is_eod = true) const final;
+  LoadIndexDataAsync(const std::string& ticker,
+                     const epoch_frame::Date& fromDate,
+                     const epoch_frame::Date& toDate,
+                     bool is_eod = true) const final;
 
   // Build cache load parameters from options
   cache::CacheLoadParams buildCacheParams(const asset::Asset& asset,
@@ -89,8 +90,6 @@ private:
   DataloaderOption m_option;
   std::shared_ptr<ICacheProvider> m_cacheProvider;
   std::shared_ptr<IFetcherProvider> m_fetcherProvider;
-  std::shared_ptr<ICrossSectionalFetcher> m_crossSectionalFetcher;
-  std::shared_ptr<IIndicesFetcher> m_indicesFetcher;
   std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;

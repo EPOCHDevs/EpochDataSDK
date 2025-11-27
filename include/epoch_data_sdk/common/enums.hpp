@@ -11,8 +11,10 @@ CREATE_ENUM(DataCategory,
             News, Dividends, Splits, TickerEvents,
             // Fundamentals
             BalanceSheets, CashFlowStatements, IncomeStatements, Ratios,
-            ShortInterest, ShortVolume
-            // AlternativeData, TickData
+            ShortInterest, ShortVolume,
+            // Cross-sectional / Market-wide data
+            EconomicIndicator,  // FRED data via series_id
+            Indices             // Market indices (SPX, VIX, etc.)
             );
 
 CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);

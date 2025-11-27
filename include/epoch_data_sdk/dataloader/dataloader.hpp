@@ -1,5 +1,6 @@
 #pragma once
 #include <epoch_data_sdk/common/enums.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/series.h>
 #include <epoch_data_sdk/model/asset/asset.hpp>
@@ -26,12 +27,12 @@ public:
   virtual void LoadData() = 0;
 
   // Get loaded data (asset -> DataFrame map)
-  // Note: If crossSectionalCategories are specified in options, they will be
+  // Note: If EconomicIndicator/Indices requests are specified, they will be
   // merged as columns into each asset's DataFrame
   virtual DataMap GetStoredData() const = 0;
 
   // Query methods
-  virtual DataCategory GetDataCategory() const = 0;
+  virtual DataCategory GetDataCategory() const = 0;  // Returns primary category
   virtual asset::AssetHashSet GetStrategyAssets() const = 0;
   virtual asset::AssetHashSet GetAssets() const = 0;
   virtual std::optional<epoch_frame::Series> GetBenchmark() const = 0;
@@ -40,40 +41,65 @@ public:
   virtual std::expected<epoch_frame::DataFrame, std::string>
   LoadAssetBars(const asset::Asset& asset,
                 DataCategory category,
-                const std::unordered_map<std::string, std::string>& parameters = {}) const = 0;
+                const dataloader::FetchKwargs& kwargs = dataloader::NoKwargs{}) const = 0;
 
   // Advanced: load specific asset/category on-demand (async)
   virtual drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
   LoadAssetBarsAsync(const asset::Asset& asset,
                      DataCategory category,
-                     std::unordered_map<std::string, std::string> parameters = {}) const = 0;
+                     dataloader::FetchKwargs kwargs = dataloader::NoKwargs{}) const = 0;
 
-  // Cross-sectional economic data methods (FRED indicators)
-  // Fetch cross-sectional data without asset - category determines the series
+  // Load economic indicator data (FRED series)
+  // indicator: Economic indicator enum (e.g., CrossSectionalDataCategory::CPI)
+  // use_alfred: true = point-in-time data (for backtesting), false = latest values
   virtual std::expected<epoch_frame::DataFrame, std::string>
-  LoadCrossSectionalData(CrossSectionalDataCategory category,
-                         const epoch_frame::Date& fromDate,
-                         const epoch_frame::Date& toDate) const = 0;
+  LoadEconomicIndicator(CrossSectionalDataCategory indicator,
+                        const epoch_frame::Date& fromDate,
+                        const epoch_frame::Date& toDate,
+                        bool use_alfred = true) const = 0;
 
   virtual drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
-                              const epoch_frame::Date& fromDate,
-                              const epoch_frame::Date& toDate) const = 0;
+  LoadEconomicIndicatorAsync(CrossSectionalDataCategory indicator,
+                             const epoch_frame::Date& fromDate,
+                             const epoch_frame::Date& toDate,
+                             bool use_alfred = true) const = 0;
 
-  // Market indices data methods (Polygon indices like SPX, VIX, NDX)
-  // Fetch index data using ticker symbols (without "I:" prefix)
+  // Load market index data (Polygon indices like SPX, VIX, NDX)
+  // ticker: Index ticker (without "I:" prefix)
   // is_eod: true = daily bars, false = minute bars
   virtual std::expected<epoch_frame::DataFrame, std::string>
-  LoadIndicesData(const std::string& indexTicker,
-                  const epoch_frame::Date& fromDate,
-                  const epoch_frame::Date& toDate,
-                  bool is_eod = true) const = 0;
+  LoadIndexData(const std::string& ticker,
+                const epoch_frame::Date& fromDate,
+                const epoch_frame::Date& toDate,
+                bool is_eod = true) const = 0;
 
   virtual drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-  LoadIndicesDataAsync(const std::string& indexTicker,
+  LoadIndexDataAsync(const std::string& ticker,
+                     const epoch_frame::Date& fromDate,
+                     const epoch_frame::Date& toDate,
+                     bool is_eod = true) const = 0;
+
+  // ============================================================
+  // Backward compatibility aliases (deprecated)
+  // ============================================================
+
+  // Alias for LoadIndexData (deprecated, use LoadIndexData)
+  std::expected<epoch_frame::DataFrame, std::string>
+  LoadIndicesData(const std::string& ticker,
+                  const epoch_frame::Date& fromDate,
+                  const epoch_frame::Date& toDate,
+                  bool is_eod = true) const {
+    return LoadIndexData(ticker, fromDate, toDate, is_eod);
+  }
+
+  // Alias for LoadIndexDataAsync (deprecated, use LoadIndexDataAsync)
+  drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
+  LoadIndicesDataAsync(const std::string& ticker,
                        const epoch_frame::Date& fromDate,
                        const epoch_frame::Date& toDate,
-                       bool is_eod = true) const = 0;
+                       bool is_eod = true) const {
+    return LoadIndexDataAsync(ticker, fromDate, toDate, is_eod);
+  }
 };
 
 } // namespace data_sdk

@@ -7,6 +7,7 @@
 #include <epoch_frame/dataframe.h>
 
 #include "epoch_data_sdk/common/metadata.hpp"
+#include "epoch_data_sdk/dataloader/fetch_kwargs.hpp"
 #include "error.hpp"
 #include "options.hpp"
 
@@ -14,12 +15,16 @@ namespace data_sdk::polygon {
 
 template <typename T> using Expected = std::expected<T, HttpError>;
 
+// Financials timeframe enum (re-exported from fetch_kwargs for convenience)
+using dataloader::FinancialsTimeframe;
+
 // Options for financial statements requests
 struct BalanceSheetOptions {
   std::string ticker;
   std::string from_date;  // "YYYY-MM-DD"
   std::string to_date;    // "YYYY-MM-DD"
   std::optional<int> limit = std::nullopt;
+  FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly;
 };
 
 struct CashFlowOptions {
@@ -27,6 +32,7 @@ struct CashFlowOptions {
   std::string from_date;  // "YYYY-MM-DD"
   std::string to_date;    // "YYYY-MM-DD"
   std::optional<int> limit = std::nullopt;
+  FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly;
 };
 
 struct IncomeStatementOptions {
@@ -34,6 +40,7 @@ struct IncomeStatementOptions {
   std::string from_date;  // "YYYY-MM-DD"
   std::string to_date;    // "YYYY-MM-DD"
   std::optional<int> limit = std::nullopt;
+  FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly;
 };
 
 // FinancialsClient - Handles financial statements and ratios data
@@ -57,21 +64,23 @@ public:
   getBalanceSheets(const std::string &ticker,
                    const std::string &from_date,
                    const std::string &to_date,
-                   std::optional<int> limit = std::nullopt) const;
+                   std::optional<int> limit = std::nullopt,
+                   FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   Expected<epoch_frame::DataFrame>
   getBalanceSheets(const BalanceSheetOptions &opts) const {
-    return getBalanceSheets(opts.ticker, opts.from_date, opts.to_date, opts.limit);
+    return getBalanceSheets(opts.ticker, opts.from_date, opts.to_date, opts.limit, opts.timeframe);
   }
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getBalanceSheetsAsync(std::string ticker, std::string from_date,
-                        std::string to_date, std::optional<int> limit = std::nullopt) const;
+                        std::string to_date, std::optional<int> limit = std::nullopt,
+                        FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getBalanceSheetsAsync(BalanceSheetOptions opts) const {
     return getBalanceSheetsAsync(std::move(opts.ticker), std::move(opts.from_date),
-                                 std::move(opts.to_date), opts.limit);
+                                 std::move(opts.to_date), opts.limit, opts.timeframe);
   }
 
   // Get cash flow statements (backtest-friendly interface)
@@ -79,21 +88,23 @@ public:
   getCashFlowStatements(const std::string &ticker,
                         const std::string &from_date,
                         const std::string &to_date,
-                        std::optional<int> limit = std::nullopt) const;
+                        std::optional<int> limit = std::nullopt,
+                        FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   Expected<epoch_frame::DataFrame>
   getCashFlowStatements(const CashFlowOptions &opts) const {
-    return getCashFlowStatements(opts.ticker, opts.from_date, opts.to_date, opts.limit);
+    return getCashFlowStatements(opts.ticker, opts.from_date, opts.to_date, opts.limit, opts.timeframe);
   }
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getCashFlowStatementsAsync(std::string ticker, std::string from_date,
-                             std::string to_date, std::optional<int> limit = std::nullopt) const;
+                             std::string to_date, std::optional<int> limit = std::nullopt,
+                             FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getCashFlowStatementsAsync(CashFlowOptions opts) const {
     return getCashFlowStatementsAsync(std::move(opts.ticker), std::move(opts.from_date),
-                                      std::move(opts.to_date), opts.limit);
+                                      std::move(opts.to_date), opts.limit, opts.timeframe);
   }
 
   // Get income statements (backtest-friendly interface)
@@ -101,21 +112,23 @@ public:
   getIncomeStatements(const std::string &ticker,
                       const std::string &from_date,
                       const std::string &to_date,
-                      std::optional<int> limit = std::nullopt) const;
+                      std::optional<int> limit = std::nullopt,
+                      FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   Expected<epoch_frame::DataFrame>
   getIncomeStatements(const IncomeStatementOptions &opts) const {
-    return getIncomeStatements(opts.ticker, opts.from_date, opts.to_date, opts.limit);
+    return getIncomeStatements(opts.ticker, opts.from_date, opts.to_date, opts.limit, opts.timeframe);
   }
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getIncomeStatementsAsync(std::string ticker, std::string from_date,
-                           std::string to_date, std::optional<int> limit = std::nullopt) const;
+                           std::string to_date, std::optional<int> limit = std::nullopt,
+                           FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) const;
 
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getIncomeStatementsAsync(IncomeStatementOptions opts) const {
     return getIncomeStatementsAsync(std::move(opts.ticker), std::move(opts.from_date),
-                                    std::move(opts.to_date), opts.limit);
+                                    std::move(opts.to_date), opts.limit, opts.timeframe);
   }
 
   // Get metadata describing the DataFrame structure returned by getBalanceSheets()

@@ -4,8 +4,6 @@
 
 #include "cache/merge_strategy.h"
 #include "simple_merger.hpp"
-#include "fred_cross_sectional_fetcher.hpp"
-#include "polygon_indices_fetcher.hpp"
 #include "epoch_data_sdk/dataloader/metadata_registry.hpp"
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
 #include <epoch_data_sdk/common/bar_attribute.hpp>
@@ -115,20 +113,15 @@ ApiCacheDataloader::ApiCacheDataloader(
     std::unique_ptr<IDataMerger> merger)
     : m_option(std::move(option)), m_cacheProvider(std::move(cache)),
       m_fetcherProvider(std::move(fetchers)),
-      m_crossSectionalFetcher(std::make_shared<FredCrossSectionalFetcher>()),
-      m_indicesFetcher(std::make_shared<PolygonIndicesFetcher>()),
       m_merger(std::move(merger)),
       m_benchmark(std::nullopt) {
 
-  // Validate options
-  if (m_option.categories.empty()) {
-    throw std::runtime_error("Invalid DataloaderOption: Empty categories");
-  }
-
-  // Cannot mix MinuteBars and DailyBars - they affect the same OHLCV columns
-  bool hasMinuteBars = m_option.categories.count(DataCategory::MinuteBars) > 0;
-  bool hasDailyBars = m_option.categories.count(DataCategory::DailyBars) > 0;
-  if (hasMinuteBars && hasDailyBars) {
+  // Validate options using the new unified API
+  if (!m_option.IsValid()) {
+    if (m_option.GetRequests().empty()) {
+      throw std::runtime_error("Invalid DataloaderOption: Empty requests");
+    }
+    // IsValid also checks for MinuteBars + DailyBars conflict
     throw std::runtime_error("Invalid DataloaderOption: Cannot mix MinuteBars and DailyBars");
   }
 
@@ -141,16 +134,16 @@ ApiCacheDataloader::ApiCacheDataloader(
 std::expected<epoch_frame::DataFrame, std::string>
 ApiCacheDataloader::LoadAssetBars(const asset::Asset &asset,
                                    DataCategory cat,
-                                   const std::unordered_map<std::string, std::string>& parameters) const {
+                                   const FetchKwargs& kwargs) const {
   // Simply delegate to async version and wait for result
-  return drogon::sync_wait(LoadAssetBarsAsync(asset, cat, parameters));
+  return drogon::sync_wait(LoadAssetBarsAsync(asset, cat, kwargs));
 }
 
 // Async version of LoadAssetBars
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
 ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
                                         DataCategory cat,
-                                        std::unordered_map<std::string, std::string> /* parameters */) const {
+                                        FetchKwargs kwargs) const {
   SPDLOG_DEBUG("LoadAssetBarsAsync: Starting for asset {} category {}",
                asset.GetSymbolStr(), DataCategoryWrapper::ToString(cat));
   using namespace epoch_frame;
@@ -176,9 +169,9 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
   auto res = co_await m_cacheProvider->LoadWithCacheAsync(
       params.cacheDir, asset, cat, params.ttlSeconds,
       params.enableCache, fromDate, toDate,
-      [&fetcher, asset, cat](const epoch_frame::Date &f, const epoch_frame::Date &t) -> drogon::Task<std::expected<epoch_frame::DataFrame, std::string>> {
+      [&fetcher, asset, cat, kwargs](const epoch_frame::Date &f, const epoch_frame::Date &t) -> drogon::Task<std::expected<epoch_frame::DataFrame, std::string>> {
         const auto fetch_start = std::chrono::high_resolution_clock::now();
-        auto result = co_await fetcher.FetchAsync(asset, cat, f, t);
+        auto result = co_await fetcher.FetchAsync(asset, cat, f, t, kwargs);
         const auto fetch_end = std::chrono::high_resolution_clock::now();
         const auto fetch_duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(fetch_end -
@@ -209,24 +202,25 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
 // Load all categories for a single asset in parallel, then merge
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
 ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
-  const auto& categories = m_option.GetCategories();
+  // Get only per-asset requests (excludes EconomicIndicator and Indices)
+  const auto assetRequests = m_option.GetAssetRequests();
 
   // Single category - no merge needed
-  if (categories.size() == 1) {
-    co_return co_await LoadAssetBarsAsync(asset, *categories.begin());
+  if (assetRequests.size() == 1) {
+    const auto& req = assetRequests[0];
+    co_return co_await LoadAssetBarsAsync(asset, req.category, req.kwargs);
   }
 
   // Multi-category: parallel gather then merge
   SPDLOG_DEBUG("LoadAssetDataAsync: Loading {} categories for asset {}",
-               categories.size(), asset.GetSymbolStr());
+               assetRequests.size(), asset.GetSymbolStr());
 
   // Step 1: Parallel gather - load all categories concurrently
   std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> tasks;
-  std::vector<DataCategory> category_list(categories.begin(), categories.end());
-  tasks.reserve(category_list.size());
+  tasks.reserve(assetRequests.size());
 
-  for (const auto& cat : category_list) {
-    tasks.push_back(LoadAssetBarsAsync(asset, cat));
+  for (const auto& req : assetRequests) {
+    tasks.push_back(LoadAssetBarsAsync(asset, req.category, req.kwargs));
   }
 
   // Wait for all category fetches to complete
@@ -238,7 +232,7 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
   for (std::size_t i = 0; i < results.size(); ++i) {
     const auto& result = results[i];
-    const auto& cat = category_list[i];
+    const auto& cat = assetRequests[i].category;
     std::string cat_key = DataCategoryWrapper::ToString(cat);
 
     if (!result.has_value()) {
@@ -364,9 +358,9 @@ void ApiCacheDataloader::LoadData() {
 
   SPDLOG_INFO("Starting data loading process");
   auto assets = GetAssets();
-  auto all_categories = m_option.GetAllCategories();
+  auto categories = m_option.GetCategories();
   SPDLOG_INFO("Loading data for {} assets across {} categories",
-              assets.size(), all_categories.size());
+              assets.size(), categories.size());
 
   if (assets.empty()) {
     SPDLOG_ERROR("No assets to load");
@@ -456,7 +450,7 @@ void ApiCacheDataloader::LoadData() {
 
       for (const auto& asset : asset_vec) {
         SPDLOG_DEBUG("Creating task for asset {} with {} categories",
-                    asset.GetSymbolStr(), m_option.GetAllCategories().size());
+                    asset.GetSymbolStr(), categories.size());
 
         tasks.push_back(LoadAssetDataAsync(asset));
       }
@@ -535,209 +529,152 @@ void ApiCacheDataloader::LoadData() {
   LogCampaignViability();
 #endif
 
-  // Load cross-sectional economic data if requested and merge into each asset
-  const auto& crossSectionalCategories = m_option.GetCrossSectionalCategories();
-  if (!crossSectionalCategories.empty() && !m_loadedData.empty()) {
-    SPDLOG_INFO("Loading {} cross-sectional economic indicators to merge with {} assets",
-                crossSectionalCategories.size(), m_loadedData.size());
+  // Load cross-sectional data (EconomicIndicator and Indices) if requested
+  const auto crossSectionalRequests = m_option.GetCrossSectionalRequests();
+  if (!crossSectionalRequests.empty() && !m_loadedData.empty()) {
+    SPDLOG_INFO("Loading {} cross-sectional data requests to merge with {} assets",
+                crossSectionalRequests.size(), m_loadedData.size());
 
-    // Load cross-sectional data in parallel
-    std::vector<CrossSectionalDataCategory> cs_category_vec(
-        crossSectionalCategories.begin(), crossSectionalCategories.end());
+    // Separate economic indicators and indices
+    std::vector<DataRequest> economicRequests;
+    std::vector<DataRequest> indicesRequests;
 
-    std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> cs_tasks;
-    cs_tasks.reserve(cs_category_vec.size());
-
-    for (const auto& category : cs_category_vec) {
-      cs_tasks.push_back(LoadCrossSectionalDataAsync(
-          category, m_option.GetStartDate(), m_option.GetEndDate()));
+    for (const auto& req : crossSectionalRequests) {
+      if (req.category == DataCategory::EconomicIndicator) {
+        economicRequests.push_back(req);
+      } else if (req.category == DataCategory::Indices) {
+        indicesRequests.push_back(req);
+      }
     }
 
-    // Execute all cross-sectional tasks concurrently
-    auto cs_results = data_sdk::common::syncWhenAll(std::move(cs_tasks));
+    // Load economic indicators
+    std::unordered_map<std::string, epoch_frame::DataFrame> indicators;
+    if (!economicRequests.empty()) {
+      std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> econ_tasks;
+      econ_tasks.reserve(economicRequests.size());
 
-    // Collect successfully loaded indicators
-    std::unordered_map<CrossSectionalDataCategory, epoch_frame::DataFrame> indicators;
-    for (size_t i = 0; i < cs_category_vec.size(); ++i) {
-      const auto& category = cs_category_vec[i];
-      const auto& result = cs_results[i];
-
-      if (!result.has_value()) {
-        SPDLOG_ERROR("Failed to load cross-sectional data for {}: {}",
-                    CrossSectionalDataCategoryWrapper::ToString(category),
-                    result.error());
-        continue;
+      for (const auto& req : economicRequests) {
+        const auto* kw = std::get_if<EconomicIndicatorKwargs>(&req.kwargs);
+        if (kw) {
+          econ_tasks.push_back(LoadEconomicIndicatorAsync(
+              kw->indicator, m_option.GetStartDate(), m_option.GetEndDate(), kw->use_alfred));
+        }
       }
 
-      if (result->empty()) {
-        SPDLOG_WARN("No data found for {} in date range [{} - {}]",
-                    CrossSectionalDataCategoryWrapper::ToString(category),
-                    m_option.GetStartDate().repr(),
-                    m_option.GetEndDate().repr());
-        continue;
-      }
+      auto econ_results = data_sdk::common::syncWhenAll(std::move(econ_tasks));
 
-      SPDLOG_INFO("Loaded {} rows for economic indicator: {}",
-                  result->num_rows(),
-                  CrossSectionalDataCategoryWrapper::ToString(category));
-      indicators[category] = *result;
+      for (size_t i = 0; i < economicRequests.size(); ++i) {
+        const auto* kw = std::get_if<EconomicIndicatorKwargs>(&economicRequests[i].kwargs);
+        if (!kw) continue;
+
+        std::string indicator_name = kw->getName();
+        const auto& result = econ_results[i];
+        if (!result.has_value()) {
+          SPDLOG_ERROR("Failed to load economic indicator {}: {}", indicator_name, result.error());
+          continue;
+        }
+        if (result->empty()) {
+          SPDLOG_WARN("No data found for {} in date range", indicator_name);
+          continue;
+        }
+
+        SPDLOG_INFO("Loaded {} rows for economic indicator: {}", result->num_rows(), indicator_name);
+        indicators[indicator_name] = *result;
+      }
     }
 
-    if (!indicators.empty()) {
-      SPDLOG_INFO("Successfully loaded {}/{} indicators - merging into {} assets",
-                  indicators.size(), crossSectionalCategories.size(), m_loadedData.size());
+    // Load indices
+    std::unordered_map<std::string, epoch_frame::DataFrame> indices;
+    if (!indicesRequests.empty()) {
+      std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> idx_tasks;
+      idx_tasks.reserve(indicesRequests.size());
 
-      // Merge indicators into each asset's DataFrame using SimpleMerger
+      for (const auto& req : indicesRequests) {
+        const auto* kw = std::get_if<IndicesKwargs>(&req.kwargs);
+        if (kw) {
+          idx_tasks.push_back(LoadIndexDataAsync(
+              kw->ticker, m_option.GetStartDate(), m_option.GetEndDate(), kw->is_eod));
+        }
+      }
+
+      auto idx_results = data_sdk::common::syncWhenAll(std::move(idx_tasks));
+
+      for (size_t i = 0; i < indicesRequests.size(); ++i) {
+        const auto* kw = std::get_if<IndicesKwargs>(&indicesRequests[i].kwargs);
+        if (!kw) continue;
+
+        const auto& result = idx_results[i];
+        if (!result.has_value()) {
+          SPDLOG_ERROR("Failed to load index {}: {}", kw->ticker, result.error());
+          continue;
+        }
+        if (result->empty()) {
+          SPDLOG_WARN("No data found for index {} in date range", kw->ticker);
+          continue;
+        }
+
+        SPDLOG_INFO("Loaded {} rows for market index: {}", result->num_rows(), kw->ticker);
+        indices[kw->ticker] = *result;
+      }
+    }
+
+    // Merge indicators and indices into each asset's DataFrame
+    if (!indicators.empty() || !indices.empty()) {
+      SPDLOG_INFO("Merging {} indicators and {} indices into {} assets",
+                  indicators.size(), indices.size(), m_loadedData.size());
+
       for (auto& [asset, asset_df] : m_loadedData) {
-        // Build string-based merge map with asset data + all indicators
         std::unordered_map<std::string, epoch_frame::DataFrame> merge_map;
 
-        // Add current asset data with category name as key
-        auto base_category = m_option.GetDataCategory();
+        // Add current asset data
+        auto base_category = m_option.GetPrimaryCategory();
         std::string base_key = DataCategoryWrapper::ToString(base_category);
         merge_map[base_key] = asset_df;
 
-        // Add each economic indicator with unique string key
-        for (const auto& [category, indicator_df] : indicators) {
-          std::string prefix = "ECON:" + CrossSectionalDataCategoryWrapper::ToString(category) + ":";
+        // Add economic indicators with prefix
+        for (const auto& [series_id, indicator_df] : indicators) {
+          std::string prefix = "ECON:" + series_id + ":";
           auto prefixed_df = indicator_df.add_prefix(prefix);
-
-          // Use category name as unique key
-          std::string indicator_key = CrossSectionalDataCategoryWrapper::ToString(category);
-          merge_map[indicator_key] = prefixed_df;
+          merge_map[series_id] = prefixed_df;
         }
 
-        // Merge all data (asset + all indicators) in one call using SimpleMerger
+        // Add indices with prefix
+        for (const auto& [ticker, index_df] : indices) {
+          std::string prefix = "IDX:" + ticker + ":";
+          auto prefixed_df = index_df.add_prefix(prefix);
+          merge_map[ticker] = prefixed_df;
+        }
+
+        // Merge all data
         auto merge_result = m_merger->Merge(merge_map);
         if (!merge_result.has_value()) {
-          SPDLOG_ERROR("Failed to merge economic indicators into {}: {}",
+          SPDLOG_ERROR("Failed to merge cross-sectional data into {}: {}",
                       asset.GetSymbolStr(), merge_result.error());
           continue;
         }
 
-        asset_df = *merge_result;
+        m_loadedData[asset] = *merge_result;
 
-        SPDLOG_DEBUG("Merged {} economic indicators into {} ({} total columns)",
-                    indicators.size(),
-                    asset.GetSymbolStr(),
-                    asset_df.num_cols());
-
-        // Update the stored asset DataFrame
-        m_loadedData[asset] = asset_df;
+        SPDLOG_DEBUG("Merged cross-sectional data into {} ({} total columns)",
+                    asset.GetSymbolStr(), m_loadedData[asset].num_cols());
       }
 
       SPDLOG_INFO("Cross-sectional data merge complete");
     }
   }
 
-  // Load market indices data if requested and merge into each asset
-  const auto& indicesTickers = m_option.GetIndicesTickers();
-  if (!indicesTickers.empty() && !m_loadedData.empty()) {
-    // Determine if we're loading daily or minute bars
-    bool hasMinuteBars = m_option.categories.count(DataCategory::MinuteBars) > 0;
-    bool is_eod = !hasMinuteBars;  // true for daily, false for minute
-
-    SPDLOG_INFO("Loading {} market indices ({}) to merge with {} assets",
-                indicesTickers.size(), is_eod ? "daily" : "minute", m_loadedData.size());
-
-    // Load indices data in parallel
-    std::vector<std::string> indices_vec(
-        indicesTickers.begin(), indicesTickers.end());
-
-    std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> indices_tasks;
-    indices_tasks.reserve(indices_vec.size());
-
-    for (const auto& ticker : indices_vec) {
-      indices_tasks.push_back(LoadIndicesDataAsync(
-          ticker, m_option.GetStartDate(), m_option.GetEndDate(), is_eod));
-    }
-
-    // Execute all indices tasks concurrently
-    auto indices_results = data_sdk::common::syncWhenAll(std::move(indices_tasks));
-
-    // Collect successfully loaded indices
-    std::unordered_map<std::string, epoch_frame::DataFrame> indices;
-    for (size_t i = 0; i < indices_vec.size(); ++i) {
-      const auto& ticker = indices_vec[i];
-      const auto& result = indices_results[i];
-
-      if (!result.has_value()) {
-        SPDLOG_ERROR("Failed to load index data for {}: {}", ticker, result.error());
-        continue;
-      }
-
-      if (result->empty()) {
-        SPDLOG_WARN("No data found for index {} in date range [{} - {}]",
-                    ticker,
-                    m_option.GetStartDate().repr(),
-                    m_option.GetEndDate().repr());
-        continue;
-      }
-
-      SPDLOG_INFO("Loaded {} rows for market index: {}", result->num_rows(), ticker);
-      indices[ticker] = *result;
-    }
-
-    if (!indices.empty()) {
-      SPDLOG_INFO("Successfully loaded {}/{} indices - merging into {} assets",
-                  indices.size(), indicesTickers.size(), m_loadedData.size());
-
-      // Merge indices into each asset's DataFrame using SimpleMerger
-      for (auto& [asset, asset_df] : m_loadedData) {
-        // Build string-based merge map with asset data + all indices
-        std::unordered_map<std::string, epoch_frame::DataFrame> merge_map;
-
-        // Add current asset data with category name as key
-        auto base_category = m_option.GetDataCategory();
-        std::string base_key = DataCategoryWrapper::ToString(base_category);
-        merge_map[base_key] = asset_df;
-
-        // Add each index with unique string key
-        std::string timespan = is_eod ? "daily" : "minute";
-        for (const auto& [ticker, index_df] : indices) {
-          std::string prefix = "IDX:" + ticker;
-          auto prefixed_df = index_df.add_prefix(prefix + ":");
-
-          // Use "IDX:<ticker>:<timespan>" as unique key for metadata registry
-          // This allows the metadata registry to set index_normalized correctly
-          merge_map[prefix + ":" + timespan] = prefixed_df;
-        }
-
-        // Merge all data (asset + all indices) in one call using SimpleMerger
-        auto merge_result = m_merger->Merge(merge_map);
-        if (!merge_result.has_value()) {
-          SPDLOG_ERROR("Failed to merge indices into {}: {}",
-                      asset.GetSymbolStr(), merge_result.error());
-          continue;
-        }
-
-        asset_df = *merge_result;
-
-        SPDLOG_DEBUG("Merged {} indices into {} ({} total columns)",
-                    indices.size(),
-                    asset.GetSymbolStr(),
-                    asset_df.num_cols());
-
-        // Update the stored asset DataFrame
-        m_loadedData[asset] = asset_df;
-      }
-
-      SPDLOG_INFO("Indices data merge complete");
-    }
-  }
-
-  // Benchmark SPY (daily) - Note: TearSheetDataOption requires benchmark to
-  // have same index as equity
+  // Benchmark SPY (daily)
   auto benchmarkAsset = asset::AssetConstants::instance().SPY;
-  auto dailyOption = m_option; // copy
-  dailyOption.SetCategories({DataCategory::DailyBars}); // Only DailyBars for benchmark
+  auto dailyOption = m_option;
+  dailyOption.requests.clear();
+  dailyOption.AddRequest(DataCategory::DailyBars);
+
   ApiCacheDataloader helper(dailyOption, m_cacheProvider, m_fetcherProvider, std::make_unique<SimpleMerger>());
   if (auto df = helper.LoadAssetBars(benchmarkAsset, DataCategory::DailyBars)) {
     if (df->empty()) {
       SPDLOG_WARN("No benchmark data found for SPY in date range [{} - {}]. "
                   "Benchmark will be unavailable for performance comparison.",
                   m_option.GetStartDate().repr(), m_option.GetEndDate().repr());
-      // Don't set m_benchmark - leave it as std::nullopt
     } else {
       m_benchmark =
           (*df)[data_sdk::EpochStratifyXConstants::instance().CLOSE()]
@@ -749,7 +686,6 @@ void ApiCacheDataloader::LoadData() {
     SPDLOG_ERROR("Failed to load benchmark data for SPY: {}. "
                  "Benchmark will be unavailable for performance comparison.",
                  df.error());
-    // Don't set m_benchmark - leave it as std::nullopt
   }
 }
 
@@ -810,15 +746,11 @@ void ApiCacheDataloader::LogCampaignViability() const {
 
   SPDLOG_INFO("Campaign Viability Report:");
   SPDLOG_INFO("  - Assets with data: {}/{}", m_loadedData.size(), totalRequestedAssets);
-  // Don't report benchmark status here - it hasn't been loaded yet
-  // SPDLOG_INFO("  - Benchmark available: {}", m_benchmark.has_value() ? "Yes" : "No");
 
   if (m_loadedData.size() < 2) {
     SPDLOG_WARN("  - Warning: Only {} asset(s) available - limited diversification",
                 m_loadedData.size());
   }
-
-  // Benchmark warning removed - it hasn't been loaded yet at this point
 
   // Log successful assets
   if (!m_loadedData.empty()) {
@@ -829,94 +761,84 @@ void ApiCacheDataloader::LogCampaignViability() const {
   }
 }
 
-// Cross-sectional economic data methods (FRED indicators)
+// Economic indicator methods (FRED series)
 std::expected<epoch_frame::DataFrame, std::string>
-ApiCacheDataloader::LoadCrossSectionalData(CrossSectionalDataCategory category,
+ApiCacheDataloader::LoadEconomicIndicator(CrossSectionalDataCategory indicator,
                                           const epoch_frame::Date& fromDate,
-                                          const epoch_frame::Date& toDate) const {
-  SPDLOG_DEBUG("LoadCrossSectionalData: {} from {} to {}",
-               CrossSectionalDataCategoryWrapper::ToString(category),
-               fromDate.repr(), toDate.repr());
-
-  // Simply delegate to async version and wait for result
-  return drogon::sync_wait(LoadCrossSectionalDataAsync(category, fromDate, toDate));
+                                          const epoch_frame::Date& toDate,
+                                          bool use_alfred) const {
+  return drogon::sync_wait(LoadEconomicIndicatorAsync(indicator, fromDate, toDate, use_alfred));
 }
 
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadCrossSectionalDataAsync(CrossSectionalDataCategory category,
+ApiCacheDataloader::LoadEconomicIndicatorAsync(CrossSectionalDataCategory indicator,
                                                const epoch_frame::Date& fromDate,
-                                               const epoch_frame::Date& toDate) const {
-  SPDLOG_DEBUG("LoadCrossSectionalDataAsync: Starting for category {}",
-               CrossSectionalDataCategoryWrapper::ToString(category));
+                                               const epoch_frame::Date& toDate,
+                                               bool use_alfred) const {
+  EconomicIndicatorKwargs kwargs{indicator, use_alfred};
+  std::string indicator_name = kwargs.getName();
+  std::string series_id = kwargs.getSeriesId();
+
+  SPDLOG_DEBUG("LoadEconomicIndicatorAsync: Starting for {} ({})", indicator_name, series_id);
 
   const auto start_time = std::chrono::high_resolution_clock::now();
 
-  if (!m_crossSectionalFetcher) {
-    SPDLOG_ERROR("Cross-sectional fetcher not initialized");
-    co_return std::unexpected("Cross-sectional fetcher not initialized");
-  }
+  // Use the unified fetcher with EconomicIndicator category
+  auto& fetcher = m_fetcherProvider->Get(DataCategory::EconomicIndicator);
 
-  // Fetch directly using the cross-sectional fetcher (no caching for now - can be added later)
-  auto result = co_await m_crossSectionalFetcher->FetchAsync(category, fromDate, toDate);
+  // Use asset-less fetch for cross-sectional data
+  auto result = co_await fetcher.FetchAsync(
+      DataCategory::EconomicIndicator, fromDate, toDate, kwargs);
 
   const auto end_time = std::chrono::high_resolution_clock::now();
   const auto total_duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
   if (result.has_value()) {
-    SPDLOG_INFO("LoadCrossSectionalDataAsync: Successfully loaded {} ({} rows) in {}ms",
-                CrossSectionalDataCategoryWrapper::ToString(category),
-                result->num_rows(), total_duration.count());
+    SPDLOG_INFO("LoadEconomicIndicatorAsync: Successfully loaded {} ({} rows) in {}ms",
+                indicator_name, result->num_rows(), total_duration.count());
   } else {
-    SPDLOG_ERROR("LoadCrossSectionalDataAsync: Failed to load {}: {}",
-                 CrossSectionalDataCategoryWrapper::ToString(category),
-                 result.error());
+    SPDLOG_ERROR("LoadEconomicIndicatorAsync: Failed to load {}: {}", indicator_name, result.error());
   }
 
   co_return result;
 }
 
-// Market indices data methods (Polygon indices like SPX, VIX, NDX)
+// Market index methods
 std::expected<epoch_frame::DataFrame, std::string>
-ApiCacheDataloader::LoadIndicesData(const std::string& indexTicker,
-                                   const epoch_frame::Date& fromDate,
-                                   const epoch_frame::Date& toDate,
-                                   bool is_eod) const {
-  SPDLOG_DEBUG("LoadIndicesData: {} from {} to {} ({})",
-               indexTicker, fromDate.repr(), toDate.repr(), is_eod ? "daily" : "minute");
-
-  // Simply delegate to async version and wait for result
-  return drogon::sync_wait(LoadIndicesDataAsync(indexTicker, fromDate, toDate, is_eod));
+ApiCacheDataloader::LoadIndexData(const std::string& ticker,
+                                  const epoch_frame::Date& fromDate,
+                                  const epoch_frame::Date& toDate,
+                                  bool is_eod) const {
+  return drogon::sync_wait(LoadIndexDataAsync(ticker, fromDate, toDate, is_eod));
 }
 
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
-ApiCacheDataloader::LoadIndicesDataAsync(const std::string& indexTicker,
-                                        const epoch_frame::Date& fromDate,
-                                        const epoch_frame::Date& toDate,
-                                        bool is_eod) const {
-  SPDLOG_DEBUG("LoadIndicesDataAsync: Starting for index {} ({})",
-               indexTicker, is_eod ? "daily" : "minute");
+ApiCacheDataloader::LoadIndexDataAsync(const std::string& ticker,
+                                       const epoch_frame::Date& fromDate,
+                                       const epoch_frame::Date& toDate,
+                                       bool is_eod) const {
+  SPDLOG_DEBUG("LoadIndexDataAsync: Starting for index {} ({})", ticker, is_eod ? "daily" : "minute");
 
   const auto start_time = std::chrono::high_resolution_clock::now();
 
-  if (!m_indicesFetcher) {
-    SPDLOG_ERROR("Indices fetcher not initialized");
-    co_return std::unexpected("Indices fetcher not initialized");
-  }
+  // Use the unified fetcher with Indices category
+  auto& fetcher = m_fetcherProvider->Get(DataCategory::Indices);
+  IndicesKwargs kwargs{ticker, is_eod};
 
-  // Fetch directly using the indices fetcher (no caching for now - can be added later)
-  auto result = co_await m_indicesFetcher->FetchAsync(indexTicker, fromDate, toDate, is_eod);
+  // Use asset-less fetch for cross-sectional data
+  auto result = co_await fetcher.FetchAsync(
+      DataCategory::Indices, fromDate, toDate, kwargs);
 
   const auto end_time = std::chrono::high_resolution_clock::now();
   const auto total_duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
   if (result.has_value()) {
-    SPDLOG_INFO("LoadIndicesDataAsync: Successfully loaded {} ({} rows) in {}ms",
-                indexTicker, result->num_rows(), total_duration.count());
+    SPDLOG_INFO("LoadIndexDataAsync: Successfully loaded {} ({} rows) in {}ms",
+                ticker, result->num_rows(), total_duration.count());
   } else {
-    SPDLOG_ERROR("LoadIndicesDataAsync: Failed to load {}: {}",
-                 indexTicker, result.error());
+    SPDLOG_ERROR("LoadIndexDataAsync: Failed to load {}: {}", ticker, result.error());
   }
 
   co_return result;

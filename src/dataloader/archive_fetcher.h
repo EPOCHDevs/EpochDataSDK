@@ -1,6 +1,7 @@
 #pragma once
 #include "epoch_frame/common.h"
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_data_sdk/model/asset/constants.hpp>
 #include <epoch_frame/serialization.h>
 
@@ -14,8 +15,13 @@ public:
   std::expected<epoch_frame::DataFrame, std::string>
   Fetch(const asset::Asset &asset, DataCategory category,
         const epoch_frame::Date &fromDate,
-        const epoch_frame::Date &toDate) const override {
+        const epoch_frame::Date &toDate,
+        const FetchKwargs &kwargs = NoKwargs{}) const override {
     using namespace epoch_frame;
+    // Note: kwargs are currently unused for archive fetching
+    // Future: Could use FinancialsKwargs to select different archive files by timeframe
+    (void)kwargs;
+
     auto source = std::filesystem::path(m_archivePath);
     auto base = (source / epoch_core::DataCategoryWrapper::ToString(category) /
                  epoch_core::AssetClassWrapper::ToLongFormString(
@@ -61,10 +67,11 @@ public:
   drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
   FetchAsync(const asset::Asset &asset, DataCategory category,
              const epoch_frame::Date &fromDate,
-             const epoch_frame::Date &toDate) const override {
+             const epoch_frame::Date &toDate,
+             const FetchKwargs &kwargs = NoKwargs{}) const override {
     // Archive fetching is local file I/O, relatively fast
     // For simplicity, just call sync version directly
-    co_return Fetch(asset, category, fromDate, toDate);
+    co_return Fetch(asset, category, fromDate, toDate, kwargs);
   }
 
 private:

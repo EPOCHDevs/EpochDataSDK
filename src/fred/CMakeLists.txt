@@ -11,4 +11,7 @@ target_sources(epoch_data_sdk
 
         # ALFRED client (revision tracking for backtesting)
         alfred_client.cpp
+
+        # Unified series client (combines FRED and ALFRED)
+        series_client.cpp
 )

@@ -20,6 +20,13 @@ public:
     }
   }
 
+  // Asset-less fetching (for EconomicIndicator, Indices categories)
+  IDataFetcher &Get([[maybe_unused]] DataCategory category) const override {
+    // Asset-less categories default to Polygon fetcher (which supports FRED for EconomicIndicator)
+    // For Indices, PolygonDataFetcher handles the "I:" prefix
+    return m_polygon;
+  }
+
 private:
   mutable PolygonDataFetcher m_polygon;
   mutable ArchiveDataFetcher m_archive;

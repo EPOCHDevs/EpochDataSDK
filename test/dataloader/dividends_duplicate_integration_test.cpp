@@ -88,13 +88,11 @@ TEST_CASE("Full integration: DataLoader with 30 assets - 3 runs with cache persi
     options.endDate = epoch_frame::DateTime::from_date_str("2024-12-31").date();
     options.cacheDir = cache_dir;
     options.enableCache = true;
-    options.categories = {
-      DataCategory::Dividends,
-      DataCategory::Splits,
-      DataCategory::DailyBars,
-      DataCategory::ShortInterest,
-      DataCategory::ShortVolume
-    };
+    options.AddRequest(DataCategory::Dividends);
+    options.AddRequest(DataCategory::Splits);
+    options.AddRequest(DataCategory::DailyBars);
+    options.AddRequest(DataCategory::ShortInterest);
+    options.AddRequest(DataCategory::ShortVolume);
     options.dataloaderAssets = all_assets;
     options.strategyAssets = all_assets;
 

@@ -276,7 +276,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2023-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2023-03-31").date();
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
     opt.cacheDir = "/tmp/epoch_test_cache";  // Provide cache directory
     opt.enableCache = true;  // Enable cache
@@ -286,7 +286,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::FedFunds);
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Unemployment);
 
-    std::cout << "Creating dataloader with " << opt.GetCrossSectionalCategories().size()
+    std::cout << "Creating dataloader with " << opt.GetCrossSectionalRequests().size()
               << " economic indicators\n";
 
     // Create dataloader
@@ -357,7 +357,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2023-01-01").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2023-12-31").date();  // Full year to capture quarterly GDP publications
-    opt.categories = {DataCategory::DailyBars};
+    opt.AddRequest(DataCategory::DailyBars);
     opt.dataloaderAssets = {
         asset::AssetConstants::instance().SPY,
         asset::AssetConstants::instance().QQQ
@@ -400,7 +400,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     DataloaderOption opt;
     opt.startDate = epoch_frame::DateTime::from_date_str("2024-01-02").date();
     opt.endDate = epoch_frame::DateTime::from_date_str("2024-03-31").date();  // 3 months to capture monthly economic publications
-    opt.categories = {DataCategory::MinuteBars};
+    opt.AddRequest(DataCategory::MinuteBars);
     opt.dataloaderAssets = {asset::AssetConstants::instance().SPY};
     opt.cacheDir = "/tmp/epoch_test_cache_minute";  // Use different cache dir for minute bars
     opt.enableCache = true;  // Enable cache
@@ -411,7 +411,7 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Unemployment);
 
     std::cout << "Creating dataloader with minute bars and "
-              << opt.GetCrossSectionalCategories().size()
+              << opt.GetCrossSectionalRequests().size()
               << " economic indicators\\n";
 
     // Create dataloader

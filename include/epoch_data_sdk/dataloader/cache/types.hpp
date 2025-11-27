@@ -1,5 +1,6 @@
 #pragma once
 #include <epoch_data_sdk/common/enums.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/datetime.h>
 #include <epoch_data_sdk/model/asset/asset.hpp>
@@ -20,6 +21,7 @@ struct CacheLoadParams {
   std::uint64_t ttlSeconds = 0;
   bool enableCache = true;
   bool forceRefreshToday = false;  // For intraday freshness requirement
+  FetchKwargs kwargs = NoKwargs{};  // Additional kwargs for cache key differentiation
 };
 
 // Parameter struct for write operations
@@ -30,6 +32,7 @@ struct CacheWriteParams {
   epoch_frame::DataFrame data;
   bool enableCache = true;
   bool isAtomic = true;  // Use atomic write with temp file
+  FetchKwargs kwargs = NoKwargs{};  // Additional kwargs for cache key differentiation
 };
 
 // Cache manifest entry for tracking what's cached

@@ -53,18 +53,16 @@ public:
     DataloaderOption option;
 
     // All normalized categories EXCEPT News (IPOs not supported in metadata registry)
-    option.categories = {
-      DataCategory::DailyBars,
-      DataCategory::Dividends,
-      DataCategory::Splits,
-      DataCategory::TickerEvents,
-      DataCategory::BalanceSheets,
-      DataCategory::CashFlowStatements,
-      DataCategory::IncomeStatements,
-      DataCategory::Ratios,
-      DataCategory::ShortInterest,
-      DataCategory::ShortVolume
-    };
+    option.AddRequest(DataCategory::DailyBars);
+    option.AddRequest(DataCategory::Dividends);
+    option.AddRequest(DataCategory::Splits);
+    option.AddRequest(DataCategory::TickerEvents);
+    option.AddRequest(DataCategory::BalanceSheets);
+    option.AddRequest(DataCategory::CashFlowStatements);
+    option.AddRequest(DataCategory::IncomeStatements);
+    option.AddRequest(DataCategory::Ratios);
+    option.AddRequest(DataCategory::ShortInterest);
+    option.AddRequest(DataCategory::ShortVolume);
 
     // 1 year lookback
     auto endDate = DateTime::now("UTC").date();
@@ -83,10 +81,8 @@ public:
     DataloaderOption option;
 
     // Only MinuteBars + News (both non-normalized)
-    option.categories = {
-      DataCategory::MinuteBars,
-      DataCategory::News
-    };
+    option.AddRequest(DataCategory::MinuteBars);
+    option.AddRequest(DataCategory::News);
 
     // 6 months lookback
     auto endDate = DateTime::now("UTC").date();
@@ -106,19 +102,17 @@ public:
 
     // All non-bar categories (mixed normalized and non-normalized) - 11 total
     // Note: Cannot mix MinuteBars and DailyBars, so use DailyBars only
-    option.categories = {
-      DataCategory::DailyBars,
-      DataCategory::News,
-      DataCategory::Dividends,
-      DataCategory::Splits,
-      DataCategory::TickerEvents,
-      DataCategory::BalanceSheets,
-      DataCategory::CashFlowStatements,
-      DataCategory::IncomeStatements,
-      DataCategory::Ratios,
-      DataCategory::ShortInterest,
-      DataCategory::ShortVolume
-    };
+    option.AddRequest(DataCategory::DailyBars);
+    option.AddRequest(DataCategory::News);
+    option.AddRequest(DataCategory::Dividends);
+    option.AddRequest(DataCategory::Splits);
+    option.AddRequest(DataCategory::TickerEvents);
+    option.AddRequest(DataCategory::BalanceSheets);
+    option.AddRequest(DataCategory::CashFlowStatements);
+    option.AddRequest(DataCategory::IncomeStatements);
+    option.AddRequest(DataCategory::Ratios);
+    option.AddRequest(DataCategory::ShortInterest);
+    option.AddRequest(DataCategory::ShortVolume);
 
     // 6 months lookback
     auto endDate = DateTime::now("UTC").date();
@@ -155,7 +149,7 @@ TEST_CASE("Multi-Norm: Daily Norm Integration (All normalized categories, no New
 
     // Build expected column set from ALL metadata
     std::set<std::string> expected_columns;
-    for (const auto& cat : option.categories) {
+    for (const auto& cat : option.GetCategories()) {
       auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
       for (const auto& col : metadata.columns) {
         std::string col_name = metadata.category_prefix + col.id;
@@ -163,7 +157,7 @@ TEST_CASE("Multi-Norm: Daily Norm Integration (All normalized categories, no New
       }
     }
 
-    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.categories.size());
+    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
     loader.LoadData();
@@ -217,7 +211,7 @@ TEST_CASE("Multi-Norm: Minute Norm Integration (MinuteBars + News, 6 months)",
 
     // Build expected column set from ALL metadata
     std::set<std::string> expected_columns;
-    for (const auto& cat : option.categories) {
+    for (const auto& cat : option.GetCategories()) {
       auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
       for (const auto& col : metadata.columns) {
         std::string col_name = metadata.category_prefix + col.id;
@@ -225,7 +219,7 @@ TEST_CASE("Multi-Norm: Minute Norm Integration (MinuteBars + News, 6 months)",
       }
     }
 
-    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.categories.size());
+    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
     loader.LoadData();
@@ -289,7 +283,7 @@ TEST_CASE("Multi-Norm: Mixed Norm Integration (All categories, 6 months)",
 
     // Build expected column set from ALL metadata (all 13 categories)
     std::set<std::string> expected_columns;
-    for (const auto& cat : option.categories) {
+    for (const auto& cat : option.GetCategories()) {
       auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
       for (const auto& col : metadata.columns) {
         std::string col_name = metadata.category_prefix + col.id;
@@ -297,7 +291,7 @@ TEST_CASE("Multi-Norm: Mixed Norm Integration (All categories, 6 months)",
       }
     }
 
-    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.categories.size());
+    SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
     loader.LoadData();
@@ -390,11 +384,9 @@ TEST_CASE("Multi-Norm: Empty Category Handling",
 
   SECTION("Categories with no data should create empty DataFrames with schema") {
     DataloaderOption option;
-    option.categories = {
-      DataCategory::DailyBars,
-      DataCategory::Dividends,
-      DataCategory::Splits
-    };
+    option.AddRequest(DataCategory::DailyBars);
+    option.AddRequest(DataCategory::Dividends);
+    option.AddRequest(DataCategory::Splits);
 
     // Very short date range (1 week) - unlikely to have dividends/splits
     auto endDate = DateTime::now("UTC").date();
@@ -408,7 +400,7 @@ TEST_CASE("Multi-Norm: Empty Category Handling",
 
     // Build expected column set from ALL metadata
     std::set<std::string> expected_columns;
-    for (const auto& cat : option.categories) {
+    for (const auto& cat : option.GetCategories()) {
       auto metadata = MetadataRegistry::GetMetadataForCategory(cat);
       for (const auto& col : metadata.columns) {
         std::string col_name = metadata.category_prefix + col.id;

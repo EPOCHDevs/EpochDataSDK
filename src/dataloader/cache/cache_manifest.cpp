@@ -1,5 +1,6 @@
 #include "cache_manifest.h"
 #include <epoch_data_sdk/common/time_provider.hpp>
+#include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_frame/serialization.h>
 #include <spdlog/spdlog.h>
 #include <fstream>
@@ -7,6 +8,10 @@
 #include <map>
 
 #include <epoch_data_sdk/model/builder/asset_builder.hpp>
+
+using data_sdk::dataloader::hashKwargs;
+using data_sdk::dataloader::FetchKwargs;
+using data_sdk::dataloader::NoKwargs;
 
 namespace data_sdk::dataloader::cache {
 
@@ -30,11 +35,12 @@ CacheManifest::CacheManifest(const std::filesystem::path& manifestPath,
 CacheProbeResult CacheManifest::probe(const CacheLoadParams& params) const {
   CacheProbeResult result{};
 
-  auto entry = getEntry(params.asset, params.category);
+  auto entry = getEntry(params.asset, params.category, params.kwargs);
   if (!entry) {
-    SPDLOG_DEBUG("No manifest entry for {} {}",
+    SPDLOG_DEBUG("No manifest entry for {} {} (kwargs hash: {})",
                 params.asset.GetID(),
-                DataCategoryWrapper::ToString(params.category));
+                DataCategoryWrapper::ToString(params.category),
+                hashKwargs(params.kwargs));
     return result;
   }
 
@@ -76,10 +82,11 @@ CacheProbeResult CacheManifest::probe(const CacheLoadParams& params) const {
 void CacheManifest::update(const asset::Asset& asset, DataCategory category,
                           const epoch_frame::Date& startDate,
                           const epoch_frame::Date& endDate,
-                          std::size_t numRows) {
+                          std::size_t numRows,
+                          const FetchKwargs& kwargs) {
   std::lock_guard<std::mutex> lock(m_mutex);
 
-  auto key = makeKey(asset, category);
+  auto key = makeKey(asset, category, kwargs);
 
   CacheManifestEntry entry{
     .asset = asset,
@@ -232,15 +239,23 @@ void CacheManifest::cleanExpired(std::uint64_t ttlSeconds) {
 }
 
 std::string CacheManifest::makeKey(const asset::Asset& asset,
-                                  DataCategory category) const {
-  return asset.GetID() + ":" + DataCategoryWrapper::ToString(category);
+                                  DataCategory category,
+                                  const FetchKwargs& kwargs) const {
+  auto kwargsHash = hashKwargs(kwargs);
+  if (kwargsHash == 0) {
+    // NoKwargs or default kwargs - use simpler key for backwards compatibility
+    return asset.GetID() + ":" + DataCategoryWrapper::ToString(category);
+  }
+  return asset.GetID() + ":" + DataCategoryWrapper::ToString(category) +
+         ":" + std::to_string(kwargsHash);
 }
 
 std::optional<CacheManifestEntry> CacheManifest::getEntry(const asset::Asset& asset,
-                                                         DataCategory category) const {
+                                                         DataCategory category,
+                                                         const FetchKwargs& kwargs) const {
   std::lock_guard<std::mutex> lock(m_mutex);
 
-  auto key = makeKey(asset, category);
+  auto key = makeKey(asset, category, kwargs);
   auto it = m_entries.find(key);
 
   if (it != m_entries.end()) {
