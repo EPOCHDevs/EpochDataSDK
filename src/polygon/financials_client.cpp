@@ -13,8 +13,10 @@
 
 namespace data_sdk::polygon {
 
+using dataloader::BalanceSheetTimeframe;
+using dataloader::BalanceSheetTimeframeWrapper;
 using dataloader::FinancialsTimeframe;
-using dataloader::toString;
+using dataloader::FinancialsTimeframeWrapper;
 
 namespace {
 // Helper to parse date strings (YYYY-MM-DD) to nanoseconds since epoch using Arrow
@@ -105,12 +107,12 @@ public:
   Expected<epoch_frame::DataFrame>
   getBalanceSheets(const std::string &ticker, const std::string &from_date,
                    const std::string &to_date, std::optional<int> limit,
-                   FinancialsTimeframe timeframe) const {
+                   BalanceSheetTimeframe timeframe) const {
     std::vector<std::pair<std::string, std::string>> q;
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(BalanceSheetTimeframeWrapper::ToString(timeframe)));
     // Always fetch in ascending order for backtesting consistency
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
@@ -256,7 +258,7 @@ public:
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(FinancialsTimeframeWrapper::ToString(timeframe)));
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
       q.emplace_back("limit", std::to_string(*limit));
@@ -397,7 +399,7 @@ public:
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(FinancialsTimeframeWrapper::ToString(timeframe)));
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
       q.emplace_back("limit", std::to_string(*limit));
@@ -526,12 +528,12 @@ public:
   drogon::Task<Expected<epoch_frame::DataFrame>>
   getBalanceSheetsAsync(std::string ticker, std::string from_date,
                         std::string to_date, std::optional<int> limit,
-                        FinancialsTimeframe timeframe) const {
+                        BalanceSheetTimeframe timeframe) const {
     std::vector<std::pair<std::string, std::string>> q;
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(BalanceSheetTimeframeWrapper::ToString(timeframe)));
     // Always fetch in ascending order for backtesting consistency
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
@@ -677,7 +679,7 @@ public:
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(FinancialsTimeframeWrapper::ToString(timeframe)));
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
       q.emplace_back("limit", std::to_string(*limit));
@@ -818,7 +820,7 @@ public:
     q.emplace_back("tickers", ticker);
     q.emplace_back("period_end.gte", from_date);
     q.emplace_back("period_end.lte", to_date);
-    q.emplace_back("timeframe", toString(timeframe));
+    q.emplace_back("timeframe", std::string(FinancialsTimeframeWrapper::ToString(timeframe)));
     q.emplace_back("sort", "period_end.asc");
     if (limit.has_value())
       q.emplace_back("limit", std::to_string(*limit));
@@ -956,7 +958,7 @@ FinancialsClient::getBalanceSheets(const std::string &ticker,
                                    const std::string &from_date,
                                    const std::string &to_date,
                                    std::optional<int> limit,
-                                   FinancialsTimeframe timeframe) const {
+                                   BalanceSheetTimeframe timeframe) const {
   return impl_->getBalanceSheets(ticker, from_date, to_date, limit, timeframe);
 }
 
@@ -981,7 +983,7 @@ FinancialsClient::getIncomeStatements(const std::string &ticker,
 drogon::Task<Expected<epoch_frame::DataFrame>>
 FinancialsClient::getBalanceSheetsAsync(std::string ticker, std::string from_date,
                                         std::string to_date, std::optional<int> limit,
-                                        FinancialsTimeframe timeframe) const {
+                                        BalanceSheetTimeframe timeframe) const {
   return impl_->getBalanceSheetsAsync(std::move(ticker), std::move(from_date),
                                       std::move(to_date), limit, timeframe);
 }

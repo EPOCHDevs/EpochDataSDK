@@ -23,8 +23,11 @@ CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);
 // CD = Cash Dividend, SC = Stock Dividend (special cash), LT = Long-Term Capital Gain, ST = Short-Term Capital Gain
 CREATE_ENUM(DividendType, CD, SC, LT, ST);
 
-// Financial statement timeframes
-CREATE_ENUM(FinancialsTimeframe, Quarterly, Annual, TTM);
+// Balance sheet timeframes (quarterly, annual only)
+CREATE_ENUM(BalanceSheetTimeframe, quarterly, annual);
+
+// Income statement and cash flow timeframes (includes TTM)
+CREATE_ENUM(FinancialsTimeframe, quarterly, annual, trailing_twelve_months);
 
 // Cross-sectional economic indicator categories (FRED data)
 CREATE_ENUM(CrossSectionalDataCategory,
@@ -47,6 +50,8 @@ using epoch_core::BenchmarkKind;
 using epoch_core::BenchmarkKindWrapper;
 using epoch_core::DividendType;
 using epoch_core::DividendTypeWrapper;
+using epoch_core::BalanceSheetTimeframe;
+using epoch_core::BalanceSheetTimeframeWrapper;
 using epoch_core::FinancialsTimeframe;
 using epoch_core::FinancialsTimeframeWrapper;
 using epoch_core::CrossSectionalDataCategory;

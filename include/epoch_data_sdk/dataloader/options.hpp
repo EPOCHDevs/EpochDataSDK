@@ -100,23 +100,17 @@ struct DataLoaderOptions {
     requests.push_back({DataCategory::Dividends, dataloader::DividendsKwargs{dividend_type}});
   }
 
-  // Add a financials request with timeframe
-  void AddFinancialsRequest(DataCategory category,
-                            FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
-    requests.push_back({category, dataloader::FinancialsKwargs{timeframe}});
-  }
-
   // Convenience methods for financial statements
-  void AddBalanceSheets(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
-    AddFinancialsRequest(DataCategory::BalanceSheets, timeframe);
+  void AddBalanceSheets(BalanceSheetTimeframe timeframe = BalanceSheetTimeframe::quarterly) {
+    requests.push_back({DataCategory::BalanceSheets, dataloader::BalanceSheetsKwargs{timeframe}});
   }
 
-  void AddIncomeStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
-    AddFinancialsRequest(DataCategory::IncomeStatements, timeframe);
+  void AddIncomeStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::quarterly) {
+    requests.push_back({DataCategory::IncomeStatements, dataloader::FinancialsKwargs{timeframe}});
   }
 
-  void AddCashFlowStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
-    AddFinancialsRequest(DataCategory::CashFlowStatements, timeframe);
+  void AddCashFlowStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::quarterly) {
+    requests.push_back({DataCategory::CashFlowStatements, dataloader::FinancialsKwargs{timeframe}});
   }
 
   // Add an economic indicator request (uses enum, maps to FRED series internally)

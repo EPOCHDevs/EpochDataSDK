@@ -12,18 +12,10 @@ namespace data_sdk::dataloader {
 using epoch_core::AssetClass;
 using data_sdk::DividendType;
 using data_sdk::DividendTypeWrapper;
+using data_sdk::BalanceSheetTimeframe;
+using data_sdk::BalanceSheetTimeframeWrapper;
 using data_sdk::FinancialsTimeframe;
 using data_sdk::FinancialsTimeframeWrapper;
-
-// Convert FinancialsTimeframe to Polygon API string
-inline std::string toString(FinancialsTimeframe tf) {
-  switch (tf) {
-    case FinancialsTimeframe::Quarterly: return "quarterly";
-    case FinancialsTimeframe::Annual: return "annual";
-    case FinancialsTimeframe::TTM: return "ttm";
-  }
-  return "quarterly";  // Default fallback
-}
 
 // ============================================================
 // Kwargs Structs - One per category that needs additional params
@@ -49,15 +41,27 @@ struct DividendsKwargs {
   }
 };
 
-// Financial statements kwargs (BalanceSheets, IncomeStatements, CashFlowStatements)
+// Balance sheet kwargs (quarterly, annual only - no TTM)
+struct BalanceSheetsKwargs {
+  BalanceSheetTimeframe timeframe = BalanceSheetTimeframe::quarterly;
+
+  bool operator==(const BalanceSheetsKwargs&) const = default;
+
+  // Get Polygon API timeframe string
+  std::string getTimeframeString() const {
+    return std::string(BalanceSheetTimeframeWrapper::ToString(timeframe));
+  }
+};
+
+// Income statements and cash flow kwargs (quarterly, annual, trailing_twelve_months)
 struct FinancialsKwargs {
-  FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly;
+  FinancialsTimeframe timeframe = FinancialsTimeframe::quarterly;
 
   bool operator==(const FinancialsKwargs&) const = default;
 
   // Get Polygon API timeframe string
   std::string getTimeframeString() const {
-    return toString(timeframe);
+    return std::string(FinancialsTimeframeWrapper::ToString(timeframe));
   }
 };
 
@@ -170,6 +174,7 @@ using IndicesKwargs = ReferenceAggKwargs;
 using FetchKwargs = std::variant<
   NoKwargs,
   DividendsKwargs,
+  BalanceSheetsKwargs,
   FinancialsKwargs,
   EconomicIndicatorKwargs,
   ReferenceAggKwargs
@@ -192,7 +197,7 @@ struct KwargsTraits<DataCategory::Dividends> {
 
 template <>
 struct KwargsTraits<DataCategory::BalanceSheets> {
-  using type = FinancialsKwargs;
+  using type = BalanceSheetsKwargs;
 };
 
 template <>
@@ -260,6 +265,9 @@ inline std::size_t hashKwargs(const FetchKwargs& kwargs) {
         return std::hash<int>{}(static_cast<int>(*k.dividend_type));
       }
       return 0;  // No filter = hash 0
+    }
+    else if constexpr (std::is_same_v<T, BalanceSheetsKwargs>) {
+      return std::hash<int>{}(static_cast<int>(k.timeframe));
     }
     else if constexpr (std::is_same_v<T, FinancialsKwargs>) {
       return std::hash<int>{}(static_cast<int>(k.timeframe));
