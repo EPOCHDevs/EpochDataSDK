@@ -10,13 +10,10 @@
 namespace data_sdk::dataloader {
 
 using epoch_core::AssetClass;
-
-// Timeframe enum for financial statements
-enum class FinancialsTimeframe {
-  Quarterly,  // Q1, Q2, Q3, Q4 results
-  Annual,     // Full year results (10-K)
-  TTM         // Trailing Twelve Months
-};
+using data_sdk::DividendType;
+using data_sdk::DividendTypeWrapper;
+using data_sdk::FinancialsTimeframe;
+using data_sdk::FinancialsTimeframeWrapper;
 
 // Convert FinancialsTimeframe to Polygon API string
 inline std::string toString(FinancialsTimeframe tf) {
@@ -37,11 +34,31 @@ struct NoKwargs {
   bool operator==(const NoKwargs&) const = default;
 };
 
+// Dividends kwargs - filter by dividend type
+struct DividendsKwargs {
+  std::optional<DividendType> dividend_type;  // Optional filter: CD, SC, LT, ST (if not set, returns all types)
+
+  bool operator==(const DividendsKwargs& other) const {
+    return dividend_type == other.dividend_type;
+  }
+
+  // Get Polygon API dividend type string
+  std::optional<std::string> getTypeString() const {
+    if (!dividend_type) return std::nullopt;
+    return std::string(DividendTypeWrapper::ToString(*dividend_type));
+  }
+};
+
 // Financial statements kwargs (BalanceSheets, IncomeStatements, CashFlowStatements)
 struct FinancialsKwargs {
   FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly;
 
   bool operator==(const FinancialsKwargs&) const = default;
+
+  // Get Polygon API timeframe string
+  std::string getTimeframeString() const {
+    return toString(timeframe);
+  }
 };
 
 // Economic indicator kwargs (FRED data via enum)
@@ -152,6 +169,7 @@ using IndicesKwargs = ReferenceAggKwargs;
 
 using FetchKwargs = std::variant<
   NoKwargs,
+  DividendsKwargs,
   FinancialsKwargs,
   EconomicIndicatorKwargs,
   ReferenceAggKwargs
@@ -167,6 +185,11 @@ struct KwargsTraits {
 };
 
 // Specializations for categories that require specific kwargs
+template <>
+struct KwargsTraits<DataCategory::Dividends> {
+  using type = DividendsKwargs;
+};
+
 template <>
 struct KwargsTraits<DataCategory::BalanceSheets> {
   using type = FinancialsKwargs;
@@ -231,6 +254,12 @@ inline std::size_t hashKwargs(const FetchKwargs& kwargs) {
 
     if constexpr (std::is_same_v<T, NoKwargs>) {
       return 0;
+    }
+    else if constexpr (std::is_same_v<T, DividendsKwargs>) {
+      if (k.dividend_type) {
+        return std::hash<int>{}(static_cast<int>(*k.dividend_type));
+      }
+      return 0;  // No filter = hash 0
     }
     else if constexpr (std::is_same_v<T, FinancialsKwargs>) {
       return std::hash<int>{}(static_cast<int>(k.timeframe));

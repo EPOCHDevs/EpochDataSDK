@@ -95,10 +95,28 @@ struct DataLoaderOptions {
     requests.push_back({category, dataloader::NoKwargs{}});
   }
 
+  // Add a dividends request with optional type filter
+  void AddDividends(std::optional<DividendType> dividend_type = std::nullopt) {
+    requests.push_back({DataCategory::Dividends, dataloader::DividendsKwargs{dividend_type}});
+  }
+
   // Add a financials request with timeframe
   void AddFinancialsRequest(DataCategory category,
-                            dataloader::FinancialsTimeframe timeframe = dataloader::FinancialsTimeframe::Quarterly) {
+                            FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
     requests.push_back({category, dataloader::FinancialsKwargs{timeframe}});
+  }
+
+  // Convenience methods for financial statements
+  void AddBalanceSheets(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
+    AddFinancialsRequest(DataCategory::BalanceSheets, timeframe);
+  }
+
+  void AddIncomeStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
+    AddFinancialsRequest(DataCategory::IncomeStatements, timeframe);
+  }
+
+  void AddCashFlowStatements(FinancialsTimeframe timeframe = FinancialsTimeframe::Quarterly) {
+    AddFinancialsRequest(DataCategory::CashFlowStatements, timeframe);
   }
 
   // Add an economic indicator request (uses enum, maps to FRED series internally)

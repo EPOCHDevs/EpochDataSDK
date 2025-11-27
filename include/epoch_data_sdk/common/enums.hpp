@@ -19,6 +19,13 @@ CREATE_ENUM(DataCategory,
 
 CREATE_ENUM(BenchmarkKind, None, SPY, QQQ, AGG);
 
+// Dividend types from Polygon API
+// CD = Cash Dividend, SC = Stock Dividend (special cash), LT = Long-Term Capital Gain, ST = Short-Term Capital Gain
+CREATE_ENUM(DividendType, CD, SC, LT, ST);
+
+// Financial statement timeframes
+CREATE_ENUM(FinancialsTimeframe, Quarterly, Annual, TTM);
+
 // Cross-sectional economic indicator categories (FRED data)
 CREATE_ENUM(CrossSectionalDataCategory,
             // Inflation Indicators
@@ -38,6 +45,10 @@ using epoch_core::DataCategory;
 using epoch_core::DataCategoryWrapper;
 using epoch_core::BenchmarkKind;
 using epoch_core::BenchmarkKindWrapper;
+using epoch_core::DividendType;
+using epoch_core::DividendTypeWrapper;
+using epoch_core::FinancialsTimeframe;
+using epoch_core::FinancialsTimeframeWrapper;
 using epoch_core::CrossSectionalDataCategory;
 using epoch_core::CrossSectionalDataCategoryWrapper;
 
