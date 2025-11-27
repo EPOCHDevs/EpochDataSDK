@@ -86,11 +86,14 @@ DataFrameMetadata MetadataRegistry::GetIndicesMetadata(bool is_eod) {
 }
 
 DataFrameMetadata MetadataRegistry::GetMetadata(const std::string& key) {
-  // Handle specific market indices (IDX:SPX:daily, IDX:SPX:minute, or generic "Indices")
-  if (key.starts_with("IDX:")) {
+  // Handle ReferenceAgg prefixes (IDX:, STK:, FX:, CRYPTO:)
+  // These all use the same OHLCV schema but with different column prefixes
+  if (key.starts_with("IDX:") || key.starts_with("STK:") ||
+      key.starts_with("FX:") || key.starts_with("CRYPTO:")) {
     // Parse timespan from key: "IDX:SPX:daily" or "IDX:SPX:minute"
-    bool is_eod = key.ends_with(":daily");
-    return GetIndicesMetadata(is_eod);
+    // Note: timespan suffix is optional, defaults to daily
+    bool is_eod = !key.ends_with(":minute");
+    return GetIndicesMetadata(is_eod);  // Same OHLCV schema for all reference aggs
   }
 
   if (key == "Indices") {
@@ -117,7 +120,7 @@ DataFrameMetadata MetadataRegistry::GetMetadata(const std::string& key) {
   } catch (const std::exception&) {
     throw std::invalid_argument(
         "Unsupported metadata key: " + key +
-        ". Expected DataCategory name, CrossSectionalDataCategory name, or 'IDX:<ticker>'");
+        ". Expected DataCategory name, CrossSectionalDataCategory name, or ReferenceAgg prefix (IDX:, STK:, FX:, CRYPTO:)");
   }
 }
 
