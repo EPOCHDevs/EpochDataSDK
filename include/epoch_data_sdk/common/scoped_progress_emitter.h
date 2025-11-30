@@ -2,6 +2,7 @@
 #include "cancellation_token.h"
 #include "generic_event_dispatcher.h"
 #include <chrono>
+#include <format>
 #include <memory>
 
 namespace data_sdk::events {
@@ -49,7 +50,7 @@ public:
 
     /// Create a child emitter with extended path
     [[nodiscard]] ScopedProgressEmitter ChildScope(
-        const std::string& scope,
+        ScopeType scope,
         const std::string& id) const;
 
     /// Get the base path for this emitter
@@ -211,7 +212,7 @@ public:
     void Emit(GenericEvent event);
 
     /// Emit a raw event with custom path extension
-    void Emit(GenericEvent event, const std::string& scope, const std::string& id);
+    void Emit(GenericEvent event, ScopeType scope, const std::string& id);
 
     // ===================
     // Timing utilities
@@ -289,7 +290,7 @@ inline ScopedProgressEmitter::ScopedProgressEmitter()
     , m_context(std::make_shared<JsonMetadata>()) {}
 
 inline ScopedProgressEmitter ScopedProgressEmitter::ChildScope(
-    const std::string& scope,
+    ScopeType scope,
     const std::string& id) const {
     ScopedProgressEmitter child(
         m_dispatcher,
@@ -571,7 +572,7 @@ inline void ScopedProgressEmitter::EmitLog(LogEvent::Level level, const std::str
     event.level = level;
     event.message = message;
     if (auto lastScope = m_basePath.GetLastScope()) {
-        event.source = *lastScope + ":" + m_basePath.GetLastId().value_or("");
+        event.source = std::format("{}:{}", ScopeTypeWrapper::ToString(*lastScope), m_basePath.GetLastId().value_or(""));
     }
     ApplyContext(event);
     m_dispatcher->Emit(event);
@@ -605,7 +606,7 @@ inline void ScopedProgressEmitter::Emit(GenericEvent event) {
 
 inline void ScopedProgressEmitter::Emit(
     GenericEvent event,
-    const std::string& scope,
+    ScopeType scope,
     const std::string& id) {
     SetEventPath(event, m_basePath.Child(scope, id));
     ApplyContextToVariant(event);
