@@ -10,8 +10,7 @@
 #include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
-#include <epoch_data_sdk/common/event_dispatcher.h>
-#include <epoch_data_sdk/common/cancellation_token.h>
+#include <epoch_data_sdk/common/scoped_progress_emitter.h>
 
 namespace data_sdk::dataloader {
 
@@ -98,10 +97,9 @@ public:
   // Log campaign viability report
   void LogCampaignViability() const;
 
-  // Optional event hooks
-  void SetEventDispatcher(data_sdk::events::IEventDispatcherPtr dispatcher) { m_eventDispatcher = std::move(dispatcher); }
-  data_sdk::events::IEventDispatcherPtr GetEventDispatcher() const { return m_eventDispatcher; }
-  void SetCancellationToken(data_sdk::events::CancellationTokenPtr token) { m_cancellationToken = std::move(token); }
+  // Optional progress emitter for event reporting
+  void SetProgressEmitter(events::ScopedProgressEmitterPtr emitter) { m_progressEmitter = std::move(emitter); }
+  events::ScopedProgressEmitterPtr GetProgressEmitter() const { return m_progressEmitter; }
 
 private:
   DataloaderOption m_option;
@@ -110,8 +108,7 @@ private:
   std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;
-  data_sdk::events::IEventDispatcherPtr m_eventDispatcher;
-  data_sdk::events::CancellationTokenPtr m_cancellationToken;
+  events::ScopedProgressEmitterPtr m_progressEmitter;
 
   // Validate loaded data is within requested range
   bool validateDataRange(const epoch_frame::DataFrame& df,
