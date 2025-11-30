@@ -160,7 +160,8 @@ TEST_CASE("Multi-Norm: Daily Norm Integration (All normalized categories, no New
     SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
     auto stored_data = loader.GetStoredData();
 
     REQUIRE(stored_data.size() > 0);
@@ -222,7 +223,8 @@ TEST_CASE("Multi-Norm: Minute Norm Integration (MinuteBars + News, 6 months)",
     SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
     auto stored_data = loader.GetStoredData();
 
     REQUIRE(stored_data.size() > 0);
@@ -294,7 +296,8 @@ TEST_CASE("Multi-Norm: Mixed Norm Integration (All categories, 6 months)",
     SPDLOG_INFO("Expected {} total columns from {} categories", expected_columns.size(), option.GetCategories().size());
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
     auto stored_data = loader.GetStoredData();
 
     REQUIRE(stored_data.size() > 0);
@@ -412,7 +415,8 @@ TEST_CASE("Multi-Norm: Empty Category Handling",
 
     ApiCacheDataloader loader(option, fixture.cacheProvider, fixture.fetcherProvider);
 
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
     auto stored_data = loader.GetStoredData();
 
     if (stored_data.count(fixture.testAsset) > 0) {

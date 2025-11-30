@@ -241,7 +241,8 @@ TEST_CASE("ApiCacheDataloader - Validation", "[api_cache_dataloader_multi]") {
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
-    REQUIRE_THROWS_AS(loader.LoadData(), std::runtime_error);
+    data_sdk::events::ScopedProgressEmitter emitter;
+    REQUIRE_THROWS_AS(loader.LoadData(emitter), std::runtime_error);
   }
 
   SECTION("throws when mixing DailyBars and MinuteBars") {

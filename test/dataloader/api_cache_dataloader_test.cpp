@@ -324,7 +324,8 @@ TEST_CASE("ApiCacheDataloader::LoadData parallel processing",
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
 
     // Check that all assets were loaded
     auto loadedData = loader.GetStoredData();
@@ -529,7 +530,8 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
                               fixture.mockFetcherProvider);
 
     // Load data with batch processing
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
 
     // Verify all 15 assets were loaded
     auto loadedData = loader.GetStoredData();
@@ -576,7 +578,8 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
 
     auto loadedData = loader.GetStoredData();
     CHECK(loadedData.size() == 3);
@@ -617,7 +620,8 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
 
     // All assets should still load successfully
     auto loadedData = loader.GetStoredData();
@@ -661,7 +665,8 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     ApiCacheDataloader loader(fixture.option, fixture.mockCache,
                               fixture.mockFetcherProvider);
 
-    loader.LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    loader.LoadData(emitter);
 
     // All assets should load in a single batch
     auto loadedData = loader.GetStoredData();

@@ -202,14 +202,6 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
 // Load all categories for a single asset in parallel, then merge
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
 ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
-  // Create child emitter for this asset if we have a parent emitter
-  auto assetEmitter = m_progressEmitter
-      ? std::make_optional(m_progressEmitter->ChildScope(events::ScopeType::Asset, asset.GetID()))
-      : std::nullopt;
-
-  if (assetEmitter) {
-    assetEmitter->EmitStarted("asset", asset.GetSymbolStr());
-  }
 
   // Get only per-asset requests (excludes EconomicIndicator and Indices)
   const auto assetRequests = m_option.GetAssetRequests();
@@ -290,9 +282,6 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
   if (!category_data.empty()) {
     auto merge_result = m_merger->Merge(category_data);
     if (!merge_result) {
-      if (assetEmitter) {
-        assetEmitter->EmitFailed("asset", asset.GetSymbolStr(), "Merge failed: " + merge_result.error());
-      }
       co_return std::unexpected("Merge failed: " + merge_result.error());
     }
     merged_df = *merge_result;
@@ -302,9 +291,6 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
   if (!empty_categories.empty()) {
     if (category_data.empty()) {
       // All categories were empty - this is an error
-      if (assetEmitter) {
-        assetEmitter->EmitFailed("asset", asset.GetSymbolStr(), "No data available for any category");
-      }
       co_return std::unexpected("No data available for any category");
     }
 
@@ -362,20 +348,13 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
   // Check if we have any data
   if (category_data.empty() && empty_categories.empty()) {
-    if (assetEmitter) {
-      assetEmitter->EmitFailed("asset", asset.GetSymbolStr(), "No data available for any category");
-    }
     co_return std::unexpected("No data available for any category");
-  }
-
-  if (assetEmitter) {
-    assetEmitter->EmitCompleted("asset", asset.GetSymbolStr());
   }
 
   co_return merged_df;
 }
 
-void ApiCacheDataloader::LoadData() {
+void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
   // Validation is done in constructor
 
   SPDLOG_INFO("Starting data loading process");
@@ -394,11 +373,11 @@ void ApiCacheDataloader::LoadData() {
   std::size_t nodesSkipped = 0;
 
   // Start lifecycle event
-  if (m_progressEmitter) {
-    m_progressEmitter->SetContext("total_assets", static_cast<int64_t>(assets.size()));
-    m_progressEmitter->SetContext("categories", static_cast<int64_t>(categories.size()));
-    m_progressEmitter->EmitStarted("dataloader", "LoadData");
-  }
+
+    emitter.SetContext("total_assets", static_cast<int64_t>(assets.size()));
+    emitter.SetContext("categories", static_cast<int64_t>(categories.size()));
+    emitter.EmitStarted("dataloader", "LoadData");
+
 
   // Create vector of assets for indexed access
   std::vector<asset::Asset> asset_vec(assets.begin(), assets.end());
@@ -529,15 +508,11 @@ void ApiCacheDataloader::LoadData() {
 
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Exception in asset loading: {}", e.what());
-    if (m_progressEmitter) {
-      m_progressEmitter->EmitFailed("dataloader", "LoadData", e.what());
-    }
+    emitter.EmitFailed("dataloader", "LoadData", e.what());
     throw;
   } catch (...) {
     SPDLOG_ERROR("Unknown exception in asset loading");
-    if (m_progressEmitter) {
-      m_progressEmitter->EmitFailed("dataloader", "LoadData", "unknown exception");
-    }
+    emitter.EmitFailed("dataloader", "LoadData", "unknown exception");
     throw;
   }
 
@@ -548,10 +523,8 @@ void ApiCacheDataloader::LoadData() {
   SPDLOG_INFO("Successfully loaded data for {}/{} assets", loadedCount, totalCount);
 
   if (loadedCount == 0) {
-    if (m_progressEmitter) {
-      m_progressEmitter->EmitFailed("dataloader", "LoadData",
-          "No assets have data for the specified date range");
-    }
+    emitter.EmitFailed("dataloader", "LoadData",
+        "No assets have data for the specified date range");
     throw std::runtime_error("No assets have data for the specified date range");
   }
 
@@ -573,12 +546,10 @@ void ApiCacheDataloader::LoadData() {
     }
   }
 
-  if (m_progressEmitter) {
-    m_progressEmitter->SetContext("assets_succeeded", static_cast<int64_t>(nodesSucceeded));
-    m_progressEmitter->SetContext("assets_failed", static_cast<int64_t>(nodesFailed));
-    m_progressEmitter->SetContext("assets_skipped", static_cast<int64_t>(nodesSkipped));
-    m_progressEmitter->EmitCompleted("dataloader", "LoadData");
-  }
+  emitter.SetContext("assets_succeeded", static_cast<int64_t>(nodesSucceeded));
+  emitter.SetContext("assets_failed", static_cast<int64_t>(nodesFailed));
+  emitter.SetContext("assets_skipped", static_cast<int64_t>(nodesSkipped));
+  emitter.EmitCompleted("dataloader", "LoadData");
 
   // Log campaign viability report (after parallel loading is complete)
 #ifndef NDEBUG

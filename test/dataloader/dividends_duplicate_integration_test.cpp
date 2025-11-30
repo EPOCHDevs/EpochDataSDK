@@ -108,7 +108,8 @@ TEST_CASE("Full integration: DataLoader with 30 assets - 3 runs with cache persi
 
     // STEP 5: Run the full pipeline (LoadData)
     std::cout << "Running LoadData() pipeline...\n";
-    api_loader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    api_loader->LoadData(emitter);
     std::cout << "   ✓ Pipeline completed\n";
 
     // STEP 6: Get loaded data (transformed/merged data from GetStoredData)

@@ -1,6 +1,7 @@
 #pragma once
 #include <epoch_data_sdk/common/enums.hpp>
 #include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
+#include <epoch_data_sdk/events/all.h>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/series.h>
 #include <epoch_data_sdk/model/asset/asset.hpp>
@@ -24,7 +25,7 @@ public:
   virtual ~IDataLoader() = default;
 
   // Load data based on configured options
-  virtual void LoadData() = 0;
+  virtual void LoadData(events::ScopedProgressEmitter& emitter) = 0;
 
   // Get loaded data (asset -> DataFrame map)
   // Note: If EconomicIndicator/Indices requests are specified, they will be

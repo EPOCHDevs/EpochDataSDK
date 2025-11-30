@@ -272,7 +272,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     REQUIRE(dataloader != nullptr);
 
     // Load data
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
 
     // Get loaded data
     auto data = dataloader->GetStoredData();
@@ -334,7 +335,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     auto dataloader = CreateApiCacheDataLoader(opt);
     REQUIRE(dataloader != nullptr);
 
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
     auto data = dataloader->GetStoredData();
 
     // Verify both assets have indices merged
@@ -385,7 +387,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     REQUIRE(dataloader != nullptr);
 
     // Load data
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
 
     // Get loaded data
     auto data = dataloader->GetStoredData();
@@ -441,7 +444,8 @@ TEST_CASE("DataLoader Integration - Load assets with market indices", "[polygon]
     auto dataloader = CreateApiCacheDataLoader(opt);
     REQUIRE(dataloader != nullptr);
 
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
     auto data = dataloader->GetStoredData();
 
     // Verify both assets have indices merged

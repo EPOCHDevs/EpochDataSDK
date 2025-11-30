@@ -24,7 +24,7 @@ public:
                               std::shared_ptr<IFetcherProvider> fetchers,
                               std::unique_ptr<IDataMerger> merger = nullptr);
 
-  void LoadData() final;
+  void LoadData(events::ScopedProgressEmitter& emitter) final;
 
   asset::AssetHashMap<epoch_frame::DataFrame> GetStoredData() const final {
     return m_loadedData;
@@ -97,10 +97,6 @@ public:
   // Log campaign viability report
   void LogCampaignViability() const;
 
-  // Optional progress emitter for event reporting
-  void SetProgressEmitter(events::ScopedProgressEmitterPtr emitter) { m_progressEmitter = std::move(emitter); }
-  events::ScopedProgressEmitterPtr GetProgressEmitter() const { return m_progressEmitter; }
-
 private:
   DataloaderOption m_option;
   std::shared_ptr<ICacheProvider> m_cacheProvider;
@@ -108,7 +104,6 @@ private:
   std::unique_ptr<IDataMerger> m_merger;
   asset::AssetHashMap<epoch_frame::DataFrame> m_loadedData;
   std::optional<epoch_frame::Series> m_benchmark;
-  events::ScopedProgressEmitterPtr m_progressEmitter;
 
   // Validate loaded data is within requested range
   bool validateDataRange(const epoch_frame::DataFrame& df,

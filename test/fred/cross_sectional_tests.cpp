@@ -294,7 +294,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     REQUIRE(dataloader != nullptr);
 
     // Load data
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
 
     // Get loaded data
     auto data = dataloader->GetStoredData();
@@ -370,7 +371,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     opt.AddCrossSectionalCategory(CrossSectionalDataCategory::Treasury10Y);
 
     auto dataloader = CreateApiCacheDataLoader(opt);
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
 
     auto data = dataloader->GetStoredData();
 
@@ -419,7 +421,8 @@ TEST_CASE("DataLoader Integration - Load assets with economic indicators", "[fre
     REQUIRE(dataloader != nullptr);
 
     // Load data
-    dataloader->LoadData();
+    data_sdk::events::ScopedProgressEmitter emitter;
+    dataloader->LoadData(emitter);
 
     // Get loaded data
     auto data = dataloader->GetStoredData();
