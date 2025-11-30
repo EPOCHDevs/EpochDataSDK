@@ -5,6 +5,7 @@
 #include <epoch_data_sdk/dataloader/fetcher.hpp>
 #include <epoch_data_sdk/dataloader/fetch_kwargs.hpp>
 #include <epoch_data_sdk/model/asset/asset_constants.hpp>
+#include <epoch_data_sdk/events/all.h>
 #include <epoch_frame/dataframe.h>
 #include <epoch_frame/factory/dataframe_factory.h>
 #include <epoch_frame/factory/index_factory.h>
@@ -671,5 +672,273 @@ TEST_CASE("ApiCacheDataloader::LoadData batch processing mode",
     // All assets should load in a single batch
     auto loadedData = loader.GetStoredData();
     CHECK(loadedData.size() == 5);
+  }
+}
+
+// ===========================================================
+// Tests for ScopedProgressEmitter integration with LoadData
+// ===========================================================
+
+TEST_CASE("ApiCacheDataloader::LoadData emits lifecycle events",
+          "[api_cache_dataloader][emitter]") {
+  ApiCacheDataloaderTestFixture fixture;
+  const auto &assets = data_sdk::asset::AssetConstants::instance();
+
+  SECTION("emits Started and Completed lifecycle events on success") {
+    auto asset = assets.AAPL;
+    auto testDf = fixture.createTestDataFrame(10);
+
+    asset::AssetHashSet assetSet{asset};
+    fixture.option.dataloaderAssets = assetSet;
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
+        .RETURN(testDf);
+
+    // Setup benchmark
+    auto benchmarkDf = fixture.createTestDataFrame(20);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+        .RETURN(benchmarkDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
+        .RETURN(benchmarkDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    // Create real dispatcher and emitter to capture events
+    auto dispatcher = data_sdk::events::MakeGenericEventDispatcher();
+    auto token = data_sdk::events::MakeCancellationToken();
+    auto emitter = data_sdk::events::ScopedProgressEmitter(
+        dispatcher, token, data_sdk::events::MakeJobPath("test-job"));
+
+    std::vector<data_sdk::events::LifecycleEvent> lifecycleEvents;
+    dispatcher->SubscribeTo<data_sdk::events::LifecycleEvent>(
+        [&](const auto &e) { lifecycleEvents.push_back(e); });
+
+    loader.LoadData(emitter);
+
+    // Verify lifecycle events
+    REQUIRE(lifecycleEvents.size() >= 2);
+
+    // First event should be Started
+    auto startedIt = std::find_if(lifecycleEvents.begin(), lifecycleEvents.end(),
+        [](const auto &e) {
+          return e.status == data_sdk::events::OperationStatus::Started &&
+                 e.operation_type == "dataloader" &&
+                 e.operation_name == "LoadData";
+        });
+    REQUIRE(startedIt != lifecycleEvents.end());
+
+    // Should have a Completed event
+    auto completedIt = std::find_if(lifecycleEvents.begin(), lifecycleEvents.end(),
+        [](const auto &e) {
+          return e.status == data_sdk::events::OperationStatus::Completed &&
+                 e.operation_type == "dataloader" &&
+                 e.operation_name == "LoadData";
+        });
+    REQUIRE(completedIt != lifecycleEvents.end());
+
+    // Completed should come after Started
+    REQUIRE(std::distance(lifecycleEvents.begin(), startedIt) <
+            std::distance(lifecycleEvents.begin(), completedIt));
+  }
+
+  SECTION("context contains total_assets and categories on Started event") {
+    auto asset = assets.GOOG;
+    auto testDf = fixture.createTestDataFrame(10);
+
+    asset::AssetHashSet assetSet{asset};
+    fixture.option.dataloaderAssets = assetSet;
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _)).RETURN(testDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset, _, _, _, _, _))
+        .RETURN(testDf);
+
+    // Setup benchmark
+    auto benchmarkDf = fixture.createTestDataFrame(20);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+        .RETURN(benchmarkDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
+        .RETURN(benchmarkDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto dispatcher = data_sdk::events::MakeGenericEventDispatcher();
+    auto token = data_sdk::events::MakeCancellationToken();
+    auto emitter = data_sdk::events::ScopedProgressEmitter(
+        dispatcher, token, data_sdk::events::MakeJobPath("test-job-2"));
+
+    data_sdk::events::LifecycleEvent startedEvent{};
+    dispatcher->SubscribeTo<data_sdk::events::LifecycleEvent>(
+        [&](const auto &e) {
+          if (e.status == data_sdk::events::OperationStatus::Started &&
+              e.operation_type == "dataloader") {
+            startedEvent = e;
+          }
+        });
+
+    loader.LoadData(emitter);
+
+    // Verify context contains expected keys
+    REQUIRE(startedEvent.context.contains("total_assets"));
+    REQUIRE(startedEvent.context.contains("categories"));
+
+    // Verify values (glz::generic stores numbers as double, use as<> for conversion)
+    auto totalAssets = startedEvent.context.at("total_assets").as<int64_t>();
+    CHECK(totalAssets == 1);  // One asset in the set
+  }
+
+  SECTION("context contains success/failure counts on Completed event") {
+    auto asset1 = assets.AAPL;
+    auto asset2 = assets.MSFT;
+    auto testDf = fixture.createTestDataFrame(10);
+
+    asset::AssetHashSet assetSet{asset1, asset2};
+    fixture.option.dataloaderAssets = assetSet;
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset1, _, _, _, _)).RETURN(testDf);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset2, _, _, _, _)).RETURN(testDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset1, _, _, _, _, _))
+        .RETURN(testDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset2, _, _, _, _, _))
+        .RETURN(testDf);
+
+    // Setup benchmark
+    auto benchmarkDf = fixture.createTestDataFrame(20);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+        .RETURN(benchmarkDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
+        .RETURN(benchmarkDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto dispatcher = data_sdk::events::MakeGenericEventDispatcher();
+    auto token = data_sdk::events::MakeCancellationToken();
+    auto emitter = data_sdk::events::ScopedProgressEmitter(
+        dispatcher, token, data_sdk::events::MakeJobPath("test-job-3"));
+
+    data_sdk::events::LifecycleEvent completedEvent{};
+    dispatcher->SubscribeTo<data_sdk::events::LifecycleEvent>(
+        [&](const auto &e) {
+          if (e.status == data_sdk::events::OperationStatus::Completed &&
+              e.operation_type == "dataloader") {
+            completedEvent = e;
+          }
+        });
+
+    loader.LoadData(emitter);
+
+    // Verify context contains success/failure counts
+    REQUIRE(completedEvent.context.contains("assets_succeeded"));
+    REQUIRE(completedEvent.context.contains("assets_failed"));
+    REQUIRE(completedEvent.context.contains("assets_skipped"));
+
+    auto succeeded = completedEvent.context.at("assets_succeeded").as<int64_t>();
+    auto failed = completedEvent.context.at("assets_failed").as<int64_t>();
+    CHECK(succeeded == 2);  // Both assets loaded successfully
+    CHECK(failed == 0);
+  }
+
+  SECTION("emits Failed event when all assets fail to load") {
+    auto asset = assets.TSLA;
+
+    asset::AssetHashSet assetSet{asset};
+    fixture.option.dataloaderAssets = assetSet;
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    // Return error for asset fetch
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset, _, _, _, _))
+        .RETURN(std::unexpected("Network error"));
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto dispatcher = data_sdk::events::MakeGenericEventDispatcher();
+    auto token = data_sdk::events::MakeCancellationToken();
+    auto emitter = data_sdk::events::ScopedProgressEmitter(
+        dispatcher, token, data_sdk::events::MakeJobPath("test-job-4"));
+
+    std::vector<data_sdk::events::LifecycleEvent> lifecycleEvents;
+    dispatcher->SubscribeTo<data_sdk::events::LifecycleEvent>(
+        [&](const auto &e) { lifecycleEvents.push_back(e); });
+
+    // LoadData should throw when no assets have data
+    REQUIRE_THROWS_AS(loader.LoadData(emitter), std::runtime_error);
+
+    // Verify Failed event was emitted
+    auto failedIt = std::find_if(lifecycleEvents.begin(), lifecycleEvents.end(),
+        [](const auto &e) {
+          return e.status == data_sdk::events::OperationStatus::Failed &&
+                 e.operation_type == "dataloader" &&
+                 e.operation_name == "LoadData";
+        });
+    REQUIRE(failedIt != lifecycleEvents.end());
+    CHECK(failedIt->error_message == "No assets have data for the specified date range");
+  }
+
+  SECTION("tracks failed asset counts correctly in context") {
+    auto asset1 = assets.AAPL;
+    auto asset2 = assets.GOOG;
+    auto testDf = fixture.createTestDataFrame(10);
+
+    asset::AssetHashSet assetSet{asset1, asset2};
+    fixture.option.dataloaderAssets = assetSet;
+
+    ALLOW_CALL(*fixture.mockCache, TryLoad(_, _, _, _, _)).RETURN(std::nullopt);
+    ALLOW_CALL(*fixture.mockFetcherProvider, Get(_, _))
+        .LR_RETURN(std::ref(*fixture.mockFetcher));
+
+    // asset1 succeeds, asset2 fails
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset1, _, _, _, _)).RETURN(testDf);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(asset2, _, _, _, _))
+        .RETURN(std::unexpected("Fetch failed for GOOG"));
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, asset1, _, _, _, _, _))
+        .RETURN(testDf);
+
+    // Setup benchmark
+    auto benchmarkDf = fixture.createTestDataFrame(20);
+    ALLOW_CALL(*fixture.mockFetcher, Fetch(assets.SPY, _, _, _, _))
+        .RETURN(benchmarkDf);
+    ALLOW_CALL(*fixture.mockCache, AppendWrite(_, assets.SPY, _, _, _, _, _))
+        .RETURN(benchmarkDf);
+
+    ApiCacheDataloader loader(fixture.option, fixture.mockCache,
+                              fixture.mockFetcherProvider);
+
+    auto dispatcher = data_sdk::events::MakeGenericEventDispatcher();
+    auto token = data_sdk::events::MakeCancellationToken();
+    auto emitter = data_sdk::events::ScopedProgressEmitter(
+        dispatcher, token, data_sdk::events::MakeJobPath("test-job-5"));
+
+    data_sdk::events::LifecycleEvent completedEvent{};
+    dispatcher->SubscribeTo<data_sdk::events::LifecycleEvent>(
+        [&](const auto &e) {
+          if (e.status == data_sdk::events::OperationStatus::Completed &&
+              e.operation_type == "dataloader") {
+            completedEvent = e;
+          }
+        });
+
+    loader.LoadData(emitter);
+
+    // Verify counts reflect partial success
+    auto succeeded = completedEvent.context.at("assets_succeeded").as<int64_t>();
+    auto failed = completedEvent.context.at("assets_failed").as<int64_t>();
+    CHECK(succeeded == 1);  // Only AAPL loaded
+    CHECK(failed == 1);     // GOOG failed
   }
 }
