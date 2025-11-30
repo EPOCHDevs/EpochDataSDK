@@ -3,4 +3,7 @@ target_sources(epoch_data_sdk
         s3_loader.cpp
         symbol.cpp
         bar_attribute.cpp
+        event_dispatcher.cpp
+        event_filter.cpp
+        progress_emitter.cpp
 )
