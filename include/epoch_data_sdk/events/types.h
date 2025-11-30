@@ -1,5 +1,5 @@
 #pragma once
-#include "event_path.h"
+#include "path.h"
 #include <boost/signals2.hpp>
 #include <chrono>
 #include <glaze/json/generic.hpp>

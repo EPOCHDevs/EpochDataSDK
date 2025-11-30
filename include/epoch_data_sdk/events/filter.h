@@ -1,5 +1,5 @@
 #pragma once
-#include "generic_event_types.h"
+#include "types.h"
 #include <functional>
 #include <optional>
 #include <set>

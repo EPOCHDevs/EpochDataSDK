@@ -18,6 +18,7 @@ target_include_directories(epoch_data_sdk_test
 )
 
 add_subdirectory(common)
+add_subdirectory(events)
 add_subdirectory(model)
 add_subdirectory(dataloader)
 add_subdirectory(polygon)

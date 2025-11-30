@@ -1,5 +1,5 @@
 #pragma once
-#include "cancellation_token.h"
+#include <epoch_data_sdk/events/cancellation.h>
 #include "event_dispatcher.h"
 
 namespace data_sdk::events {

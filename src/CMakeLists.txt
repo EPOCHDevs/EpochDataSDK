@@ -1,4 +1,5 @@
 add_subdirectory(common)
+add_subdirectory(events)
 add_subdirectory(model)
 add_subdirectory(polygon)
 add_subdirectory(fred)

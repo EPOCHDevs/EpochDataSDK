@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/common/generic_event_types.h>
+#include <epoch_data_sdk/events/types.h>
 
 using namespace data_sdk::events;
 using epoch_core::GenericEventType;  // Only GenericEventType uses CREATE_ENUM

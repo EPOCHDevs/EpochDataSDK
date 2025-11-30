@@ -1,5 +1,5 @@
 #pragma once
-#include "generic_event_filter.h"
+#include "filter.h"
 #include <boost/signals2/signal.hpp>
 #include <memory>
 #include <mutex>

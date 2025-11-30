@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <epoch_data_sdk/common/event_path.h>
+#include <epoch_data_sdk/events/path.h>
 #include <unordered_set>
 
 using namespace data_sdk::events;

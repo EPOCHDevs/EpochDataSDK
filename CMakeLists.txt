@@ -6,6 +6,7 @@ set(VCPKG_FEATURE_FLAGS "versions")
 
 option(BUILD_SHARED_LIBS "Build libraries as shared instead of static" OFF)
 option(BUILD_TEST OFF)
+option(BUILD_TOOLS "Build development tools (event viewer, etc.)" ON)
 
 project(EpochDataSDK VERSION 1.0.0 LANGUAGES CXX)
 
@@ -70,4 +71,8 @@ add_subdirectory(src)
 if(BUILD_TEST)
     enable_testing()
     add_subdirectory(test)
+endif()
+
+if(BUILD_TOOLS)
+    add_subdirectory(tools/event_viewer)
 endif()

@@ -10,7 +10,7 @@
 #include <epoch_data_sdk/dataloader/merger.hpp>
 #include <drogon/drogon.h>
 #include <epoch_frame/series.h>
-#include <epoch_data_sdk/common/scoped_progress_emitter.h>
+#include <epoch_data_sdk/events/emitter.h>
 
 namespace data_sdk::dataloader {
 

@@ -13,7 +13,6 @@
 #include <epoch_frame/datetime.h>
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_data_sdk/common/async_batch.hpp>
-#include <epoch_data_sdk/common/scoped_progress_emitter.h>
 #include <spdlog/spdlog.h>
 
 namespace data_sdk::dataloader {
