@@ -38,6 +38,7 @@ endif ()
 
 find_package(Drogon CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
+find_package(Boost REQUIRED)
 
 set(DEPENDENCY_DIR "/usr/local" CACHE STRING "Dependency directory")
 
@@ -61,6 +62,7 @@ target_link_libraries(epoch_data_sdk
         libmpdec++
         libmpdec
         yaml-cpp::yaml-cpp
+        Boost::boost
 )
 
 add_subdirectory(src)
@@ -69,4 +71,3 @@ if(BUILD_TEST)
     enable_testing()
     add_subdirectory(test)
 endif()
-

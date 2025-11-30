@@ -62,10 +62,10 @@ public:
     [[nodiscard]] GenericEventFilter AtDepth(size_t depth) const;
 
     /// Accept events where path contains a specific scope
-    [[nodiscard]] GenericEventFilter WithScope(const std::string& scope) const;
+    [[nodiscard]] GenericEventFilter WithScope(ScopeType scope) const;
 
     /// Accept events where path has a specific segment value
-    [[nodiscard]] GenericEventFilter WithSegment(const std::string& scope,
+    [[nodiscard]] GenericEventFilter WithSegment(ScopeType scope,
                                                    const std::string& id) const;
 
     // Custom filter
@@ -103,7 +103,7 @@ private:
     std::optional<EventPath> m_pathPrefix;
     std::optional<size_t> m_maxDepth;
     std::optional<size_t> m_exactDepth;
-    std::optional<std::string> m_requiredScope;
+    std::optional<ScopeType> m_requiredScope;
     std::optional<EventPath::Segment> m_requiredSegment;
 
     // Custom predicates
@@ -179,13 +179,13 @@ inline GenericEventFilter GenericEventFilter::AtDepth(size_t depth) const {
     return f;
 }
 
-inline GenericEventFilter GenericEventFilter::WithScope(const std::string& scope) const {
+inline GenericEventFilter GenericEventFilter::WithScope(ScopeType scope) const {
     GenericEventFilter f = *this;
     f.m_requiredScope = scope;
     return f;
 }
 
-inline GenericEventFilter GenericEventFilter::WithSegment(const std::string& scope,
+inline GenericEventFilter GenericEventFilter::WithSegment(ScopeType scope,
                                                             const std::string& id) const {
     GenericEventFilter f = *this;
     f.m_requiredSegment = EventPath::Segment{scope, id};

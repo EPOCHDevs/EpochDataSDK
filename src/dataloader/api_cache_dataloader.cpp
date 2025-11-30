@@ -13,6 +13,8 @@
 #include <epoch_frame/datetime.h>
 #include <epoch_frame/factory/index_factory.h>
 #include <epoch_data_sdk/common/async_batch.hpp>
+#include <epoch_data_sdk/common/event_types.h>
+#include <epoch_data_sdk/common/event_dispatcher.h>
 #include <spdlog/spdlog.h>
 
 namespace data_sdk::dataloader {
@@ -202,6 +204,33 @@ ApiCacheDataloader::LoadAssetBarsAsync(const asset::Asset &asset,
 // Load all categories for a single asset in parallel, then merge
 drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>
 ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
+  namespace events = data_sdk::events;
+
+  const auto nodeStart = events::Now();
+  auto emit_failed = [&](const std::string& message) {
+    if (m_eventDispatcher) {
+      m_eventDispatcher->Emit(events::NodeFailedEvent{
+          .timestamp = events::Now(),
+          .node_id = asset.GetID(),
+          .operation_name = "load",
+          .error_message = message,
+          .asset_id = asset.GetID()
+      });
+    }
+  };
+
+  if (m_eventDispatcher) {
+    m_eventDispatcher->Emit(events::NodeStartedEvent{
+        .timestamp = nodeStart,
+        .node_id = asset.GetID(),
+        .operation_name = "load",
+        .is_cross_sectional = false,
+        .node_index = 0,
+        .total_nodes = 1,
+        .asset_count = 1
+    });
+  }
+
   // Get only per-asset requests (excludes EconomicIndicator and Indices)
   const auto assetRequests = m_option.GetAssetRequests();
 
@@ -281,6 +310,7 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
   if (!category_data.empty()) {
     auto merge_result = m_merger->Merge(category_data);
     if (!merge_result) {
+      emit_failed("Merge failed: " + merge_result.error());
       co_return std::unexpected("Merge failed: " + merge_result.error());
     }
     merged_df = *merge_result;
@@ -290,6 +320,7 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
   if (!empty_categories.empty()) {
     if (category_data.empty()) {
       // All categories were empty - this is an error
+      emit_failed("No data available for any category");
       co_return std::unexpected("No data available for any category");
     }
 
@@ -347,7 +378,20 @@ ApiCacheDataloader::LoadAssetDataAsync(const asset::Asset& asset) const {
 
   // Check if we have any data
   if (category_data.empty() && empty_categories.empty()) {
+    emit_failed("No data available for any category");
     co_return std::unexpected("No data available for any category");
+  }
+
+  auto duration = events::ToMillis(events::Now() - nodeStart);
+  if (m_eventDispatcher) {
+    m_eventDispatcher->Emit(events::NodeCompletedEvent{
+        .timestamp = events::Now(),
+        .node_id = asset.GetID(),
+        .operation_name = "load",
+        .duration = duration,
+        .assets_processed = 1,
+        .assets_failed = 0
+    });
   }
 
   co_return merged_df;
@@ -365,6 +409,26 @@ void ApiCacheDataloader::LoadData() {
   if (assets.empty()) {
     SPDLOG_ERROR("No assets to load");
     throw std::runtime_error("No assets to load");
+  }
+
+  namespace events = data_sdk::events;
+  const auto pipelineStart = events::Now();
+  std::size_t nodesSucceeded = 0;
+  std::size_t nodesFailed = 0;
+  std::size_t nodesSkipped = 0;
+
+  if (m_eventDispatcher) {
+    std::vector<std::string> nodeIds;
+    nodeIds.reserve(assets.size());
+    for (const auto& asset : assets) {
+      nodeIds.push_back(asset.GetID());
+    }
+    m_eventDispatcher->Emit(events::PipelineStartedEvent{
+        .timestamp = pipelineStart,
+        .total_nodes = assets.size(),
+        .total_assets = assets.size(),
+        .node_ids = nodeIds
+    });
   }
 
   // Create vector of assets for indexed access
@@ -416,6 +480,7 @@ void ApiCacheDataloader::LoadData() {
           if (!result.has_value()) {
             SPDLOG_ERROR("Failed to load data for {}: {}",
                         asset.ToString(), result.error());
+            nodesFailed++;
             continue;
           }
 
@@ -424,6 +489,7 @@ void ApiCacheDataloader::LoadData() {
                         "Excluding asset from campaign.",
                         asset.ToString(), m_option.GetStartDate().repr(),
                         m_option.GetEndDate().repr());
+            nodesFailed++;
             continue;
           }
 
@@ -431,6 +497,7 @@ void ApiCacheDataloader::LoadData() {
           SPDLOG_DEBUG("Storing {} rows for asset {}",
                       result->num_rows(), asset.GetSymbolStr());
           m_loadedData[asset] = *result;
+          nodesSucceeded++;
         }
 
         SPDLOG_INFO("Batch {}/{} complete: successfully loaded {}/{} assets",
@@ -468,6 +535,7 @@ void ApiCacheDataloader::LoadData() {
         if (!result.has_value()) {
           SPDLOG_ERROR("Failed to load data for {}: {}",
                       asset.ToString(), result.error());
+          nodesFailed++;
           continue;
         }
 
@@ -476,6 +544,7 @@ void ApiCacheDataloader::LoadData() {
                       "Excluding asset from campaign.",
                       asset.ToString(), m_option.GetStartDate().repr(),
                       m_option.GetEndDate().repr());
+          nodesFailed++;
           continue;
         }
 
@@ -483,6 +552,7 @@ void ApiCacheDataloader::LoadData() {
         SPDLOG_DEBUG("Storing {} rows for asset {}",
                     result->num_rows(), asset.GetSymbolStr());
         m_loadedData[asset] = *result;
+        nodesSucceeded++;
       }
 
       SPDLOG_INFO("Parallel loading complete");
@@ -490,9 +560,23 @@ void ApiCacheDataloader::LoadData() {
 
   } catch (const std::exception& e) {
     SPDLOG_ERROR("Exception in asset loading: {}", e.what());
+    if (m_eventDispatcher) {
+      m_eventDispatcher->Emit(events::PipelineFailedEvent{
+          .timestamp = events::Now(),
+          .elapsed = events::ToMillis(events::Now() - pipelineStart),
+          .error_message = e.what()
+      });
+    }
     throw;
   } catch (...) {
     SPDLOG_ERROR("Unknown exception in asset loading");
+    if (m_eventDispatcher) {
+      m_eventDispatcher->Emit(events::PipelineFailedEvent{
+          .timestamp = events::Now(),
+          .elapsed = events::ToMillis(events::Now() - pipelineStart),
+          .error_message = "unknown exception"
+      });
+    }
     throw;
   }
 
@@ -503,6 +587,13 @@ void ApiCacheDataloader::LoadData() {
   SPDLOG_INFO("Successfully loaded data for {}/{} assets", loadedCount, totalCount);
 
   if (loadedCount == 0) {
+    if (m_eventDispatcher) {
+      m_eventDispatcher->Emit(events::PipelineFailedEvent{
+          .timestamp = events::Now(),
+          .elapsed = events::ToMillis(events::Now() - pipelineStart),
+          .error_message = "No assets have data for the specified date range"
+      });
+    }
     throw std::runtime_error("No assets have data for the specified date range");
   }
 
@@ -522,6 +613,16 @@ void ApiCacheDataloader::LoadData() {
     for (const auto& asset : excludedAssets) {
       SPDLOG_WARN("  - {}", asset.GetSymbolStr());
     }
+  }
+
+  if (m_eventDispatcher) {
+    m_eventDispatcher->Emit(events::PipelineCompletedEvent{
+        .timestamp = events::Now(),
+        .duration = events::ToMillis(events::Now() - pipelineStart),
+        .nodes_succeeded = nodesSucceeded,
+        .nodes_failed = nodesFailed,
+        .nodes_skipped = nodesSkipped
+    });
   }
 
   // Log campaign viability report (after parallel loading is complete)
@@ -589,7 +690,9 @@ void ApiCacheDataloader::LoadData() {
     std::unordered_map<std::string, std::pair<epoch_frame::DataFrame, ReferenceAggKwargs>> refAggs;
     if (!refAggRequests.empty()) {
       std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> ref_tasks;
+      std::vector<ReferenceAggKwargs> ref_fetch_kwargs;
       ref_tasks.reserve(refAggRequests.size());
+      ref_fetch_kwargs.reserve(refAggRequests.size());
 
       for (const auto& req : refAggRequests) {
         const auto* kw = std::get_if<ReferenceAggKwargs>(&req.kwargs);
@@ -597,32 +700,34 @@ void ApiCacheDataloader::LoadData() {
           // Create kwargs with is_eod set from primary category
           ReferenceAggKwargs fetch_kwargs = *kw;
           fetch_kwargs.is_eod = is_eod;
+          ref_fetch_kwargs.push_back(fetch_kwargs);
           ref_tasks.push_back(LoadReferenceAggDataAsync(fetch_kwargs));
         }
       }
 
       auto ref_results = data_sdk::common::syncWhenAll(std::move(ref_tasks));
 
-      for (size_t i = 0; i < refAggRequests.size(); ++i) {
-        const auto* kw = std::get_if<ReferenceAggKwargs>(&refAggRequests[i].kwargs);
-        if (!kw) continue;
-
+      for (size_t i = 0; i < ref_fetch_kwargs.size(); ++i) {
+        const auto& kw = ref_fetch_kwargs[i];
         const auto& result = ref_results[i];
         if (!result.has_value()) {
-          SPDLOG_ERROR("Failed to load reference agg {}: {}", kw->ticker, result.error());
+          SPDLOG_ERROR("Failed to load reference agg {}: {}", kw.ticker, result.error());
           continue;
         }
         if (result->empty()) {
-          SPDLOG_WARN("No data found for reference agg {} in date range", kw->ticker);
+          SPDLOG_WARN("No data found for reference agg {} in date range", kw.ticker);
           continue;
         }
 
         SPDLOG_INFO("Loaded {} rows for reference agg: {} ({})",
-                    result->num_rows(), kw->ticker,
-                    epoch_core::AssetClassWrapper::ToString(kw->asset_class));
+                    result->num_rows(), kw.ticker,
+                    epoch_core::AssetClassWrapper::ToString(kw.asset_class));
         // Store both DataFrame and kwargs for column prefix generation
-        std::string ref_key = kw->getColumnPrefix() + kw->ticker;
-        refAggs[ref_key] = {*result, *kw};
+        std::string ref_key = kw.getColumnPrefix() + kw.ticker;
+        if (!kw.is_eod) {
+          ref_key += ":minute";  // mark intraday for correct metadata (non-normalized index)
+        }
+        refAggs[ref_key] = {*result, kw};
       }
     }
 
@@ -655,9 +760,8 @@ void ApiCacheDataloader::LoadData() {
         // Add reference aggs with asset class specific prefix
         for (const auto& [key, ref_pair] : refAggs) {
           const auto& [ref_df, ref_kwargs] = ref_pair;
-          // key is already "IDX:SPX" or "FX:EURUSD" etc.
           // Column prefix should be "IDX:SPX:" so columns become "IDX:SPX:c"
-          std::string prefix = key + ":";
+          std::string prefix = ref_kwargs.getColumnPrefix() + ref_kwargs.ticker + ":";
           auto prefixed_df = ref_df.add_prefix(prefix);
           merge_map[key] = prefixed_df;
         }

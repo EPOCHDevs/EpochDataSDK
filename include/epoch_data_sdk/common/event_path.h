@@ -5,8 +5,15 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <epoch_core/enum_wrapper.h>
+
+// Define ScopeType enum with reflection support
+CREATE_ENUM(ScopeType, Job, Stage, Pipeline, Node, Asset, Transform, Window);
 
 namespace data_sdk::events {
+
+using epoch_core::ScopeType;
+using epoch_core::ScopeTypeWrapper;
 
 /**
  * EventPath - Hierarchical path identification for events
@@ -26,7 +33,7 @@ namespace data_sdk::events {
 class EventPath {
 public:
     struct Segment {
-        std::string scope;  // e.g., "job", "stage", "pipeline", "node", "asset"
+        ScopeType scope;    // e.g., ScopeType::Job, ScopeType::Node
         std::string id;     // e.g., "abc123", "RunCampaign", "SMA_20", "AAPL"
 
         bool operator==(const Segment& other) const {
@@ -42,8 +49,8 @@ public:
     EventPath() = default;
 
     // Construct from single segment
-    EventPath(const std::string& scope, const std::string& id)
-        : m_segments{{scope, id}} {}
+    EventPath(ScopeType scope, const std::string& id)
+        : m_segments{Segment{scope, id}} {}
 
     // Construct from initializer list of segments
     EventPath(std::initializer_list<Segment> segments)
@@ -54,8 +61,8 @@ public:
         : m_segments(std::move(segments)) {}
 
     // Parse from string representation
-    // Format: "scope:id/scope:id/..."
-    // Example: "job:abc123/stage:RunCampaign/node:SMA_20"
+    // Format: "Scope:id/Scope:id/..."
+    // Example: "Job:abc123/Stage:RunCampaign/Node:SMA_20"
     static EventPath Parse(const std::string& path) {
         if (path.empty()) {
             return EventPath{};
@@ -74,8 +81,15 @@ public:
                     "Invalid EventPath segment (missing colon): " + part);
             }
 
-            segments.push_back({
-                part.substr(0, colonPos),
+            auto scopeStr = part.substr(0, colonPos);
+            if (!ScopeTypeWrapper::IsValid(scopeStr)) {
+                throw std::invalid_argument(
+                    "Invalid ScopeType: " + scopeStr);
+            }
+            auto scope = ScopeTypeWrapper::FromString(scopeStr);
+
+            segments.push_back(Segment{
+                scope,
                 part.substr(colonPos + 1)
             });
         }
@@ -84,9 +98,9 @@ public:
     }
 
     // Create a child path with additional segment
-    [[nodiscard]] EventPath Child(const std::string& scope, const std::string& id) const {
+    [[nodiscard]] EventPath Child(ScopeType scope, const std::string& id) const {
         std::vector<Segment> newSegments = m_segments;
-        newSegments.push_back({scope, id});
+        newSegments.push_back(Segment{scope, id});
         return EventPath(std::move(newSegments));
     }
 
@@ -120,7 +134,7 @@ public:
 
     // Get the value of a specific scope segment
     // Returns nullopt if scope not found
-    [[nodiscard]] std::optional<std::string> GetSegment(const std::string& scope) const {
+    [[nodiscard]] std::optional<std::string> GetSegment(ScopeType scope) const {
         for (const auto& seg : m_segments) {
             if (seg.scope == scope) {
                 return seg.id;
@@ -129,8 +143,8 @@ public:
         return std::nullopt;
     }
 
-    // Get the last segment's scope (e.g., "node" for "job:a/node:SMA")
-    [[nodiscard]] std::optional<std::string> GetLastScope() const {
+    // Get the last segment's scope (e.g., ScopeType::Node for "Job:a/Node:SMA")
+    [[nodiscard]] std::optional<ScopeType> GetLastScope() const {
         if (m_segments.empty()) {
             return std::nullopt;
         }
@@ -165,7 +179,7 @@ public:
             if (!first) {
                 oss << '/';
             }
-            oss << seg.scope << ':' << seg.id;
+            oss << ScopeTypeWrapper::ToString(seg.scope) << ':' << seg.id;
             first = false;
         }
         return oss.str();
@@ -212,29 +226,29 @@ private:
 };
 
 // Convenience factory functions
-inline EventPath MakeEventPath(const std::string& scope, const std::string& id) {
+inline EventPath MakeEventPath(ScopeType scope, const std::string& id) {
     return EventPath(scope, id);
 }
 
 inline EventPath MakeJobPath(const std::string& jobId) {
-    return EventPath("job", jobId);
+    return EventPath(ScopeType::Job, jobId);
 }
 
 inline EventPath MakeStagePath(const std::string& jobId, const std::string& stageName) {
-    return MakeJobPath(jobId).Child("stage", stageName);
+    return MakeJobPath(jobId).Child(ScopeType::Stage, stageName);
 }
 
 inline EventPath MakePipelinePath(const std::string& jobId,
                                    const std::string& stageName,
                                    const std::string& pipelineName) {
-    return MakeStagePath(jobId, stageName).Child("pipeline", pipelineName);
+    return MakeStagePath(jobId, stageName).Child(ScopeType::Pipeline, pipelineName);
 }
 
 inline EventPath MakeNodePath(const std::string& jobId,
                                const std::string& stageName,
                                const std::string& pipelineName,
                                const std::string& nodeId) {
-    return MakePipelinePath(jobId, stageName, pipelineName).Child("node", nodeId);
+    return MakePipelinePath(jobId, stageName, pipelineName).Child(ScopeType::Node, nodeId);
 }
 
 inline EventPath MakeAssetPath(const std::string& jobId,
@@ -242,7 +256,7 @@ inline EventPath MakeAssetPath(const std::string& jobId,
                                 const std::string& pipelineName,
                                 const std::string& nodeId,
                                 const std::string& assetId) {
-    return MakeNodePath(jobId, stageName, pipelineName, nodeId).Child("asset", assetId);
+    return MakeNodePath(jobId, stageName, pipelineName, nodeId).Child(ScopeType::Asset, assetId);
 }
 
 } // namespace data_sdk::events

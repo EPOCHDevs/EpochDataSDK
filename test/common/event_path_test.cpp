@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 using namespace data_sdk::events;
+using epoch_core::ScopeType;
 
 TEST_CASE("EventPath construction and basic operations", "[events][path]") {
     SECTION("Default constructor creates empty path") {
@@ -13,16 +14,16 @@ TEST_CASE("EventPath construction and basic operations", "[events][path]") {
     }
 
     SECTION("Single segment constructor") {
-        EventPath path("job", "abc123");
+        EventPath path(ScopeType::Job, "abc123");
         REQUIRE_FALSE(path.IsEmpty());
         REQUIRE(path.Depth() == 1);
-        REQUIRE(path.ToString() == "job:abc123");
+        REQUIRE(path.ToString() == "Job:abc123");
     }
 
     SECTION("Initializer list constructor") {
-        EventPath path{{"job", "abc"}, {"stage", "Run"}};
+        EventPath path{{ScopeType::Job, "abc"}, {ScopeType::Stage, "Run"}};
         REQUIRE(path.Depth() == 2);
-        REQUIRE(path.ToString() == "job:abc/stage:Run");
+        REQUIRE(path.ToString() == "Job:abc/Stage:Run");
     }
 }
 
@@ -33,37 +34,37 @@ TEST_CASE("EventPath parsing", "[events][path]") {
     }
 
     SECTION("Parse single segment") {
-        auto path = EventPath::Parse("job:abc123");
+        auto path = EventPath::Parse("Job:abc123");
         REQUIRE(path.Depth() == 1);
-        REQUIRE(path.GetSegment("job") == "abc123");
+        REQUIRE(path.GetSegment(ScopeType::Job) == "abc123");
     }
 
     SECTION("Parse multiple segments") {
-        auto path = EventPath::Parse("job:abc/stage:Run/node:SMA_20");
+        auto path = EventPath::Parse("Job:abc/Stage:Run/Node:SMA_20");
         REQUIRE(path.Depth() == 3);
-        REQUIRE(path.GetSegment("job") == "abc");
-        REQUIRE(path.GetSegment("stage") == "Run");
-        REQUIRE(path.GetSegment("node") == "SMA_20");
+        REQUIRE(path.GetSegment(ScopeType::Job) == "abc");
+        REQUIRE(path.GetSegment(ScopeType::Stage) == "Run");
+        REQUIRE(path.GetSegment(ScopeType::Node) == "SMA_20");
     }
 
     SECTION("Parse throws on invalid segment without colon") {
-        REQUIRE_THROWS_AS(EventPath::Parse("job:abc/invalid"), std::invalid_argument);
+        REQUIRE_THROWS_AS(EventPath::Parse("Job:abc/invalid"), std::invalid_argument);
     }
 
     SECTION("Parse handles trailing slash") {
-        auto path = EventPath::Parse("job:abc/");
+        auto path = EventPath::Parse("Job:abc/");
         REQUIRE(path.Depth() == 1);
     }
 }
 
 TEST_CASE("EventPath hierarchy operations", "[events][path]") {
-    EventPath root("job", "abc");
-    EventPath child = root.Child("stage", "Run");
-    EventPath grandchild = child.Child("node", "SMA");
+    EventPath root(ScopeType::Job, "abc");
+    EventPath child = root.Child(ScopeType::Stage, "Run");
+    EventPath grandchild = child.Child(ScopeType::Node, "SMA");
 
     SECTION("Child creates extended path") {
         REQUIRE(child.Depth() == 2);
-        REQUIRE(child.ToString() == "job:abc/stage:Run");
+        REQUIRE(child.ToString() == "Job:abc/Stage:Run");
     }
 
     SECTION("Parent returns path without last segment") {
@@ -94,7 +95,7 @@ TEST_CASE("EventPath hierarchy operations", "[events][path]") {
     }
 
     SECTION("IsDescendantOf returns false for non-ancestors") {
-        EventPath other("job", "xyz");
+        EventPath other(ScopeType::Job, "xyz");
         REQUIRE_FALSE(child.IsDescendantOf(other));
         REQUIRE_FALSE(root.IsDescendantOf(child));
     }
@@ -108,26 +109,26 @@ TEST_CASE("EventPath hierarchy operations", "[events][path]") {
 }
 
 TEST_CASE("EventPath segment access", "[events][path]") {
-    auto path = EventPath::Parse("job:abc/stage:Run/node:SMA_20/asset:AAPL");
+    auto path = EventPath::Parse("Job:abc/Stage:Run/Node:SMA_20/Asset:AAPL");
 
     SECTION("GetSegment returns value for existing scope") {
-        REQUIRE(path.GetSegment("job") == "abc");
-        REQUIRE(path.GetSegment("asset") == "AAPL");
+        REQUIRE(path.GetSegment(ScopeType::Job) == "abc");
+        REQUIRE(path.GetSegment(ScopeType::Asset) == "AAPL");
     }
 
     SECTION("GetSegment returns nullopt for missing scope") {
-        REQUIRE_FALSE(path.GetSegment("pipeline").has_value());
+        REQUIRE_FALSE(path.GetSegment(ScopeType::Pipeline).has_value());
     }
 
     SECTION("GetLastScope and GetLastId") {
-        REQUIRE(path.GetLastScope() == "asset");
+        REQUIRE(path.GetLastScope() == ScopeType::Asset);
         REQUIRE(path.GetLastId() == "AAPL");
     }
 
     SECTION("GetRoot returns first segment") {
         auto root = path.GetRoot();
         REQUIRE(root.has_value());
-        REQUIRE(root->scope == "job");
+        REQUIRE(root->scope == ScopeType::Job);
         REQUIRE(root->id == "abc");
     }
 
@@ -138,9 +139,9 @@ TEST_CASE("EventPath segment access", "[events][path]") {
 }
 
 TEST_CASE("EventPath equality and comparison", "[events][path]") {
-    EventPath path1 = EventPath::Parse("job:abc/stage:Run");
-    EventPath path2 = EventPath::Parse("job:abc/stage:Run");
-    EventPath path3 = EventPath::Parse("job:xyz/stage:Run");
+    EventPath path1 = EventPath::Parse("Job:abc/Stage:Run");
+    EventPath path2 = EventPath::Parse("Job:abc/Stage:Run");
+    EventPath path3 = EventPath::Parse("Job:xyz/Stage:Run");
 
     SECTION("Equality operator") {
         REQUIRE(path1 == path2);
@@ -171,26 +172,26 @@ TEST_CASE("EventPath equality and comparison", "[events][path]") {
 TEST_CASE("EventPath factory functions", "[events][path]") {
     SECTION("MakeJobPath creates job-level path") {
         auto path = MakeJobPath("job123");
-        REQUIRE(path.ToString() == "job:job123");
+        REQUIRE(path.ToString() == "Job:job123");
     }
 
     SECTION("MakeStagePath creates job/stage path") {
         auto path = MakeStagePath("job123", "RunCampaign");
-        REQUIRE(path.ToString() == "job:job123/stage:RunCampaign");
+        REQUIRE(path.ToString() == "Job:job123/Stage:RunCampaign");
     }
 
     SECTION("MakePipelinePath creates full pipeline path") {
         auto path = MakePipelinePath("job123", "Run", "transforms");
-        REQUIRE(path.ToString() == "job:job123/stage:Run/pipeline:transforms");
+        REQUIRE(path.ToString() == "Job:job123/Stage:Run/Pipeline:transforms");
     }
 
     SECTION("MakeNodePath creates full node path") {
         auto path = MakeNodePath("j", "s", "p", "SMA_20");
-        REQUIRE(path.ToString() == "job:j/stage:s/pipeline:p/node:SMA_20");
+        REQUIRE(path.ToString() == "Job:j/Stage:s/Pipeline:p/Node:SMA_20");
     }
 
     SECTION("MakeAssetPath creates full asset path") {
         auto path = MakeAssetPath("j", "s", "p", "n", "AAPL");
-        REQUIRE(path.ToString() == "job:j/stage:s/pipeline:p/node:n/asset:AAPL");
+        REQUIRE(path.ToString() == "Job:j/Stage:s/Pipeline:p/Node:n/Asset:AAPL");
     }
 }

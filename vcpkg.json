@@ -12,6 +12,7 @@
     "catch2",
     "icu",
     "yaml-cpp",
+    "boost-signals2",
     {
       "name": "arrow",
       "features": [
