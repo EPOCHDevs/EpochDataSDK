@@ -263,4 +263,9 @@ std::deque<std::string> ConsoleEventViewer::GetRecentLogs(size_t max) const {
     return result;
 }
 
+// Factory function implementation
+IEventViewerPtr MakeConsoleEventViewer(events::IGenericEventDispatcherPtr dispatcher) {
+    return std::make_shared<ConsoleEventViewer>(std::move(dispatcher));
+}
+
 } // namespace data_sdk::tools

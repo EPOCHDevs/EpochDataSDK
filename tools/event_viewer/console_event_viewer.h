@@ -1,45 +1,38 @@
 #pragma once
+#include <epoch_data_sdk/tools/event_viewer.h>
 #include <epoch_data_sdk/events/all.h>
 #include <ftxui/dom/elements.hpp>
 #include <atomic>
 #include <mutex>
 #include <thread>
-#include <map>
-#include <deque>
-#include <functional>
 
 namespace data_sdk::tools {
 
-struct NodeState {
-    std::string path;
-    std::string operation_type;
-    std::string operation_name;
-    events::OperationStatus status = events::OperationStatus::Pending;
-    size_t current = 0;
-    size_t total = 0;
-    std::string message;
-    std::map<std::string, std::string> context;
-    std::chrono::steady_clock::time_point start_time;
-    std::chrono::steady_clock::time_point end_time;
-};
-
-class ConsoleEventViewer {
+/**
+ * ConsoleEventViewer - FTXUI-based terminal event viewer
+ *
+ * Implements IEventViewer with a rich terminal UI showing:
+ * - Hierarchical operation tree with status icons
+ * - Progress bars for in-progress operations
+ * - Timing information for completed operations
+ * - Recent log messages
+ */
+class ConsoleEventViewer : public IEventViewer {
 public:
     explicit ConsoleEventViewer(events::IGenericEventDispatcherPtr dispatcher);
-    ~ConsoleEventViewer();
+    ~ConsoleEventViewer() override;
 
-    void Start();
-    void Stop();
-    bool IsRunning() const { return m_running.load(); }
+    void Start() override;
+    void Stop() override;
+    [[nodiscard]] bool IsRunning() const override { return m_running.load(); }
 
-    // Get current state snapshot (thread-safe)
-    std::map<std::string, NodeState> GetStateSnapshot() const;
-    std::deque<std::string> GetRecentLogs(size_t max = 10) const;
+    [[nodiscard]] std::map<std::string, NodeState> GetStateSnapshot() const override;
+    [[nodiscard]] std::deque<std::string> GetRecentLogs(size_t max = 10) const override;
 
 private:
     void HandleEvent(const events::GenericEvent& event);
     void RenderLoop();
-    ftxui::Element RenderState();  // Returns FTXUI element for rendering
+    ftxui::Element RenderState();
     std::string FormatDuration(std::chrono::steady_clock::duration dur) const;
     std::string StatusIcon(events::OperationStatus status) const;
 
@@ -53,11 +46,5 @@ private:
     std::atomic<bool> m_running{false};
     std::thread m_renderThread;
 };
-
-using ConsoleEventViewerPtr = std::shared_ptr<ConsoleEventViewer>;
-
-inline ConsoleEventViewerPtr MakeConsoleEventViewer(events::IGenericEventDispatcherPtr dispatcher) {
-    return std::make_shared<ConsoleEventViewer>(std::move(dispatcher));
-}
 
 } // namespace data_sdk::tools
