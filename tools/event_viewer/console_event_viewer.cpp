@@ -138,11 +138,29 @@ Element ConsoleEventViewer::RenderState() {
 
     Elements nodes;
 
-    // Sort by path
+    // Sort by path, but for nodes with exec_seq, sort by that within their parent
     std::vector<std::pair<std::string, NodeState>> sorted(
         m_nodeStates.begin(), m_nodeStates.end());
     std::sort(sorted.begin(), sorted.end(),
-        [](const auto& a, const auto& b) { return a.first < b.first; });
+        [](const auto& a, const auto& b) {
+            // Get parent paths
+            auto aLastSlash = a.first.rfind('/');
+            auto bLastSlash = b.first.rfind('/');
+            std::string aParent = (aLastSlash != std::string::npos) ? a.first.substr(0, aLastSlash) : "";
+            std::string bParent = (bLastSlash != std::string::npos) ? b.first.substr(0, bLastSlash) : "";
+
+            // If same parent, try to sort by exec_seq
+            if (aParent == bParent) {
+                auto aSeqIt = a.second.context.find("exec_seq");
+                auto bSeqIt = b.second.context.find("exec_seq");
+                if (aSeqIt != a.second.context.end() && bSeqIt != b.second.context.end()) {
+                    try {
+                        return std::stol(aSeqIt->second) < std::stol(bSeqIt->second);
+                    } catch (...) {}
+                }
+            }
+            return a.first < b.first;
+        });
 
     for (const auto& [path, node] : sorted) {
         size_t depth = std::count(path.begin(), path.end(), '/');
@@ -176,6 +194,12 @@ Element ConsoleEventViewer::RenderState() {
         row.push_back(text(std::string(depth * 2, ' ')));
         row.push_back(icon);
         row.push_back(text(" " + name) | bold);
+
+        // Show execution sequence for nodes (helps identify parallel execution order)
+        auto execSeqIt = node.context.find("exec_seq");
+        if (execSeqIt != node.context.end()) {
+            row.push_back(text(" [#" + execSeqIt->second + "]") | color(Color::GrayDark));
+        }
 
         if (node.status == events::OperationStatus::InProgress && node.total > 0) {
             float pct = static_cast<float>(node.current) / static_cast<float>(node.total);
