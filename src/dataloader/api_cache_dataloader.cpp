@@ -373,10 +373,19 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
   std::size_t nodesSkipped = 0;
 
   // Start lifecycle event
+  emitter.SetContext("total_assets", static_cast<int64_t>(assets.size()));
+  emitter.SetContext("categories", static_cast<int64_t>(categories.size()));
+  emitter.EmitStarted("dataloader", "LoadData");
 
-    emitter.SetContext("total_assets", static_cast<int64_t>(assets.size()));
-    emitter.SetContext("categories", static_cast<int64_t>(categories.size()));
-    emitter.EmitStarted("dataloader", "LoadData");
+  // Emit child scopes for each category being loaded (so user knows what's loading)
+  std::vector<std::string> categoryNames;
+  for (const auto& cat : categories) {
+    std::string catName = DataCategoryWrapper::ToString(cat);
+    categoryNames.push_back(catName);
+    auto catEmitter = emitter.ChildScope(events::ScopeType::Stage, "Category:" + catName);
+    catEmitter.EmitStarted("category", catName);
+    catEmitter.SetContext("asset_count", static_cast<int64_t>(assets.size()));
+  }
 
 
   // Create vector of assets for indexed access
@@ -568,6 +577,13 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
     }
   }
 
+  // Mark all category scopes as completed
+  for (const auto& catName : categoryNames) {
+    auto catEmitter = emitter.ChildScope(events::ScopeType::Stage, "Category:" + catName);
+    catEmitter.SetContext("assets_loaded", static_cast<int64_t>(nodesSucceeded));
+    catEmitter.EmitCompleted("category", catName);
+  }
+
   emitter.SetContext("assets_succeeded", static_cast<int64_t>(nodesSucceeded));
   emitter.SetContext("assets_failed", static_cast<int64_t>(nodesFailed));
   emitter.SetContext("assets_skipped", static_cast<int64_t>(nodesSkipped));
@@ -599,6 +615,11 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
     // Load economic indicators
     std::unordered_map<std::string, epoch_frame::DataFrame> indicators;
     if (!economicRequests.empty()) {
+      // Emit child scope for EconomicIndicator category
+      auto econEmitter = emitter.ChildScope(events::ScopeType::Stage, "Category:EconomicIndicator");
+      econEmitter.EmitStarted("category", "EconomicIndicator");
+      econEmitter.SetContext("indicator_count", static_cast<int64_t>(economicRequests.size()));
+
       std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> econ_tasks;
       econ_tasks.reserve(economicRequests.size());
 
@@ -612,6 +633,7 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
 
       auto econ_results = data_sdk::common::syncWhenAll(std::move(econ_tasks));
 
+      size_t econLoaded = 0;
       for (size_t i = 0; i < economicRequests.size(); ++i) {
         const auto* kw = std::get_if<EconomicIndicatorKwargs>(&economicRequests[i].kwargs);
         if (!kw) continue;
@@ -629,7 +651,11 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
 
         SPDLOG_INFO("Loaded {} rows for economic indicator: {}", result->num_rows(), indicator_name);
         indicators[indicator_name] = *result;
+        econLoaded++;
       }
+
+      econEmitter.SetContext("indicators_loaded", static_cast<int64_t>(econLoaded));
+      econEmitter.EmitCompleted("category", "EconomicIndicator");
     }
 
     // Load reference aggregates (Stocks, FX, Crypto, Indices)
@@ -637,6 +663,11 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
     bool is_eod = (m_option.GetPrimaryCategory() != DataCategory::MinuteBars);
     std::unordered_map<std::string, std::pair<epoch_frame::DataFrame, ReferenceAggKwargs>> refAggs;
     if (!refAggRequests.empty()) {
+      // Emit child scope for ReferenceAgg category
+      auto refEmitter = emitter.ChildScope(events::ScopeType::Stage, "Category:ReferenceAgg");
+      refEmitter.EmitStarted("category", "ReferenceAgg");
+      refEmitter.SetContext("ref_count", static_cast<int64_t>(refAggRequests.size()));
+
       std::vector<drogon::Task<std::expected<epoch_frame::DataFrame, std::string>>> ref_tasks;
       std::vector<ReferenceAggKwargs> ref_fetch_kwargs;
       ref_tasks.reserve(refAggRequests.size());
@@ -655,6 +686,7 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
 
       auto ref_results = data_sdk::common::syncWhenAll(std::move(ref_tasks));
 
+      size_t refLoaded = 0;
       for (size_t i = 0; i < ref_fetch_kwargs.size(); ++i) {
         const auto& kw = ref_fetch_kwargs[i];
         const auto& result = ref_results[i];
@@ -676,7 +708,11 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
           ref_key += ":minute";  // mark intraday for correct metadata (non-normalized index)
         }
         refAggs[ref_key] = {*result, kw};
+        refLoaded++;
       }
+
+      refEmitter.SetContext("refs_loaded", static_cast<int64_t>(refLoaded));
+      refEmitter.EmitCompleted("category", "ReferenceAgg");
     }
 
     // Merge indicators and reference aggs into each asset's DataFrame
