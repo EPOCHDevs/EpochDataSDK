@@ -8,7 +8,10 @@ option(BUILD_SHARED_LIBS "Build libraries as shared instead of static" OFF)
 option(BUILD_TEST OFF)
 option(BUILD_TOOLS "Build development tools (event viewer, etc.)" ON)
 
-project(EpochDataSDK VERSION 1.0.0 LANGUAGES CXX)
+set(PROJECT_VERSION 0.1.1)
+set(PROJECT_VERSION_MAJOR 0.1.1)
+
+project(EpochDataSDK LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

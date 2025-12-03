@@ -387,6 +387,15 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
     catEmitter.SetContext("asset_count", static_cast<int64_t>(assets.size()));
   }
 
+  // Helper to emit progress to all category child scopes
+  // Since all categories for an asset load together, they all show same progress
+  auto emitCategoryProgress = [&emitter, &categoryNames](size_t current, size_t total, const std::string& message) {
+    for (const auto& catName : categoryNames) {
+      auto catEmitter = emitter.ChildScope(events::ScopeType::Stage, "Category:" + catName);
+      catEmitter.EmitProgress(current, total, message);
+    }
+  };
+
 
   // Create vector of assets for indexed access
   std::vector<asset::Asset> asset_vec(assets.begin(), assets.end());
@@ -441,6 +450,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
             // Emit progress even for failed assets
             emitter.EmitProgress(asset_idx + 1, total_assets,
                 "Failed: " + asset.GetSymbolStr());
+            emitCategoryProgress(asset_idx + 1, total_assets,
+                "Failed: " + asset.GetSymbolStr());
             continue;
           }
 
@@ -452,6 +463,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
             nodesFailed++;
             // Emit progress even for empty assets
             emitter.EmitProgress(asset_idx + 1, total_assets,
+                "No data: " + asset.GetSymbolStr());
+            emitCategoryProgress(asset_idx + 1, total_assets,
                 "No data: " + asset.GetSymbolStr());
             continue;
           }
@@ -465,6 +478,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
           // Emit progress for successful asset load
           emitter.EmitProgress(asset_idx + 1, total_assets,
               "Loaded " + asset.GetSymbolStr());
+          emitCategoryProgress(asset_idx + 1, total_assets,
+              asset.GetSymbolStr());
         }
 
         SPDLOG_INFO("Batch {}/{} complete: successfully loaded {}/{} assets",
@@ -508,6 +523,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
           // Emit progress even for failed assets
           emitter.EmitProgress(i + 1, total_assets,
               "Failed: " + asset.GetSymbolStr());
+          emitCategoryProgress(i + 1, total_assets,
+              "Failed: " + asset.GetSymbolStr());
           continue;
         }
 
@@ -519,6 +536,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
           nodesFailed++;
           // Emit progress even for empty assets
           emitter.EmitProgress(i + 1, total_assets,
+              "No data: " + asset.GetSymbolStr());
+          emitCategoryProgress(i + 1, total_assets,
               "No data: " + asset.GetSymbolStr());
           continue;
         }
@@ -532,6 +551,8 @@ void ApiCacheDataloader::LoadData(events::ScopedProgressEmitter& emitter) {
         // Emit progress for successful asset load
         emitter.EmitProgress(i + 1, total_assets,
             "Loaded " + asset.GetSymbolStr());
+        emitCategoryProgress(i + 1, total_assets,
+            asset.GetSymbolStr());
       }
 
       SPDLOG_INFO("Parallel loading complete");
